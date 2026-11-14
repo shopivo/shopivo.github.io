@@ -1610,3 +1610,12 @@ a.btn.navopen{display:flex;align-items:center;justify-content:center;gap:8px;tex
 .bpg .btns{margin-top:8px}
 .bprow .grow{flex:1;text-align:left}
 .bcfree #bc-pv,#bc-pv.bcfree{touch-action:none;cursor:grab}
+.svslot{margin:10px 0;padding:12px}
+.svh{display:flex;align-items:center;gap:8px;margin-bottom:8px}
+.svh .svname{flex:1;min-height:40px;font-weight:700}
+.svc{width:100%;height:auto;display:block;border-radius:8px;box-shadow:0 1px 5px rgba(0,0,0,.18)}
+.svpair{display:flex;gap:8px}.svpair .svc{flex:1;min-width:0}
+.svempty{height:70px;border:2px dashed var(--line);border-radius:8px;display:grid;place-items:center;color:var(--muted);font-size:24px}
+.svslot .btns{display:flex;flex-wrap:wrap;gap:8px}
+.svslot .btns .btn{flex:1 1 40%}.svslot .btns .btn.primary{flex-basis:100%}
+.svslot .btns .btn[data-act=sv-del]{flex:0 0 56px}
