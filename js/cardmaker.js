@@ -11,12 +11,13 @@
     show: { name: true, sub: true, phone: true, whatsapp: true, logo: true, email: true, web: false, city: true, tagline: true, qr: true },
     text: { sub: 'ONLINE STORE', tagline: 'STYLE · QUALITY · TRUST', phone: '', whatsapp: '', email: '', city: '' },
     qr: { mode: 'store', text: '' },
-    pattern: { on: false, sides: 'both', place: 'corners', opacity: 0.18, size: 38, tilt: 8 },
+    fv: 0, fpos: {},
+    pattern: { on: false, sides: 'both', place: 'corners', opacity: 0.18, size: 38, tilt: 0 },
   });
   const s = (v, d, n) => (typeof v === 'string' ? v.slice(0, n || 60) : d);
   const PLACES = ['corners', 'all', 'tl', 'tr', 'bl', 'br'], PSIDES = ['both', 'front', 'back'];
   const nn = (v, a, b, d) => (v === undefined || v === null || v === '' || !Number.isFinite(+v) ? d : Math.max(a, Math.min(b, +v)));
-  const normPat = (p, d) => { p = p || {}; return { on: p.on !== undefined ? !!p.on : d.on, sides: PSIDES.includes(p.sides) ? p.sides : d.sides, place: PLACES.includes(p.place) ? p.place : d.place, opacity: nn(p.opacity, 0.04, 0.5, d.opacity), size: nn(p.size, 20, 110, d.size), tilt: nn(p.tilt, 0, 30, d.tilt) }; };
+  const normPat = (p, d) => { p = p || {}; return { on: p.on !== undefined ? !!p.on : d.on, sides: PSIDES.includes(p.sides) ? p.sides : d.sides, place: PLACES.includes(p.place) ? p.place : d.place, opacity: nn(p.opacity, 0.04, 0.5, d.opacity), size: nn(p.size, 20, 110, d.size), tilt: nn(p.tilt, -45, 45, d.tilt) }; };
   // Where the faded marks go: a stair of marks growing out of a corner (like a corner stamp), or a staggered grid over the whole card. w, h = one mark.
   function patternCells(pat, W, H, w, h) {
     const out = [], corner = (sx, sy) => { for (let r = 0; r < 3; r++) for (let c = 0; c < 3 - r; c++) { const px = c * w * 1.12 + (r % 2) * w * 0.5 - w * 0.35, py = r * h * 1.08 - h * 0.3; out.push({ x: sx > 0 ? px : W - px - w, y: sy > 0 ? py : H - py - h, a: ((r + c) % 3 - 1) }); } };
@@ -30,12 +31,55 @@
     const h = pat.size, w = h * iw(img) / ih(img); let src = img;
     if (tint && root.document && root.document.createElement) { try { const cv = root.document.createElement('canvas'); cv.width = iw(img); cv.height = ih(img); const g = cv.getContext('2d'); g.drawImage(img, 0, 0); g.globalCompositeOperation = 'source-in'; g.fillStyle = tint; g.fillRect(0, 0, cv.width, cv.height); src = cv; } catch (e) { src = img; } }
     x.save(); x.beginPath(); x.rect(-50, -50, W + 100, H + 100); x.clip(); x.globalAlpha = pat.opacity;
-    patternCells(pat, W, H, w, h).forEach((c) => { x.save(); x.translate(c.x + w / 2, c.y + h / 2); x.rotate(c.a * pat.tilt * Math.PI / 180); x.drawImage(src, -w / 2, -h / 2, w, h); x.restore(); });
+    patternCells(pat, W, H, w, h).forEach((c) => { x.save(); x.translate(c.x + w / 2, c.y + h / 2); x.rotate(pat.tilt * Math.PI / 180); x.drawImage(src, -w / 2, -h / 2, w, h); x.restore(); });
     x.restore();
+  }
+
+  /* Front-only card: every piece (logo block, contact lines, QR, tagline) has a box {x, y, k} in card units; 5 ready arrangements,
+     or the pieces are dragged / resized and the changes are kept in fpos. */
+  const FRONT_N = 5, FITEMS = ['logo', 'lines', 'qr', 'tagline'];
+  const normPos = (p) => { const o = {}; p = p || {}; FITEMS.forEach((k) => { const v = p[k]; if (v && typeof v === 'object') { const r = {}; if (Number.isFinite(+v.x)) r.x = nn(v.x, -200, 700, 0); if (Number.isFinite(+v.y)) r.y = nn(v.y, -200, 500, 0); if (Number.isFinite(+v.k)) r.k = nn(v.k, 0.3, 2.5, 1); if (Object.keys(r).length) o[k] = r; } }); return o; };
+  function frontBase(cfg, data, imgs) {
+    imgs = imgs || {}; const L = !cfg.show.logo ? null : ready(imgs.mark) ? imgs.mark : ready(imgs.logo) ? imgs.logo : null, T = cfg.show.logo && ready(imgs.title) ? imgs.title : null, rows = lineRows(cfg, data || {});
+    let logo = null;
+    if (L && T) { const mh = 84, mw = mh * iw(L) / ih(L), th = 74, tw = th * iw(T) / ih(T); logo = { w: mw + 16 + tw, h: mh, L, T, mh, mw, th, tw }; }
+    else if (L || T) { const im = L || T, h = L ? 84 : 74; logo = { w: h * iw(im) / ih(im), h, im }; }
+    else if (cfg.show.name) logo = { w: 290, h: 50, name: (data && data.name) || '' };
+    const qrOn = cfg.show.qr && qrTarget(cfg, data || {});
+    return { logo, lines: rows.length ? { w: 285, h: rows.length * 32, rows } : null, qr: qrOn ? { w: 150, h: 176 } : null, tagline: cfg.show.tagline && has(cfg.text.tagline) ? { w: 300, h: 14 } : null };
+  }
+  function frontLayout(v, B) {
+    const fit = (b, m) => (b ? Math.min(1, m / Math.max(1, b.w)) : 1), mid = (b, k) => (b ? (CW - b.w * k) / 2 : 0), lh = (b, k) => (b ? b.h * k : 0), o = {};
+    const lk = fit(B.logo, v === 1 || v === 3 ? 400 : v === 4 ? 290 : 300);
+    if (v === 0) { o.logo = { x: 30, y: 24, k: lk }; o.lines = { x: 30, y: 24 + lh(B.logo, lk) + 20, k: 1 }; o.qr = { x: 345, y: 40, k: 1 }; o.tagline = { x: 30, y: 266, k: 1 }; }
+    else if (v === 1) { o.logo = { x: mid(B.logo, lk), y: 16, k: lk }; o.lines = { x: 30, y: 16 + lh(B.logo, lk) + 22, k: 1 }; o.qr = { x: 360, y: 16 + lh(B.logo, lk) + 16, k: 0.85 }; o.tagline = { x: mid(B.tagline, 1), y: 270, k: 1 }; }
+    else if (v === 2) { o.logo = { x: 30, y: 22, k: lk }; o.lines = { x: 30, y: 134, k: 1 }; o.qr = { x: 345, y: 60, k: 1 }; o.tagline = { x: 30, y: 270, k: 1 }; }
+    else if (v === 3) { o.logo = { x: mid(B.logo, lk), y: 14, k: lk }; o.lines = { x: 120, y: 14 + lh(B.logo, lk) + 26, k: 1 }; o.qr = { x: 410, y: 160, k: 0.62 }; o.tagline = { x: mid(B.tagline, 1), y: 270, k: 1 }; }
+    else { o.qr = { x: 30, y: 50, k: 1 }; o.logo = { x: 205, y: 26, k: lk }; o.lines = { x: 205, y: 26 + lh(B.logo, lk) + 26, k: 1 }; o.tagline = { x: 205, y: 270, k: 1 }; }
+    return o;
+  }
+  // The finished boxes (x, y, w, h in card units) after the chosen arrangement and the dragged / resized pieces.
+  function frontBoxes(cfgIn, data, imgs) {
+    const cfg = norm(cfgIn), B = frontBase(cfg, data, imgs), lay = frontLayout(cfg.fv, B), out = {};
+    FITEMS.forEach((k) => { if (!B[k]) return; const m = Object.assign({}, lay[k], cfg.fpos[k] || {}); out[k] = { x: m.x, y: m.y, k: m.k, w: B[k].w * m.k, h: B[k].h * m.k, base: B[k] }; });
+    return out;
+  }
+  function frontFull(x, cfg, data, imgs) {
+    const bx = frontBoxes(cfg, data, imgs);
+    if (bx.logo) { const o = bx.logo, b = o.base; x.save(); x.translate(o.x, o.y); x.scale(o.k, o.k);
+      if (b.L && b.T) { x.drawImage(b.L, 0, (b.h - b.mh) / 2, b.mw, b.mh); x.drawImage(b.T, b.mw + 16, (b.h - b.th) / 2, b.tw, b.th); }
+      else if (b.im) x.drawImage(b.im, 0, 0, b.w, b.h); else txt(x, b.name, 0, 38, 44, 800, cfg.dark);
+      x.restore(); }
+    if (bx.lines) { const o = bx.lines; x.save(); x.translate(o.x, o.y); x.scale(o.k, o.k); o.base.rows.forEach(([k, str], i) => { const cy = 16 + i * 32; x.save(); x.fillStyle = cfg.light; x.beginPath(); x.arc(13.5, cy, 13.5, 0, Math.PI * 2); x.fill(); x.restore(); icon(x, k, 13.5, cy, 14.5, cfg.dark); txt(x, str, 36, cy + 5.5, k === 'globe' ? 12.5 : 15, 500, '#333333'); }); x.restore(); }
+    const M = bx.qr ? qrMatrix(qrTarget(cfg, data || {})) : null;
+    if (M) { const o = bx.qr; x.save(); x.translate(o.x, o.y); x.scale(o.k, o.k); x.fillStyle = '#ffffff'; rr(x, 0, 0, 150, 176, 12); x.fill(); x.strokeStyle = '#e6dde2'; x.lineWidth = 1; rr(x, 0, 0, 150, 176, 12); x.stroke();
+      const pad = 8, qs = 134, q = 4, mod = qs / (M.n + q * 2); x.fillStyle = cfg.dark; for (let r = 0; r < M.n; r++) for (let c = 0; c < M.n; c++) if (M.dark(r, c)) x.fillRect(pad + (c + q) * mod, pad + (r + q) * mod, mod + 0.35, mod + 0.35);
+      txt(x, (data && data.qrLabel) || 'SCAN TO SHOP', 75, pad + qs + 17, 10.5, 700, cfg.dark, { align: 'center', spacing: 1.5 }); x.restore(); }
+    if (bx.tagline) { const o = bx.tagline; x.save(); x.translate(o.x, o.y); x.scale(o.k, o.k); txt(x, cfg.text.tagline, 0, 12, 13, 600, '#333333', { spacing: 5 }); x.restore(); }
   }
   function norm(c) {
     const d = defaults(); c = c || {}; const sh = c.show || {}, tx = c.text || {}, q = c.qr || {};
-    const out = { v: 1, scheme: SCHEMES[c.scheme] || c.scheme === 'custom' || c.scheme === 'invoice' ? c.scheme : 'wine', dark: isHex(c.dark) ? c.dark : d.dark, light: isHex(c.light) ? c.light : d.light, sides: ['both', 'front', 'frontblank'].includes(c.sides) ? c.sides : 'both', bleed: c.bleed !== undefined ? !!c.bleed : d.bleed, show: {}, text: {}, pattern: normPat(c.pattern, d.pattern), qr: { mode: ['store', 'whatsapp', 'link'].includes(q.mode) ? q.mode : 'store', text: s(q.text, '', 200) } };
+    const out = { v: 1, scheme: SCHEMES[c.scheme] || c.scheme === 'custom' || c.scheme === 'invoice' ? c.scheme : 'wine', dark: isHex(c.dark) ? c.dark : d.dark, light: isHex(c.light) ? c.light : d.light, sides: ['both', 'front', 'frontblank'].includes(c.sides) ? c.sides : 'both', bleed: c.bleed !== undefined ? !!c.bleed : d.bleed, show: {}, text: {}, fv: Number.isInteger(+c.fv) ? ((+c.fv % FRONT_N) + FRONT_N) % FRONT_N : 0, fpos: normPos(c.fpos), pattern: normPat(c.pattern, d.pattern), qr: { mode: ['store', 'whatsapp', 'link'].includes(q.mode) ? q.mode : 'store', text: s(q.text, '', 200) } };
     Object.keys(d.show).forEach((k) => { out.show[k] = sh[k] !== undefined ? !!sh[k] : d.show[k]; });
     Object.keys(d.text).forEach((k) => { out.text[k] = s(tx[k], d.text[k], k === 'tagline' ? 60 : 80); });
     return out;
@@ -90,11 +134,13 @@
     x.save(); x.translate(b, b);
     if (side === 'front') {
       x.fillStyle = '#fbfafa'; x.fillRect(-b, -b, W, H); drawPattern(x, cfg.pattern, ready(imgs.mark) ? imgs.mark : imgs.logo, CW, CH, 'front', '');
+      if (cfg.sides !== 'both') frontFull(x, cfg, data, imgs); else {
       const L = !cfg.show.logo ? null : ready(imgs.mark) ? imgs.mark : ready(imgs.logo) ? imgs.logo : null, T = cfg.show.logo && ready(imgs.title) ? imgs.title : null, big = L === imgs.mark; let cy = 128;
       if (L && T) { const lh = big ? 112 : 128, lw = lh * iw(L) / ih(L), th = 98, tw = th * iw(T) / ih(T), gap = 20, tot = lw + gap + tw, k = Math.min(1, 440 / tot); const x0 = (CW - tot * k) / 2; x.drawImage(L, x0, cy - lh * k / 2, lw * k, lh * k); x.drawImage(T, x0 + (lw + gap) * k, cy - th * k / 2, tw * k, th * k); }
       else if (L || T) { const im = L || T, mh = L ? 140 : 110, mw = mh * iw(im) / ih(im), k = Math.min(1, 400 / mw); x.drawImage(im, (CW - mw * k) / 2, cy - mh * k / 2, mw * k, mh * k); }
       else if (cfg.show.name) txt(x, data.name || '', CW / 2, cy + 12, 44, 800, cfg.dark, { align: 'center' });
       if (cfg.show.tagline && has(cfg.text.tagline)) txt(x, cfg.text.tagline, CW / 2, CH - 36, 13, 600, '#333333', { align: 'center', spacing: 5 });
+      }
       const g = x.createLinearGradient(-b, 0, CW + b, 0); g.addColorStop(0, cfg.dark); g.addColorStop(1, cfg.light); x.fillStyle = g; x.fillRect(-b, CH - 10, W, 10 + b);
     } else {
       const g = x.createLinearGradient(-b, -b, CW + b, CH + b); g.addColorStop(0, cfg.dark); g.addColorStop(0.55, cfg.dark); g.addColorStop(1, mix(cfg.dark, '#ffffff', 0.12)); x.fillStyle = g; x.fillRect(-b, -b, W, H); drawPattern(x, cfg.pattern, ready(imgs.mark) ? imgs.mark : imgs.logo, CW, CH, 'back', cfg.light);
@@ -118,7 +164,7 @@
   const sidesOf = (cfg) => (cfg.sides === 'front' ? ['front'] : cfg.sides === 'frontblank' ? ['front', 'blank'] : ['front', 'back']);
   const size = (cfg) => { const b = cfg.bleed ? BLEED : 0; return { w: CW + b * 2, h: CH + b * 2, inW: cfg.bleed ? 3.75 : 3.5, inH: cfg.bleed ? 2.25 : 2 }; };
 
-  const api = { CW, CH, BLEED, SCHEMES, defaults, norm, patternCells, applyScheme, qrTarget, qrMatrix, lineRows, draw, sidesOf, size, mix };
+  const api = { CW, CH, BLEED, SCHEMES, defaults, norm, patternCells, frontBoxes, FRONT_N, FITEMS, applyScheme, qrTarget, qrMatrix, lineRows, draw, sidesOf, size, mix };
   root.CardMaker = api;
   if (typeof module !== 'undefined' && module.exports) module.exports = api;
 })(typeof window !== 'undefined' ? window : globalThis);

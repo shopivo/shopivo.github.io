@@ -1609,3 +1609,4 @@ a.btn.navopen{display:flex;align-items:center;justify-content:center;gap:8px;tex
 .bpg .card{padding:12px}
 .bpg .btns{margin-top:8px}
 .bprow .grow{flex:1;text-align:left}
+.bcfree #bc-pv,#bc-pv.bcfree{touch-action:none;cursor:grab}

@@ -1696,8 +1696,24 @@
     const sz = CardMaker.size(cfg), cv = document.createElement('canvas'); cv.width = Math.round(sz.w * scale); cv.height = Math.round(sz.h * scale);
     const x = cv.getContext('2d'); x.scale(scale, scale); CardMaker.draw(x, side, cfg, bcData(), bcImages(), { bleed: cfg.bleed }); return cv;
   }
-  function bcPaint() { const cv = $('#bc-pv'); if (!cv) return; const cfg = bcCfg(), side = bcSide === 'back' && cfg.sides === 'front' ? 'front' : bcSide, src = bcCanvas(side === 'back' && cfg.sides === 'frontblank' ? 'blank' : side, cfg, 2); cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0); }
+  function bcPaint() {
+    const cv = $('#bc-pv'); if (!cv) return; const cfg = bcCfg(), side = bcSide === 'back' && cfg.sides === 'front' ? 'front' : bcSide, src = bcCanvas(side === 'back' && cfg.sides === 'frontblank' ? 'blank' : side, cfg, 2); cv.width = src.width; cv.height = src.height; const g = cv.getContext('2d'); g.drawImage(src, 0, 0);
+    cv.parentElement && cv.parentElement.classList.toggle('bcfree', cfg.sides !== 'both' && side === 'front');
+    if (cfg.sides !== 'both' && side === 'front') { const bx = CardMaker.frontBoxes(cfg, bcData(), bcImages()), o = bx[bcSel], b = cfg.bleed ? 18.75 : 0; if (o) { g.save(); g.setLineDash([8, 6]); g.lineWidth = 3; g.strokeStyle = '#d6428f'; g.strokeRect((o.x + b) * 2 - 4, (o.y + b) * 2 - 4, o.w * 2 + 8, o.h * 2 + 8); g.restore(); } }
+  }
+  // Drag the pieces of a front-only card with a finger (or mouse); the pointer position is turned back into card units.
+  function bcPoint(e) { const cv = $('#bc-pv'), r = cv.getBoundingClientRect(), b = bcCfg().bleed ? 18.75 : 0; return { x: (e.clientX - r.left) / r.width * cv.width / 2 - b, y: (e.clientY - r.top) / r.height * cv.height / 2 - b }; }
+  function bcDown(e) {
+    const cfg = bcCfg(); if (cfg.sides === 'both' || bcSide !== 'front') return; const pt = bcPoint(e), bx = CardMaker.frontBoxes(cfg, bcData(), bcImages());
+    const hit = ['qr', 'logo', 'lines', 'tagline'].find((k) => bx[k] && pt.x >= bx[k].x - 6 && pt.x <= bx[k].x + bx[k].w + 6 && pt.y >= bx[k].y - 6 && pt.y <= bx[k].y + bx[k].h + 6); if (!hit) return;
+    bcSel = hit; bcDrag = { k: hit, dx: pt.x - bx[hit].x, dy: pt.y - bx[hit].y, kk: bx[hit].k }; e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); e.preventDefault(); bcPaint();
+  }
+  function bcMove(e) {
+    if (!bcDrag) return; const pt = bcPoint(e), c = bcCfg(); c.fpos = Object.assign({}, c.fpos); c.fpos[bcDrag.k] = Object.assign({}, c.fpos[bcDrag.k], { x: Math.round(pt.x - bcDrag.dx), y: Math.round(pt.y - bcDrag.dy), k: bcDrag.kk }); bcSave(CardMaker.norm(c)); bcPaintSoon();
+  }
+  function bcUp() { if (bcDrag) { bcDrag = null; bcRefresh(); } }
   function bcPaintSoon() { if (!bcOn) return; cancelAnimationFrame(bcRaf); bcRaf = requestAnimationFrame(bcPaint); }
+  let bcSel = 'logo', bcDrag = null;
   const bcPath = (p) => InvHeader.getPath(bcCfg(), p);
   const bcTog = (p, label) => `<div class="ihr tgl"><span>${label}</span>${swt('bc-tog', p, !!bcPath(p))}</div>`;
   const bcChips = (p, label, opts) => { const cur = bcPath(p); return `<div class="ihr"><label>${label}</label><div class="chiprow">${opts.map(([k, l]) => `<button type="button" class="chip ${String(cur) === String(k) ? 'on' : ''}" data-act="bc-set" data-id="${p}=${k}">${l}</button>`).join('')}</div></div>`; };
@@ -1709,10 +1725,11 @@
     const col = ihSec('bc1', t('bc.colors'), `${bcChips('scheme', t('bc.scheme'), [['wine', t('bc.s.wine')], ['rosegold', t('bc.s.rosegold')], ['navy', t('bc.s.navy')], ['charcoal', t('bc.s.charcoal')], ['invoice', t('bc.s.invoice')]])}${bcCol('dark', t('bc.dark'))}${bcCol('light', t('bc.light'))}`);
     const what = ihSec('bc2', t('bc.what'), `${isBruiz() && !brandOn() ? `<div class="card bpbrand"><p class="muted small">${t('bz.brandHint')}</p><button type="button" class="btn primary" data-act="bp-brand">${t('bz.brandBtn')}</button></div>` : ''}${bcTog('show.logo', t('bz.logoOn'))}${bcTog('show.name', t('bc.name'))}${bcTog('show.sub', t('bc.sub'))}${bcTxt('text.sub', t('bc.subText'), 'ONLINE STORE')}${bcTog('show.phone', t('bc.phone'))}${bcTxt('text.phone', t('bc.phoneText'), d.phone)}${bcTog('show.whatsapp', t('bc.whatsapp'))}${bcTog('show.web', t('bz.web'))}${bcTog('show.email', t('bc.email'))}${bcTxt('text.email', t('bc.emailText'), d.email)}${bcTog('show.city', t('bc.city'))}${bcTxt('text.city', t('bc.cityText'), d.city)}${bcTog('show.tagline', t('bc.tagline'))}${bcTxt('text.tagline', t('bc.taglineText'), 'STYLE · QUALITY · TRUST')}`);
     const qr = ihSec('bc3', t('bc.qr'), `${bcTog('show.qr', t('bc.qrShow'))}${cfg.show.qr ? bcChips('qr.mode', t('bc.qrMode'), [['store', t('bc.qr.store')], ['whatsapp', t('bc.qr.wa')], ['link', t('bc.qr.link')]]) + (cfg.qr.mode === 'link' ? bcTxt('qr.text', t('bc.qrLink'), 'https://') : '') + `<p class="muted small">${t('bc.qrNote')} <b>${esc(CardMaker.qrTarget(cfg, d) || '-')}</b></p>` : ''}`);
-    const P = cfg.pattern, pat = ihSec('bc5', t('bz.pat'), `${bcTog('pattern.on', t('bz.patOn'))}${P.on ? `${bcChips('pattern.sides', t('bz.patSides'), [['both', t('bz.both')], ['front', t('bc.front')], ['back', t('bc.back')]])}${bcChips('pattern.place', t('bz.patPlace'), ['corners', 'all', 'tl', 'tr', 'bl', 'br'].map((k) => [k, t('bz.pl.' + k)]))}${bcRng('pattern.opacity', t('bz.patOp'), 0.04, 0.5, 0.01, true)}${bcRng('pattern.size', t('bz.patSize'), 20, 110, 1)}${bcRng('pattern.tilt', t('bz.patTilt'), 0, 30, 1)}<p class="muted small">${t('bz.patNote')}</p>` : ''}`);
+    const free = cfg.sides !== 'both', arrange = free ? ihSec('bc6', t('bz.arr'), `<p class="muted small">${t('bz.arrHint')}</p><div class="btns"><button type="button" class="btn primary" data-act="bc-auto">🔀 ${t('bz.auto')}</button><button type="button" class="btn" data-act="bc-arrreset">${t('bz.arrReset')}</button></div><p class="muted small">${t('bz.layoutN', { n: cfg.fv + 1, m: CardMaker.FRONT_N })}</p><div class="ihr"><label>${t('bz.pick')}</label><div class="chiprow">${CardMaker.FITEMS.map((k) => `<button type="button" class="chip ${bcSel === k ? 'on' : ''}" data-act="bc-sel" data-id="${k}">${t('bz.it.' + k)}</button>`).join('')}</div></div><div class="btns"><button type="button" class="btn" data-act="bc-size" data-id="-1">− ${t('bz.smaller')}</button><button type="button" class="btn" data-act="bc-size" data-id="1">+ ${t('bz.bigger')}</button></div>`) : '';
+    const P = cfg.pattern, pat = ihSec('bc5', t('bz.pat'), `${bcTog('pattern.on', t('bz.patOn'))}${P.on ? `${bcChips('pattern.sides', t('bz.patSides'), [['both', t('bz.both')], ['front', t('bc.front')], ['back', t('bc.back')]])}${bcChips('pattern.place', t('bz.patPlace'), ['corners', 'all', 'tl', 'tr', 'bl', 'br'].map((k) => [k, t('bz.pl.' + k)]))}${bcRng('pattern.opacity', t('bz.patOp'), 0.04, 0.5, 0.01, true)}${bcRng('pattern.size', t('bz.patSize'), 20, 110, 1)}${bcRng('pattern.tilt', t('bz.patTilt'), -45, 45, 1)}<p class="muted small">${t('bz.patNote')}</p>` : ''}`);
     const print = ihSec('bc4', t('bc.print'), `${bcChips('sides', t('bc.sides'), [['both', t('bc.sides.both')], ['front', t('bc.sides.front')], ['frontblank', t('bc.sides.blank')]])}${bcTog('bleed', t('bc.bleed'))}<p class="muted small">${t('bc.bleedNote')}</p>
       <div class="btns"><button type="button" class="btn primary" data-act="bc-pdf">⬇ ${t('bc.dlPdf')}</button><button type="button" class="btn" data-act="bc-png" data-id="front">⬇ ${t('bc.dlFront')}</button><button type="button" class="btn" data-act="bc-png" data-id="back">⬇ ${t('bc.dlBack')}</button></div><p class="muted small">${t('bc.printNote')}</p>`);
-    return `${col}${what}${pat}${qr}${print}`;
+    return `${col}${what}${arrange}${pat}${qr}${print}`;
   }
   function bcRefresh() { const b = $('#bc-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = bcBodyHTML(); $('#sheet').scrollTop = sc; bcPaint(); }
   function sheetCard() {
@@ -1721,7 +1738,7 @@
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('bc.title')}</b><small>${t('bc.sub2')}</small></div></div>
       <div class="ihtop"><canvas id="bc-pv" width="1050" height="600" aria-label="${t('bc.title')}"></canvas><div class="chiprow bcside"><button type="button" class="chip on" data-act="bc-side" data-id="front">${t('bc.front')}</button><button type="button" class="chip" data-act="bc-side" data-id="back">${t('bc.back')}</button></div></div>
       <div class="pd" id="bc-body">${bcBodyHTML()}</div>`, () => { bcOn = false; }, true);
-    bcSide = 'front'; bcPaint();
+    bcSide = 'front'; { const cv = $('#bc-pv'); cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } bcPaint();
   }
   const bcDownload = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
   const bcBlob = (cv, type, q) => new Promise((ok) => cv.toBlob(ok, type, q));
@@ -4069,6 +4086,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'lm-set': { if (!lm) return; const i = id.indexOf('='); lm[id.slice(0, i)] = id.slice(i + 1); const keepT = $('#lm-text'); document.querySelectorAll('[data-act=lm-set]').forEach((b) => { const j = b.dataset.id.indexOf('='); b.classList.toggle('on', lm[b.dataset.id.slice(0, j)] === b.dataset.id.slice(j + 1)); }); return lmPaint(); }
       case 'lm-use': return lmUse();
       case 'bc-open': return sheetCard();
+      case 'bc-auto': { const c = bcCfg(); c.fv = (c.fv + 1) % CardMaker.FRONT_N; c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
+      case 'bc-arrreset': { const c = bcCfg(); c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
+      case 'bc-sel': bcSel = id; return bcRefresh();
+      case 'bc-size': { const c = bcCfg(), bx = CardMaker.frontBoxes(c, bcData(), bcImages()), o = bx[bcSel]; if (!o) return; const k = Math.max(0.3, Math.min(2.5, Math.round(o.k * (Number(id) > 0 ? 1.12 : 0.89) * 100) / 100)); c.fpos = Object.assign({}, c.fpos); c.fpos[bcSel] = Object.assign({}, c.fpos[bcSel], { x: Math.round(o.x), y: Math.round(o.y), k }); bcSave(CardMaker.norm(c)); return bcRefresh(); }
       case 'bp-open': return sheetBizProfile();
       case 'bp-edit': closeSheet(); go({ tab: 'more', moreView: 'set-business' }); window.scrollTo(0, 0); return render();
       case 'bp-copy': return copyText(id).then((ok) => toast(ok ? t('bz.copied') : id));
