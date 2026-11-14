@@ -607,7 +607,7 @@
       <h4 class="hsec"><span>${t('hub.settings')}</span></h4>
       ${settingsGroups(c, true)}
       <div class="pubcard ${inf.error || !signed ? 'bad' : ''}"><i></i><div><b>${!signed ? t('store.needAccount') : inf.error ? t('hub.pubProblem') : inf.busy ? t('store.publishing') : inf.at ? t('hub.upToDate') : t('hub.notYet')}</b><small>${esc(stat)}</small></div></div>
-      <button class="pubbtn" data-act="store-publish" ${signed ? '' : 'disabled'}>${t('store.publishNow')}</button><p class="pubnote">${t('hub.autoNote')}</p></div>`;
+      <button class="pubbtn" data-act="store-publish" ${signed ? '' : 'disabled'}>${t('store.publishNow')}</button><p class="pubnote">${t('hub.autoNote')}</p>${mbStoreRow()}</div>`;
   }
   function Sell() {
     if (!selected.size) return `<div class="sx"><div class="empty2"><div class="ic">🧾</div><h3>${t('sell.empty')}</h3><p>${t('sell.emptyText')}</p><button class="btn primary" data-act="goto-stock" style="width:100%">${t('sell.choose')}</button><button class="btn qsbtn" data-act="quick-sale" style="width:100%;margin-top:10px">⚡ ${t('qs.btn')}</button></div></div>`;
@@ -1099,7 +1099,7 @@
     if (moreView && moreView.startsWith('set-')) return SettingsPage();
     const go = (v, icon, label, sub) => `<button class="row tap" data-act="more" data-id="${v}"><span style="font-size:22px">${icon}</span><div class="grow"><b>${label}</b><small>${sub}</small></div><span class="chev">›</span></button>`;
     const act = (a, icon, label, sub, bad) => `<button class="row tap" data-act="${a}"><span style="font-size:22px">${icon}</span><div class="grow"><b${bad ? ' class="bad"' : ''}>${label}</b><small>${sub}</small></div></button>`;
-    return `<div class="list">${(() => { const cs = L.customerStats(state); return `<button class="row tap" data-act="goto-customers"><span style="font-size:22px">👥</span><div class="grow"><b>${t('cu.title')}</b><small>${tn('cu.n', cs.length) + ' · ' + tn('cu.owe', cs.filter((c) => c.owing > 0).length)}</small></div><span class="chev">›</span></button>`; })()}${go('invoices', '🧾', t('more.invoices'), t('more.invoicesSub', { n: state.invoices.length }))}${can('orders') ? go('deliveries', '🚚', t('more.deliveries'), t('more.deliveriesSub', { n: window.Store ? Store.orders().filter((o) => o.status === 'confirmed' && o.option === 'delivery').length : 0 })) : ''}${can('orders') ? go('orders', '🛍️', t('more.orders'), tn('more.ordersSub', window.Store ? Store.orders().length : 0)) : ''}${go('batches', '📦', t('more.batches'), tn('more.batchesSub', state.batches.length))}${go('items', '📋', t('more.items'), tn('more.itemsSub', state.items.length))}
+    return `<div class="list">${act('mb-open', '🏢', t('mb.title'), t('mb.sub'))}${(() => { const cs = L.customerStats(state); return `<button class="row tap" data-act="goto-customers"><span style="font-size:22px">👥</span><div class="grow"><b>${t('cu.title')}</b><small>${tn('cu.n', cs.length) + ' · ' + tn('cu.owe', cs.filter((c) => c.owing > 0).length)}</small></div><span class="chev">›</span></button>`; })()}${go('invoices', '🧾', t('more.invoices'), t('more.invoicesSub', { n: state.invoices.length }))}${can('orders') ? go('deliveries', '🚚', t('more.deliveries'), t('more.deliveriesSub', { n: window.Store ? Store.orders().filter((o) => o.status === 'confirmed' && o.option === 'delivery').length : 0 })) : ''}${can('orders') ? go('orders', '🛍️', t('more.orders'), tn('more.ordersSub', window.Store ? Store.orders().length : 0)) : ''}${go('batches', '📦', t('more.batches'), tn('more.batchesSub', state.batches.length))}${go('items', '📋', t('more.items'), tn('more.itemsSub', state.items.length))}
       ${can('costs') ? go('summary', '📈', t('more.summary'), t('more.summarySub')) : ''}${act('words-open', '🔤', t('words.title'), t('words.sub'))}${go('settings', '⚙️', t('more.settings'), t('more.settingsSub'))}</div>
       ${isStandalone() ? '' : `<div class="list" style="margin-top:8px"><button class="row tap" data-act="install-guide"><span style="font-size:22px">📲</span><div class="grow"><b>${t('more.install')}</b><small>${isIOS ? t('more.installIOS') : t('more.installOther')}</small></div><span class="chev">›</span></button></div>`}
       ${cloud.signedIn ? `<div class="list" style="margin-top:8px"><button class="row tap" data-act="acct-out"><span style="font-size:22px">🚪</span><div class="grow"><b>${t('acct.signOut')}</b><small>${esc(cloud.email || '')}</small></div></button></div>` : ''}
@@ -1331,10 +1331,9 @@
         ${trow('🗣️', t('set.custLang'), { auto: t('cust.auto'), ask: t('cust.ask'), app: t('cust.same'), en: I.LANGS.en['lang.name'], es: I.LANGS.es['lang.name'] }[custMode()], 'data-act="pick-custlang"')}
         ${cloud.signedIn && Cloud.hasPassword && Cloud.hasPassword() ? trow('🔑', t('acct.chPw'), t('set.pwSub'), nav('set-password')) : ''}</div>
       <h2>${t('set.sec.business')}</h2><div class="list grp">${trow('🏪', t('set.businessRow'), t('set.businessSub'), nav('set-business'))}
-        ${trow('🧾', t('set.invDesign'), t('invd.' + invDesignId()), nav('set-invdesign'))}
-        ${trow('💳', t('bc.row'), t('bc.rowSub'), 'data-act="bc-open"')}
         ${gdSt() && !gdSt().finished ? trow('✨', t('gd.banner'), tn('gd.left', gdPending().length), 'data-act="gd-open"') : ''}
         <div class="row srow"><span class="tile">🛍️</span><div class="grow"><b>${t('store.left')}</b><small>${t('store.leftSub')}</small></div>${swt('store-left', 'showLeft', storeCfg().showLeft)}</div></div>
+      <h2>${t('mb.title')}</h2><div class="list grp">${trow('🧾', t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'data-act="mb-inv"')}${trow('💳', t('mb.card'), t('mb.cardSub', { n: nCard() }), 'data-act="mb-card"')}${trow('🖼️', t('mb.logo'), t('mb.logoSub'), 'data-act="mb-logo"')}</div>
       ${cloud.signedIn && team ? (can('team') ? `<h2>${t('team.sec')}</h2><div class="list grp">${trow('👥', t('team.row'), t('team.rowSub', { n: Object.keys(team.members || {}).length }) + (joinReqs.length ? ' · ' + t('team.waiting', { n: joinReqs.length }) : ''), 'data-act="team-open"')}${trow('🔑', t('perm.row'), t('perm.sub'), 'data-act="perm-open"')}</div>` : `<h2>${t('team.sec')}</h2><div class="list grp"><div class="row srow"><span class="tile">🏷️</span><div class="grow"><b>${t('team.mine')}</b><small>${rankName(team.rank)}</small></div></div></div>`) : ''}
       <h2>${t('set.sec.data')}</h2><div class="list grp">
         ${trow('🖼️', t('set.keepRow'), t('keep.' + photoKeep()), 'data-act="pick-keep"')}
@@ -1441,10 +1440,10 @@
   document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.dataset && d.dataset.ihk) ihOpenSecs[d.dataset.ihk] = d.open; }, true);
   /* ---------- invoice header builder: pictures (files or a zip), layouts, pieces, banner, saved designs ---------- */
   const hdrImgs = new Map();
-  let ihOn = false, ihRaf = 0, ihSlotPick = '', ihPend = null, ihOpenSecs = { images: true, layout: true };
+  let bpOn = false, rePaint = null, ihOn = false, ihRaf = 0, ihSlotPick = '', ihPend = null, ihOpenSecs = { images: true, layout: true };
   const hdrImg = (src) => {
     if (!src) return null; let i = hdrImgs.get(src);
-    if (!i) { i = new Image(); i.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); ihPaintSoon(); if (invFsOn) invFsPreview(); }; i.src = src; hdrImgs.set(src, i); if (hdrImgs.size > 14) hdrImgs.delete(hdrImgs.keys().next().value); }
+    if (!i) { i = new Image(); i.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); ihPaintSoon(); if (bpOn) bpPaint(); if (rePaint) rePaint(); if (invFsOn) invFsPreview(); }; i.src = src; hdrImgs.set(src, i); if (hdrImgs.size > 14) hdrImgs.delete(hdrImgs.keys().next().value); }
     return i;
   };
   const ihCfg = () => InvHeader.norm(InvHeader.fromKeys(state.settings.invHeader, state.settings.invPool));
@@ -1453,7 +1452,7 @@
   const ihInfo = () => { const s = state.settings, own = !!(s.businessName || s.bizCity || s.bizPhone || s.bizEmail); return { name: s.businessName || 'B.RUIZ', lines: own ? { city: s.bizCity, phone: s.bizPhone, email: s.bizEmail } : { city: 'Chaguanas', phone: '18683658857', email: 'berilexy.ruiz93@gmail.com' }, title: ti('doc.invoiceWord') }; };
   const ihSave = (cfg) => { state.settings.invPool = state.settings.invPool || {}; state.settings.invHeader = InvHeader.toKeys(cfg, state.settings.invPool); ihPrune(); save(); Object.keys(headCache).forEach((k) => delete headCache[k]); };
   // Once at start: move any pictures still stored inside designs into the shared pool and delete the ones nothing uses.
-  function ihTidy() { const s = state.settings; if (!s.invHeader && !s.invPool && !(s.invHeaderSaved || []).length) return; s.invPool = s.invPool || {}; if (s.invHeader) s.invHeader = InvHeader.toKeys(s.invHeader, s.invPool); s.invHeaderSaved = (s.invHeaderSaved || []).map((d) => Object.assign({}, d, { cfg: InvHeader.toKeys(d.cfg, s.invPool) })); ihPrune(); save(); }
+  function ihTidy() { const s = state.settings; svNorm(); if (!s.invHeader && !s.invPool && !(s.invHeaderSaved || []).length) return; s.invPool = s.invPool || {}; if (s.invHeader) s.invHeader = InvHeader.toKeys(s.invHeader, s.invPool); s.invHeaderSaved = (s.invHeaderSaved || []).map((d) => Object.assign({}, d, { cfg: InvHeader.toKeys(d.cfg, s.invPool) })); ihPrune(); save(); }
   const ihSet = (path, v) => { const c = ihCfg(); InvHeader.setPath(c, path, v); c.layout = /^items\.(logo|title|extra1|extra2|name|lines|invoice|tagline)\.(x|y|size|on|mode|align)$/.test(path) ? 'custom' : c.layout; ihSave(InvHeader.norm(c)); ihPaintSoon(); };
   function ihPaint() {
     const cv = $('#ih-pv'); if (!cv) return; const cfg = ihCfg(), S = 2; cv.width = InvHeader.W * S; cv.height = InvHeader.H * S;
@@ -1488,11 +1487,7 @@
     const presets = `<div class="ihr"><label>${t('ih.presets')}</label><div class="chiprow">${Object.keys(InvHeader.PRESETS).map((k) => `<button type="button" class="chip" data-act="ih-preset" data-id="${k}">${t('ih.pr.' + k)}</button>`).join('')}</div></div>`;
     return `${presets}${type}${b.type === 'gradient' ? gradUI : b.type === 'solid' ? solidUI : imgUI}${pat}`;
   }
-  function ihSavedHTML() {
-    const list = state.settings.invHeaderSaved || [];
-    return `<div class="ihr"><div class="slugrow"><input type="text" id="ih-name" placeholder="${t('ih.nameDesign')}" maxlength="30" autocomplete="off"><button type="button" class="btn" data-act="ih-save">${t('ih.saveAs')}</button></div></div>
-      ${list.length ? list.map((d) => `<div class="ihsaved"><b>${esc(d.name)}</b><button type="button" class="btn" data-act="ih-apply" data-id="${d.id}">${t('ih.apply')}</button><button type="button" class="ihx" data-act="ih-del" data-id="${d.id}" aria-label="${t('ih.delete')}">✕</button></div>`).join('') : `<p class="muted small">${t('ih.noSaved')}</p>`}`;
-  }
+  function ihSavedHTML() { return svSlotsHTML('inv', false); }
   function ihBodyHTML() {
     const cfg = ihCfg(), it = cfg.items, L = it.lines;
     const imgs = ihSec('images', t('ih.sec.images'), `<div class="ihr"><button type="button" class="btn primary" style="width:100%" data-act="ih-add">📎 ${t('ih.upload')}</button><small class="muted">${t('ih.uploadSub')}</small></div>${InvHeader.SLOTS.map((s) => ihPieceHTML(s, cfg)).join('')}`);
@@ -1691,26 +1686,46 @@
     const s = state.settings, sc = storeCfg(), phone = s.bizPhone || '';
     return { name: s.businessName || 'B-RUIZ', phone, email: s.bizEmail || '', city: s.bizCity || '', storeLink: sc && sc.id && window.Store ? Store.link(sc) : 'https://shopivo.github.io/', whatsappLink: phone && SCore.validPhone(phone) ? SCore.waLink(phone) : '', whatsappLabel: t('bc.waLabel'), qrLabel: t('bc.scan') };
   };
-  const bcImages = () => { const c = ihCfg(); return { logo: hdrImg(c.slots.logo || state.settings.bizLogo), title: hdrImg(c.slots.title) }; };
+  const bcImages = () => { const c = ihCfg(); return { logo: hdrImg(c.slots.logo || state.settings.bizLogo), title: hdrImg(c.slots.title), mark: hdrImg(c.slots.extra2) }; };
   function bcCanvas(side, cfg, scale) {
     const sz = CardMaker.size(cfg), cv = document.createElement('canvas'); cv.width = Math.round(sz.w * scale); cv.height = Math.round(sz.h * scale);
     const x = cv.getContext('2d'); x.scale(scale, scale); CardMaker.draw(x, side, cfg, bcData(), bcImages(), { bleed: cfg.bleed }); return cv;
   }
-  function bcPaint() { const cv = $('#bc-pv'); if (!cv) return; const cfg = bcCfg(), side = bcSide === 'back' && cfg.sides === 'front' ? 'front' : bcSide, src = bcCanvas(side === 'back' && cfg.sides === 'frontblank' ? 'blank' : side, cfg, 2); cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0); }
+  function bcPaint() {
+    const cv = $('#bc-pv'); if (!cv) return; const cfg = bcCfg(), side = bcSide === 'back' && cfg.sides === 'front' ? 'front' : bcSide, src = bcCanvas(side === 'back' && cfg.sides === 'frontblank' ? 'blank' : side, cfg, 2); cv.width = src.width; cv.height = src.height; const g = cv.getContext('2d'); g.drawImage(src, 0, 0);
+    cv.parentElement && cv.parentElement.classList.toggle('bcfree', cfg.sides !== 'both' && side === 'front');
+    if (cfg.sides !== 'both' && side === 'front') { const bx = CardMaker.frontBoxes(cfg, bcData(), bcImages()), o = bx[bcSel], b = cfg.bleed ? 18.75 : 0; if (o) { g.save(); g.setLineDash([8, 6]); g.lineWidth = 3; g.strokeStyle = '#d6428f'; g.strokeRect((o.x + b) * 2 - 4, (o.y + b) * 2 - 4, o.w * 2 + 8, o.h * 2 + 8); g.restore(); } }
+  }
+  // Drag the pieces of a front-only card with a finger (or mouse); the pointer position is turned back into card units.
+  function bcPoint(e) { const cv = $('#bc-pv'), r = cv.getBoundingClientRect(), b = bcCfg().bleed ? 18.75 : 0; return { x: (e.clientX - r.left) / r.width * cv.width / 2 - b, y: (e.clientY - r.top) / r.height * cv.height / 2 - b }; }
+  function bcDown(e) {
+    const cfg = bcCfg(); if (cfg.sides === 'both' || bcSide !== 'front') return; const pt = bcPoint(e), bx = CardMaker.frontBoxes(cfg, bcData(), bcImages());
+    const hit = ['qr', 'logo', 'lines', 'tagline'].find((k) => bx[k] && pt.x >= bx[k].x - 6 && pt.x <= bx[k].x + bx[k].w + 6 && pt.y >= bx[k].y - 6 && pt.y <= bx[k].y + bx[k].h + 6); if (!hit) return;
+    bcSel = hit; bcDrag = { k: hit, dx: pt.x - bx[hit].x, dy: pt.y - bx[hit].y, kk: bx[hit].k }; e.target.setPointerCapture && e.target.setPointerCapture(e.pointerId); e.preventDefault(); bcPaint();
+  }
+  function bcMove(e) {
+    if (!bcDrag) return; const pt = bcPoint(e), c = bcCfg(); c.fpos = Object.assign({}, c.fpos); c.fpos[bcDrag.k] = Object.assign({}, c.fpos[bcDrag.k], { x: Math.round(pt.x - bcDrag.dx), y: Math.round(pt.y - bcDrag.dy), k: bcDrag.kk }); bcSave(CardMaker.norm(c)); bcPaintSoon();
+  }
+  function bcUp() { if (bcDrag) { bcDrag = null; bcRefresh(); } }
   function bcPaintSoon() { if (!bcOn) return; cancelAnimationFrame(bcRaf); bcRaf = requestAnimationFrame(bcPaint); }
+  let bcSel = 'logo', bcDrag = null;
   const bcPath = (p) => InvHeader.getPath(bcCfg(), p);
   const bcTog = (p, label) => `<div class="ihr tgl"><span>${label}</span>${swt('bc-tog', p, !!bcPath(p))}</div>`;
   const bcChips = (p, label, opts) => { const cur = bcPath(p); return `<div class="ihr"><label>${label}</label><div class="chiprow">${opts.map(([k, l]) => `<button type="button" class="chip ${String(cur) === String(k) ? 'on' : ''}" data-act="bc-set" data-id="${p}=${k}">${l}</button>`).join('')}</div></div>`; };
   const bcCol = (p, label) => `<div class="ihr col"><label>${label}</label><input type="color" data-bc="${p}" value="${bcPath(p)}"></div>`;
   const bcTxt = (p, label, ph) => `<div class="ihr"><label>${label}</label><input type="text" data-bc="${p}" value="${esc(bcPath(p) || '')}" placeholder="${esc(ph || '')}" autocomplete="off" maxlength="80"></div>`;
+  const bcRng = (p, label, min, max, step, pct) => { const v = bcPath(p); return `<div class="ihr"><label>${label}<b class="v">${pct ? Math.round(v * 100) + '%' : Math.round(v * 100) / 100}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-bc="${p}" ${pct ? 'data-pct="1"' : ''}></div>`; };
   function bcBodyHTML() {
     const cfg = bcCfg(), d = bcData();
     const col = ihSec('bc1', t('bc.colors'), `${bcChips('scheme', t('bc.scheme'), [['wine', t('bc.s.wine')], ['rosegold', t('bc.s.rosegold')], ['navy', t('bc.s.navy')], ['charcoal', t('bc.s.charcoal')], ['invoice', t('bc.s.invoice')]])}${bcCol('dark', t('bc.dark'))}${bcCol('light', t('bc.light'))}`);
-    const what = ihSec('bc2', t('bc.what'), `${bcTog('show.name', t('bc.name'))}${bcTog('show.sub', t('bc.sub'))}${bcTxt('text.sub', t('bc.subText'), 'ONLINE STORE')}${bcTog('show.phone', t('bc.phone'))}${bcTxt('text.phone', t('bc.phoneText'), d.phone)}${bcTog('show.whatsapp', t('bc.whatsapp'))}${bcTog('show.email', t('bc.email'))}${bcTxt('text.email', t('bc.emailText'), d.email)}${bcTog('show.city', t('bc.city'))}${bcTxt('text.city', t('bc.cityText'), d.city)}${bcTog('show.tagline', t('bc.tagline'))}${bcTxt('text.tagline', t('bc.taglineText'), 'STYLE · QUALITY · TRUST')}`);
+    const what = ihSec('bc2', t('bc.what'), `${isBruiz() && !brandOn() ? `<div class="card bpbrand"><p class="muted small">${t('bz.brandHint')}</p><button type="button" class="btn primary" data-act="bp-brand">${t('bz.brandBtn')}</button></div>` : ''}${bcTog('show.logo', t('bz.logoOn'))}${bcTog('show.name', t('bc.name'))}${bcTog('show.sub', t('bc.sub'))}${bcTxt('text.sub', t('bc.subText'), 'ONLINE STORE')}${bcTog('show.phone', t('bc.phone'))}${bcTxt('text.phone', t('bc.phoneText'), d.phone)}${bcTog('show.whatsapp', t('bc.whatsapp'))}${bcTog('show.web', t('bz.web'))}${bcTog('show.email', t('bc.email'))}${bcTxt('text.email', t('bc.emailText'), d.email)}${bcTog('show.city', t('bc.city'))}${bcTxt('text.city', t('bc.cityText'), d.city)}${bcTog('show.tagline', t('bc.tagline'))}${bcTxt('text.tagline', t('bc.taglineText'), 'STYLE · QUALITY · TRUST')}`);
     const qr = ihSec('bc3', t('bc.qr'), `${bcTog('show.qr', t('bc.qrShow'))}${cfg.show.qr ? bcChips('qr.mode', t('bc.qrMode'), [['store', t('bc.qr.store')], ['whatsapp', t('bc.qr.wa')], ['link', t('bc.qr.link')]]) + (cfg.qr.mode === 'link' ? bcTxt('qr.text', t('bc.qrLink'), 'https://') : '') + `<p class="muted small">${t('bc.qrNote')} <b>${esc(CardMaker.qrTarget(cfg, d) || '-')}</b></p>` : ''}`);
+    const free = cfg.sides !== 'both', arrange = free ? ihSec('bc6', t('bz.arr'), `<p class="muted small">${t('bz.arrHint')}</p><div class="btns"><button type="button" class="btn primary" data-act="bc-auto">🔀 ${t('bz.auto')}</button><button type="button" class="btn" data-act="bc-arrreset">${t('bz.arrReset')}</button></div><p class="muted small">${t('bz.layoutN', { n: cfg.fv + 1, m: CardMaker.FRONT_N })}</p><div class="ihr"><label>${t('bz.pick')}</label><div class="chiprow">${CardMaker.FITEMS.map((k) => `<button type="button" class="chip ${bcSel === k ? 'on' : ''}" data-act="bc-sel" data-id="${k}">${t('bz.it.' + k)}</button>`).join('')}</div></div><div class="btns"><button type="button" class="btn" data-act="bc-size" data-id="-1">− ${t('bz.smaller')}</button><button type="button" class="btn" data-act="bc-size" data-id="1">+ ${t('bz.bigger')}</button></div>`) : '';
+    const P = cfg.pattern, pat = ihSec('bc5', t('bz.pat'), `${bcTog('pattern.on', t('bz.patOn'))}${P.on ? `${bcChips('pattern.sides', t('bz.patSides'), [['both', t('bz.both')], ['front', t('bc.front')], ['back', t('bc.back')]])}${bcChips('pattern.place', t('bz.patPlace'), ['corners', 'all', 'tl', 'tr', 'bl', 'br'].map((k) => [k, t('bz.pl.' + k)]))}${bcRng('pattern.opacity', t('bz.patOp'), 0.04, 0.5, 0.01, true)}${bcRng('pattern.size', t('bz.patSize'), 20, 110, 1)}${bcRng('pattern.tilt', t('bz.patTilt'), -45, 45, 1)}<p class="muted small">${t('bz.patNote')}</p>` : ''}`);
+    const saved = ihSec('bc7', t('mb.savedCards'), svSlotsHTML('card', false));
     const print = ihSec('bc4', t('bc.print'), `${bcChips('sides', t('bc.sides'), [['both', t('bc.sides.both')], ['front', t('bc.sides.front')], ['frontblank', t('bc.sides.blank')]])}${bcTog('bleed', t('bc.bleed'))}<p class="muted small">${t('bc.bleedNote')}</p>
       <div class="btns"><button type="button" class="btn primary" data-act="bc-pdf">⬇ ${t('bc.dlPdf')}</button><button type="button" class="btn" data-act="bc-png" data-id="front">⬇ ${t('bc.dlFront')}</button><button type="button" class="btn" data-act="bc-png" data-id="back">⬇ ${t('bc.dlBack')}</button></div><p class="muted small">${t('bc.printNote')}</p>`);
-    return `${col}${what}${qr}${print}`;
+    return `${col}${what}${arrange}${pat}${qr}${saved}${print}`;
   }
   function bcRefresh() { const b = $('#bc-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = bcBodyHTML(); $('#sheet').scrollTop = sc; bcPaint(); }
   function sheetCard() {
@@ -1719,7 +1734,7 @@
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('bc.title')}</b><small>${t('bc.sub2')}</small></div></div>
       <div class="ihtop"><canvas id="bc-pv" width="1050" height="600" aria-label="${t('bc.title')}"></canvas><div class="chiprow bcside"><button type="button" class="chip on" data-act="bc-side" data-id="front">${t('bc.front')}</button><button type="button" class="chip" data-act="bc-side" data-id="back">${t('bc.back')}</button></div></div>
       <div class="pd" id="bc-body">${bcBodyHTML()}</div>`, () => { bcOn = false; }, true);
-    bcSide = 'front'; bcPaint();
+    bcSide = 'front'; { const cv = $('#bc-pv'); cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } bcPaint();
   }
   const bcDownload = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
   const bcBlob = (cv, type, q) => new Promise((ok) => cv.toBlob(ok, type, q));
@@ -1728,6 +1743,100 @@
     const cfg = bcCfg(), sz = CardMaker.size(cfg), pages = [];
     for (const side of CardMaker.sidesOf(cfg)) { if (side === 'blank') { pages.push({ blank: true }); continue; } const cv = bcCanvas(side, cfg, 2), jb = await bcBlob(cv, 'image/jpeg', 0.95); pages.push({ jpeg: new Uint8Array(await jb.arrayBuffer()), w: cv.width, h: cv.height }); }
     return new Blob([Pdf.pagesToPdf(pages, { w: sz.inW * 72, h: sz.inH * 72 })], { type: 'application/pdf' });
+  }
+
+  /* ---------- business profile: everything about the business in one place (logo, card, QR, contact, invoice banner) ---------- */
+  const BRAND = { mark: 'icons/brand/mark.png', circle: 'icons/brand/circle.png', title: 'icons/brand/title.png', banner: 'icons/brand/banner.jpg' };
+  const isBruiz = () => /ruiz/i.test(state.settings.businessName || '');
+  const fileData = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error('brand'); return r.blob(); }).then((b) => new Promise((ok, no) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = no; f.readAsDataURL(b); }));
+  // One tap: the agreed B-RUIZ look (logo in a white circle, title picture, blush banner, wine business card). Everything stays editable.
+  async function brandApply() {
+    const [circ, ttl, ban, mk] = await Promise.all([fileData(BRAND.circle), fileData(BRAND.title), fileData(BRAND.banner), fileData(BRAND.mark)]), s = state.settings;
+    s.bizLogo = circ; s.bizLogoShape = 'circle'; s.bizLogoPick = 'auto'; s.invoiceDesign = 'custom';
+    const c = InvHeader.applyLayout(ihCfg(), 'D'); c.bg.type = 'image'; c.bg.image = { src: ban, tint: false, alpha: 0.55 }; c.slots.logo = ''; c.slots.title = ttl; c.slots.extra2 = mk; c.items.title.size = 50; c.items.name.color = c.items.lines.color = c.items.tagline.color = '#111111'; c.items.invoice.color = '#111111'; c.accent = '#c28ba6'; ihSave(InvHeader.norm(c));
+    const cd = CardMaker.applyScheme(bcCfg(), 'rosegold'); cd.show.sub = true; cd.show.tagline = true; cd.show.web = true; cd.show.email = false; bcSave(CardMaker.norm(cd));
+    s.brandSeeded = true; svSave('inv', 0, 'B-RUIZ rose-gold'); svSave('card', 0, 'B-RUIZ rose-gold'); save(); if (storeCfg().id && window.Store && Store.publish) Store.publish(true);
+  }
+  const brandOn = () => { const c = ihCfg(); return !!(c.slots.title && state.settings.invoiceDesign === 'custom' && c.layout === 'D'); };
+  function bpQr(px) {
+    const d = bcData(), cfg = bcCfg(), M = CardMaker.qrMatrix(d.storeLink && storeCfg().id ? d.storeLink : ''); if (!M) return null;
+    const qz = 4, n = M.n + qz * 2, k = Math.max(2, Math.floor(px / n)), cv = document.createElement('canvas'); cv.width = cv.height = n * k; const g = cv.getContext('2d');
+    g.fillStyle = '#ffffff'; g.fillRect(0, 0, cv.width, cv.height); g.fillStyle = /^#[0-9a-f]{6}$/i.test(cfg.dark || '') ? cfg.dark : '#4a0d24';
+    for (let r = 0; r < M.n; r++) for (let q = 0; q < M.n; q++) if (M.dark(r, q)) g.fillRect((q + qz) * k, (r + qz) * k, k, k);
+    return cv;
+  }
+  function bpPaint() {
+    const cfg = bcCfg(), put = (id, cv) => { const el = $(id); if (!el || !cv) return; el.width = cv.width; el.height = cv.height; el.getContext('2d').drawImage(cv, 0, 0); };
+    put('#bp-front', bcCanvas('front', cfg, 1)); put('#bp-back', bcCanvas(cfg.sides === 'front' ? 'front' : 'back', cfg, 1)); put('#bp-qr', bpQr(360));
+    const h = $('#bp-hdr'); if (h) { const hc = ihCfg(), S = 1; h.width = InvHeader.W * S; h.height = InvHeader.H * S; const x = h.getContext('2d'); x.scale(S, S); InvHeader.draw(x, hc, ihInfo(), ihImages(hc)); }
+  }
+  /* ---------- My business: one place for the invoice, the business card and the logo (2 saved designs each) ---------- */
+  const SVKEY = { inv: 'invHeaderSaved', card: 'bizCardSaved' };
+  const svList = (kind) => state.settings[SVKEY[kind]] || [];
+  const svSlot = (kind, i) => svList(kind).find((d) => d.slot === i);
+  const svNorm = () => { const s = state.settings; ['invHeaderSaved', 'bizCardSaved'].forEach((k) => { if (!Array.isArray(s[k])) return; const seen = new Set(); s[k] = s[k].filter((d) => { if (d.slot === undefined) d.slot = [0, 1].find((n) => !seen.has(n) && !s[k].some((o) => o !== d && o.slot === n)); if (d.slot !== 0 && d.slot !== 1 || seen.has(d.slot)) return false; seen.add(d.slot); return true; }); }); };
+  const svCfgNow = (kind) => (kind === 'inv' ? InvHeader.toKeys(ihCfg(), (state.settings.invPool = state.settings.invPool || {})) : bcCfg());
+  const svInUse = (kind, d) => { try { return JSON.stringify(kind === 'inv' ? state.settings.invHeader : bcCfg()) === JSON.stringify(kind === 'inv' ? InvHeader.toKeys(InvHeader.norm(InvHeader.fromKeys(d.cfg, state.settings.invPool || {})), Object.assign({}, state.settings.invPool || {})) : CardMaker.norm(d.cfg)); } catch (e) { return false; } };
+  function svSave(kind, i, name) {
+    const old = svSlot(kind, i), nm = (name || (old && old.name) || t(kind === 'inv' ? 'mb.invN' : 'mb.cardN', { n: i + 1 })).slice(0, 30), k = SVKEY[kind];
+    state.settings[k] = svList(kind).filter((d) => d.slot !== i).concat({ slot: i, id: old ? old.id : Math.random().toString(36).slice(2, 9), name: nm, cfg: JSON.parse(JSON.stringify(svCfgNow(kind))) }).sort((a, b) => a.slot - b.slot); ihPrune(); save();
+  }
+  function svLoad(kind, d) { if (kind === 'inv') ihSave(InvHeader.norm(InvHeader.fromKeys(d.cfg, state.settings.invPool || {}))); else bcSave(CardMaker.norm(d.cfg)); }
+  const svCard = (kind, i, thumbs) => {
+    const d = svSlot(kind, i), use = d && svInUse(kind, d), b = (a, label, cls) => `<button type="button" class="btn ${cls || ''}" data-act="${a}" data-id="${kind}:${i}">${label}</button>`;
+    const pic = !thumbs ? '' : d ? (kind === 'inv' ? `<canvas class="svc" data-svc="inv:${i}:h" width="800" height="190"></canvas>` : `<div class="svpair"><canvas class="svc" data-svc="card:${i}:front"></canvas><canvas class="svc" data-svc="card:${i}:back"></canvas></div>`) : '<div class="svempty">＋</div>';
+    return `<div class="card svslot"><div class="svh"><input type="text" class="svname" data-svname="${kind}:${i}" value="${esc(d ? d.name : '')}" placeholder="${t(kind === 'inv' ? 'mb.invN' : 'mb.cardN', { n: i + 1 })}" maxlength="30" autocomplete="off" aria-label="${t('ih.nameDesign')}">${use ? `<span class="chip on">${t('mb.inUse')}</span>` : ''}</div>${pic}
+      <div class="btns">${d ? b('sv-edit', t('mb.edit'), 'primary') + (kind === 'inv' && !use ? b('sv-use', t('mb.use')) : '') + b('sv-save', t('mb.over')) + `<button type="button" class="btn" data-act="sv-del" data-id="${kind}:${i}" aria-label="${t('ih.delete')}">✕</button>` : b('sv-save', t('mb.saveHere'), 'primary') + b('sv-new', t('mb.makeNew'))}</div></div>`;
+  };
+  const svSlotsHTML = (kind, thumbs) => `${svCard(kind, 0, thumbs)}${svCard(kind, 1, thumbs)}<p class="muted small">${t('mb.limit')}</p>`;
+  function svRedraw() { if (typeof ihOn !== 'undefined' && ihOn && $('#ih-body')) return ihRefresh(); if (bcOn && $('#bc-body')) return bcRefresh(); const top = (pageStack[pageStack.length - 1] || {}).key || '', pg = { 'myinvoice|': sheetMyInvoice, 'mycard|': sheetMyCard }[top]; if (pg) return pg(); }
+  function svPaint() {
+    document.querySelectorAll('canvas[data-svc]').forEach((cv) => {
+      const [kind, n, side] = cv.dataset.svc.split(':'), d = svSlot(kind, Number(n)); if (!d) return;
+      if (kind === 'inv') { const cfg = InvHeader.norm(InvHeader.fromKeys(d.cfg, state.settings.invPool || {})), x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); return; }
+      const cfg = CardMaker.norm(d.cfg), src = bcCanvas(side === 'back' && cfg.sides !== 'both' ? 'blank' : side, cfg, 0.8); cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0);
+    });
+    const q = $('#mb-hdr'); if (q) { const hc = ihCfg(); q.width = InvHeader.W; q.height = InvHeader.H; const x = q.getContext('2d'); InvHeader.draw(x, hc, ihInfo(), ihImages(hc)); }
+  }
+  const mbHero = (withBanner) => { const s = state.settings, d = bcData(); return `<div class="bphero"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span><div><h2>${esc(bizName())}</h2><small>${esc([d.city, d.phone].filter(Boolean).join(' · ')) || t('bz.none')}</small></div></div>${withBanner ? '<div class="card bphdr" style="margin-top:10px"><canvas id="mb-hdr" aria-label="' + t('bz.inv') + '"></canvas></div>' : ''}`; };
+  const mbRow = (ic, title, sub, act) => `<button class="row tap srow" data-act="${act}"><span class="tile">${ic}</span><div class="grow"><b>${title}</b><small>${sub}</small></div><span class="chev">›</span></button>`;
+  const mbPage = (kind, title, sub, body, after) => { enterPage(kind, '', () => ({ myinvoice: sheetMyInvoice, mycard: sheetMyCard, mylogo: sheetMyLogo, mybiz: sheetMyBiz })[kind]()); rePaint = svPaint; openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${title}</b><small>${sub}</small></div></div><div class="pd bpg">${body}</div>`, () => { rePaint = null; render(); }, true); svPaint(); if (after) after(); };
+  const nInv = () => svList('inv').length, nCard = () => svList('card').length;
+  function sheetMyBiz() {
+    mbPage('mybiz', t('mb.title'), t('mb.sub'), `${mbHero(true)}<h3>${t('mb.title')}</h3><div class="list grp">${mbRow('🧾', t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'mb-inv')}${mbRow('💳', t('mb.card'), t('mb.cardSub', { n: nCard() }), 'mb-card')}${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo')}</div><div class="list grp" style="margin-top:12px">${mbRow('📇', t('mb.contact'), t('mb.contactSub'), 'bp-open')}</div>`);
+  }
+  function sheetMyInvoice() {
+    mbPage('myinvoice', t('mb.invoice'), t('mb.invLimit'), `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}</div><h3>${t('mb.savedInv')}</h3>${svSlotsHTML('inv', true)}`);
+  }
+  function sheetMyCard() {
+    mbPage('mycard', t('mb.card'), t('mb.cardLimit'), `<div class="list grp">${mbRow('✏️', t('mb.cardEdit'), t('mb.cardEditSub'), 'bc-open')}</div><h3>${t('mb.savedCards')}</h3>${svSlotsHTML('card', true)}<div class="btns"><button type="button" class="btn" data-act="bp-cardpdf">⬇ ${t('bz.cardDl')}</button></div>`);
+  }
+  function sheetMyLogo() {
+    const s = state.settings, hc = ihCfg();
+    mbPage('mylogo', t('mb.logo'), t('mb.logoSub'), `<div class="card bplogo"><div class="bplg"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span>${hc.slots.title ? `<img class="bptt" src="${hc.slots.title}" alt="">` : ''}</div>
+      <div class="btns"><button type="button" class="btn primary" data-act="lm-open">✨ ${t('lm.open')}</button><button type="button" class="btn" data-act="logo-go">🖼️ ${t('bz.logoChange')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="bp-dl" data-id="logo">⬇ ${t('bz.logoDl')}</button>` : ''}${hc.slots.title ? `<button type="button" class="btn" data-act="bp-dl" data-id="title">⬇ ${t('bz.titleDl')}</button>` : ''}<button type="button" class="btn" data-act="ih-open">📎 ${t('mb.pics')}</button></div></div>
+      ${isBruiz() ? `<div class="card bpbrand"><b>${t('bz.brand')}</b><p class="muted small">${t('bz.brandSub')}</p><button type="button" class="btn ${brandOn() ? '' : 'primary'}" data-act="bp-brand">${brandOn() ? '✓ ' + t('bz.brandDone') : t('bz.brandBtn')}</button></div>` : ''}`);
+  }
+  // First time the owner of B-RUIZ opens My business: the agreed look is built and saved as design 1 (invoice and card), so it can be edited later.
+  async function mbOpen() { if (isBruiz() && !state.settings.brandSeeded) { try { await brandApply(); toast(t('mb.seeded')); } catch (e) { /* offline: the button on the logo page tries again */ } } sheetMyBiz(); }
+  const mbStoreRow = () => `<h4><span>${t('mb.title')}</span></h4><div class="box"><button class="rw2 tap" data-act="mb-open" style="width:100%;justify-content:flex-start;gap:12px"><span class="lgpv fit ${logoShape()}" style="width:38px;height:38px;flex:none">${state.settings.bizLogo ? `<img src="${state.settings.bizLogo}" alt="">` : esc(initials(bizName()))}</span><div class="t" style="flex:1;text-align:left"><b>${t('mb.title')}</b><small>${t('mb.storeSub')}</small></div><span class="chev">›</span></button></div>`;
+
+  function sheetBizProfile() {
+    enterPage('bizprofile', '', () => sheetBizProfile());
+    const c = storeCfg(), d = bcData(), has = !!c.id;
+    const row = (ic, label, val, copy, href) => `<div class="bprow"><span class="bpi">${ic}</span><div class="grow"><small>${label}</small>${val ? `<b>${href ? `<a href="${esc(href)}" target="_blank" rel="noopener">${esc(val)}</a>` : esc(val)}</b>` : `<b class="muted">${t('bz.none')}</b>`}</div>${val && copy ? `<button type="button" class="chip" data-act="bp-copy" data-id="${esc(val)}">${t('bz.copy')}</button>` : ''}</div>`;
+    const waOk = d.phone && SCore.validPhone(d.phone);
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('mb.contact')}</b><small>${t('mb.contactSub')}</small></div></div>
+      <div class="pd bpg">${mbHero(false)}
+        <h3>${t('bz.contact')}</h3><div class="card bplist">${row('📞', t('bz.phone'), d.phone, true, d.phone ? 'tel:' + d.phone.replace(/[^\d+]/g, '') : '')}${row('💬', t('bz.wa'), waOk ? d.phone : '', true, waOk ? SCore.waLink(d.phone) : '')}${row('✉️', t('bz.email'), d.email, true, d.email ? 'mailto:' + d.email : '')}${row('📍', t('bz.city'), d.city, true)}${row('🛍️', t('bz.link'), has ? Store.link(c).replace(/^https?:\/\//, '') : '', true, has ? Store.link(c) : '')}</div>
+        <div class="btns"><button type="button" class="btn" data-act="bp-edit">✏️ ${t('bz.edit')}</button></div>
+        <h3>${t('bz.qr')}</h3><div class="card bpqr">${has ? `<canvas id="bp-qr" aria-label="${t('bz.qr')}"></canvas><p class="muted small">${t('bz.qrSub')}</p><div class="btns"><button type="button" class="btn" data-act="bp-qrdl">⬇ ${t('bz.qrDl')}</button></div>` : `<p class="muted">${t('bz.qrNone')}</p><button type="button" class="btn primary" data-act="store-open">🛍️ ${t('hub.contact')}</button>`}</div>
+      </div>`, () => { bpOn = false; }, true);
+    bpOn = true; bpPaint();
+  }
+  async function bpDownload(kind) {
+    let src = kind === 'title' ? ihCfg().slots.title : state.settings.bizLogo; if (!src) return;
+    const b = await (await fetch(src)).blob(); bcDownload(b, bcFile() + '-' + kind + '.png');
   }
 
   /* Full-screen editor: a big live preview of the invoice, a colour wheel, brightness, second colour. Opened from the Invoice design page. */
@@ -4018,6 +4127,28 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'lm-set': { if (!lm) return; const i = id.indexOf('='); lm[id.slice(0, i)] = id.slice(i + 1); const keepT = $('#lm-text'); document.querySelectorAll('[data-act=lm-set]').forEach((b) => { const j = b.dataset.id.indexOf('='); b.classList.toggle('on', lm[b.dataset.id.slice(0, j)] === b.dataset.id.slice(j + 1)); }); return lmPaint(); }
       case 'lm-use': return lmUse();
       case 'bc-open': return sheetCard();
+      case 'bc-auto': { const c = bcCfg(); c.fv = (c.fv + 1) % CardMaker.FRONT_N; c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
+      case 'bc-arrreset': { const c = bcCfg(); c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
+      case 'bc-sel': bcSel = id; return bcRefresh();
+      case 'bc-size': { const c = bcCfg(), bx = CardMaker.frontBoxes(c, bcData(), bcImages()), o = bx[bcSel]; if (!o) return; const k = Math.max(0.3, Math.min(2.5, Math.round(o.k * (Number(id) > 0 ? 1.12 : 0.89) * 100) / 100)); c.fpos = Object.assign({}, c.fpos); c.fpos[bcSel] = Object.assign({}, c.fpos[bcSel], { x: Math.round(o.x), y: Math.round(o.y), k }); bcSave(CardMaker.norm(c)); return bcRefresh(); }
+      case 'bp-open': return sheetBizProfile();
+      case 'mb-open': return mbOpen();
+      case 'mb-inv': return sheetMyInvoice();
+      case 'mb-card': return sheetMyCard();
+      case 'mb-logo': return sheetMyLogo();
+      case 'mb-style': closeSheet(); go({ tab: 'more', moreView: 'set-invdesign' }); window.scrollTo(0, 0); return render();
+      case 'ih-banner': ihOpenSecs = { banner: true }; return sheetHeader();
+      case 'sv-edit': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); return k === 'inv' ? sheetHeader() : sheetCard(); }
+      case 'sv-use': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); state.settings.invoiceDesign = 'custom'; save(); toast(t('ih.toast')); return svRedraw(); }
+      case 'sv-save': { const [k, n] = id.split(':'), el = document.querySelector('[data-svname="' + id + '"]'); svSave(k, Number(n), el && el.value.trim()); toast(t('ih.savedOk')); return svRedraw(); }
+      case 'sv-del': { const [k, n] = id.split(':'); return askCard(t('mb.delAsk'), { danger: true, ok: t('ih.delete') }).then((y) => { if (!y) return; state.settings[SVKEY[k]] = svList(k).filter((d) => d.slot !== Number(n)); ihPrune(); save(); svRedraw(); }); }
+      case 'sv-new': { const [k] = id.split(':'); if (k === 'inv') { ihSave(InvHeader.defaults()); return sheetHeader(); } bcSave(CardMaker.defaults()); return sheetCard(); }
+      case 'bp-edit': closeSheet(); go({ tab: 'more', moreView: 'set-business' }); window.scrollTo(0, 0); return render();
+      case 'bp-copy': return copyText(id).then((ok) => toast(ok ? t('bz.copied') : id));
+      case 'bp-dl': return bpDownload(id);
+      case 'bp-brand': return brandApply().then(() => { toast(t('bz.brandDone')); sheetBizProfile(); render(); }).catch(() => toast(t('bz.brandFail')));
+      case 'bp-qrdl': { const cv = bpQr(1000); if (cv) bcBlob(cv, 'image/png').then((b) => bcDownload(b, bcFile() + '-store-qr.png')); return; }
+      case 'bp-cardpdf': return bcMakePdf().then((b) => bcDownload(b, bcFile() + '-business-card.pdf'));
       case 'bc-tog': bcSet(id, !bcPath(id)); return bcRefresh();
       case 'bc-set': { const i = id.indexOf('='), p = id.slice(0, i), v = id.slice(i + 1); if (p === 'scheme') { bcSave(CardMaker.applyScheme(bcCfg(), v, InvHeader.colours(ihCfg()).head)); } else bcSet(p, v); return bcRefresh(); }
       case 'bc-side': bcSide = id; document.querySelectorAll('.bcside .chip').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return bcPaint();
@@ -4387,7 +4518,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (el.id === 'cr-zoom' && ihCr) { const ar = InvHeader.W / InvHeader.H, maxW = Math.min(ihCr.iw, ihCr.ih * ar), cx = ihCr.fx + ihCr.fw / 2, cy = ihCr.fy + ihCr.fw / ar / 2; ihCr.fw = maxW * Number(el.value) / 100; ihCr.fx = cx - ihCr.fw / 2; ihCr.fy = cy - ihCr.fw / ar / 2; ihCrClamp(); ihCrDraw(); return; }
     if (lm && el.id === 'lm-text') { lm.text = el.value.toUpperCase().replace(/\s/g, '').slice(0, 3) || 'B'; lmPaint(); return; }
     if (lm && (el.id === 'lm-bg' || el.id === 'lm-fg')) { lm[el.id === 'lm-bg' ? 'bg' : 'fg'] = el.value; lmPaint(); return; }
-    if (el.dataset.bc) { bcSet(el.dataset.bc, el.value); return; }
+    if (el.dataset.svname) { const [k, n] = el.dataset.svname.split(':'), d = svSlot(k, Number(n)); if (d) { d.name = el.value.slice(0, 30); save(); } return; }
+    if (el.dataset.bc) { let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.dataset.pct ? Math.round(v * 100) + '%' : Math.round(v * 100) / 100; } bcSet(el.dataset.bc, v); return; }
     if (el.dataset.ih) { const p = el.dataset.ih; let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = Math.round(v * 100) / 100; } ihSet(p, v); return; }
     if (el.dataset.invfs) { invFsHsv.v = Number(el.value) / 100; drawWheel($('#invwheel'), invFsHsv.v); invFsApply(); return; }
     if (el.dataset.bandprice) { const c = storeCfg(); storeSet({ bands: c.bands.map((b) => (b.id === el.dataset.bandprice ? Object.assign({}, b, { price: parseAmt(el.value) }) : b)) }); return; }
