@@ -259,7 +259,7 @@
   const fold = (s) => norm(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
   const enPlural = (w) => { const a = String(w).split(' '), l = a[a.length - 1]; a[a.length - 1] = /(s|x|z|ch|sh)$/i.test(l) ? l + 'es' : /[^aeiou]y$/i.test(l) ? l.slice(0, -1) + 'ies' : l + 's'; return a.join(' '); };
   const NUMEN = {}; Object.keys(NUM).forEach((k) => { NUMEN[fold(NUM[k])] = k; });
-  const ALIASES = [['vestido de baño', 'swimsuit', 'vestidos de baño'], ['bañador', 'swimsuit', 'bañadores'], ['traje de baño de una pieza', 'one piece swimsuit']], MAT = [['plata', 'silver'], ['oro', 'gold']];
+  const ALIASES = [['vestido de baño', 'swimsuit', 'vestidos de baño'], ['bañador', 'swimsuit', 'bañadores'], ['traje de baño de una pieza', 'one piece swimsuit'], ['juego', 'set', 'juegos'], ['set', 'set', 'sets'], ['juego de bisutería', 'jewelry set', 'juegos de bisutería'], ['juego de bisuteria', 'jewelry set', 'juegos de bisuteria'], ['bisutería', 'jewelry set', 'bisuterías']], MAT = [['plata', 'silver'], ['oro', 'gold']];
   const revCache = new WeakMap();
   const reverse = (words) => {
     const arr = words || []; if (revCache.has(arr)) return revCache.get(arr);
@@ -325,7 +325,7 @@
       if (it.k === 'post') { np.post.push(it.text); np.tail = it.tail; return; }
       if (it.k === 'l' || it.k === 'u') { np.r.push(it.text); np.tail = it.tail; return; }
       if (it.kind === 'n') {
-        if (it.via === 'de' && np.head) { np.nm.push(it.pl && !it.w.pl ? enPlural(it.w.en) : it.w.en); np.tail = it.tail; return; }
+        if (it.via === 'de' && np.head) { np.nm.push(it.w.en); np.tail = it.tail; return; }
         if (np.head) { flush(); np = fresh(); }
         np.head = it; np.tail = it.tail; return;
       }

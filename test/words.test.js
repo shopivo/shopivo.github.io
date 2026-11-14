@@ -81,6 +81,8 @@ console.log('words tests passed: ' + CASES.length + ' example names');
   assert.strictEqual(back('Vestido de baño blanco').en, 'White swimsuit'); assert.strictEqual(back('Vestido de baño negro').en, 'Black swimsuit'); assert.strictEqual(back('Vestidos de baño negros').en, 'Black swimsuits'); assert.strictEqual(back('Bañador negro').en, 'Black swimsuit');
   assert.strictEqual(back('Tobillera de plata').en, 'Silver anklet'); assert.strictEqual(back('Pulsera de oro').en, 'Gold bracelet'); assert.deepStrictEqual(back('Vestido de baño blanco').missing, []);
   assert.strictEqual(W.translate('white swimsuit', words).es, 'Traje de baño blanco', 'English to Spanish still uses the first Spanish name');
+  // invoice INV00045: "Juego de pulsera" is a bracelet set, "Juego de bisutería" a jewelry set
+  assert.strictEqual(back('Juego de pulsera').en, 'Bracelet set'); assert.strictEqual(back('Juego de pulseras').en, 'Bracelet set'); assert.strictEqual(back('Juego de bisuteria').en, 'Jewelry set'); assert.strictEqual(back('Juego de bisutería').en, 'Jewelry set'); assert.deepStrictEqual(back('Juego de aretes').missing, []);
   const unk = back('Pantalones xyzabc'); assert.ok(unk.missing.includes('xyzabc') && /xyzabc/i.test(unk.en), 'an unknown word is kept and flagged');
   assert.strictEqual(back('').en, '');
   // what an English phone saved comes back the same way
