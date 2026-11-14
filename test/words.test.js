@@ -77,6 +77,10 @@ console.log('words tests passed: ' + CASES.length + ' example names');
   assert.strictEqual(back('Vestido negro XL').en, 'Black dress XL', 'a size goes after the thing');
   assert.strictEqual(back('Blusa azul talla M').en, 'Blue top size M');
   assert.strictEqual(back('Conjunto de 2 piezas negro').en, 'Black 2 piece set');
+  // invoice INV00044: "Vestido de baño" is a swimsuit too, and "de plata" / "de oro" are materials
+  assert.strictEqual(back('Vestido de baño blanco').en, 'White swimsuit'); assert.strictEqual(back('Vestido de baño negro').en, 'Black swimsuit'); assert.strictEqual(back('Vestidos de baño negros').en, 'Black swimsuits'); assert.strictEqual(back('Bañador negro').en, 'Black swimsuit');
+  assert.strictEqual(back('Tobillera de plata').en, 'Silver anklet'); assert.strictEqual(back('Pulsera de oro').en, 'Gold bracelet'); assert.deepStrictEqual(back('Vestido de baño blanco').missing, []);
+  assert.strictEqual(W.translate('white swimsuit', words).es, 'Traje de baño blanco', 'English to Spanish still uses the first Spanish name');
   const unk = back('Pantalones xyzabc'); assert.ok(unk.missing.includes('xyzabc') && /xyzabc/i.test(unk.en), 'an unknown word is kept and flagged');
   assert.strictEqual(back('').en, '');
   // what an English phone saved comes back the same way

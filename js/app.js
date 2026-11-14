@@ -860,15 +860,15 @@
       <button type="button" class="pkadd" data-act="zone-add" data-risk="1">＋ ${t('zn.hotAdd')}</button>${hot.length ? '' : `<button type="button" class="pkadd" data-act="zone-starter-hot">⚠️ ${t('zn.hotStarter')}</button><p class="muted small">${t('zn.hotStarterSub')}</p>`}</div>`, null, true);
   }
   const refreshHot = () => { const k = pageStack.length ? pageStack[pageStack.length - 1].key : ''; if (k.startsWith('storeloc|')) return sheetLocation(k.split('|')[1]); return refreshPick(); };
-  function openZone(id, risk, preset) {
+  function openZone(id, risk, preset, after) {
     const c = storeCfg(), z = id && id !== 'new' ? c.zones.find((x) => x.id === id) : null;
-    ZoneMap.open({ zones: c.zones, zone: z, risk: !!risk, preset: preset || null, T: { name: t('zn.name'), radius: t('zn.radius'), circle: t('zn.circle'), shape: t('zn.shape'), addCorner: t('zn.addCorner'), undo: t('zn.undo'), save: t('pp.save'), del: t('zn.del'), cancel: t('btn.cancel'), hint: t('zn.hint'), hintShape: t('zn.hintShape'), need: t('zn.need'), corners: t('zn.corners'), here: t('mp.here'), mapNoLib: t('mp.nolib'), risk: t('zn.riskLabel') },
+    ZoneMap.open({ zones: c.zones, zone: z, risk: !!risk, noRisk: !!after, preset: preset || null, T: { name: t('zn.name'), radius: t('zn.radius'), circle: t('zn.circle'), shape: t('zn.shape'), addCorner: t('zn.addCorner'), undo: t('zn.undo'), save: t('pp.save'), del: t('zn.del'), cancel: t('btn.cancel'), hint: t('zn.hint'), hintShape: t('zn.hintShape'), need: t('zn.need'), corners: t('zn.corners'), here: t('mp.here'), mapNoLib: t('mp.nolib'), risk: t('zn.riskLabel') },
       onSave: (nz) => {
         const cfg = storeCfg(), list = cfg.zones.slice(), i = list.findIndex((x) => x.id === nz.id), pl = preset && preset.place ? preset.place : (z && z.place) || '';
         if (nz.risk && pl) nz.place = pl;
         if (i >= 0) list[i] = nz; else list.push(nz);
         let locs = cfg.locations; if (nz.risk && pl) locs = locs.map((l) => (l.id === pl && l.risk ? Object.assign({}, l, { risk: false, off: false }) : l));   // an old "hidden" mark becomes the spot: the place shows again at its normal price
-        storeSet({ zones: list, locations: locs }); toast(t(nz.risk ? 'hot.saved' : 'zn.saved')); if ($('#sheet').hidden) return; const k = pageStack.length ? pageStack[pageStack.length - 1].key : ''; if (k.startsWith('storeloc|') || k.startsWith('pz|') || k.startsWith('risk|') || k.startsWith('places|')) return refreshHot(); sheetZones();
+        storeSet({ zones: list, locations: locs }); toast(t(nz.risk ? 'hot.saved' : 'zn.saved')); if (after) return after(nz); if ($('#sheet').hidden) return; const k = pageStack.length ? pageStack[pageStack.length - 1].key : ''; if (k.startsWith('storeloc|') || k.startsWith('pz|') || k.startsWith('risk|') || k.startsWith('places|')) return refreshHot(); sheetZones();
       },
       onDelete: (zid) => askCard(t('zn.delAsk'), { danger: true, ok: t('zn.del') }).then((y) => { if (!y) return; storeSet({ zones: storeCfg().zones.filter((x) => x.id !== zid) }); PE.list(state).forEach((p) => { if (p.free && p.free.zones) p.free.zones = p.free.zones.filter((x) => x !== zid); }); save(); sheetZones(); }),
       onError: (m) => toast(m) });
@@ -2890,16 +2890,26 @@
   }
 
   // Edit a customer: name (changes it everywhere) and where they are from.
-  let clName = '', ceLang = '';
+  let clName = '', ceLang = '', ceDraft = null;   // ceDraft: what was typed while the place list or the map is open on top
+  const cePlaceHTML = (name, cur) => { const c = storeCfg(); return c.id ? `<input type="hidden" id="ce-loc" value="${esc(cur)}"><button type="button" class="placebtn" data-act="ce-loc" aria-haspopup="dialog"><span>${cur ? esc(cur) : `<i class="muted">${t('cust.placePick')}</i>`}</span><span class="chev">›</span></button>` : `<input id="ce-loc" value="${esc(cur)}" placeholder="${t('cust.placePh')}" autocomplete="off" enterkeyhint="done">`; };
   function sheetCustEdit(name) {
-    ceLang = savedLang(name);
+    ceLang = savedLang(name); if (ceDraft && ceDraft.for !== name) ceDraft = null;
+    const nmv = ceDraft ? ceDraft.name : name, locv = ceDraft ? ceDraft.loc : L.place(state, name);
     enterPage('custedit', name, () => sheetCustEdit(name));
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('cust.editTitle')}</b><small>${esc(name)}</small></div></div>
-      <div style="height:8px"></div><label for="ce-name">${t('cust.name')}</label><input id="ce-name" value="${esc(name)}" autocomplete="off" enterkeyhint="done">
-      <label for="ce-loc">📍 ${t('cust.location')}</label><input id="ce-loc" value="${esc(L.place(state, name))}" placeholder="${t('cust.placePh')}" autocomplete="off" enterkeyhint="done">
+      <div style="height:8px"></div><label for="ce-name">${t('cust.name')}</label><input id="ce-name" value="${esc(nmv)}" autocomplete="off" enterkeyhint="done">
+      <label>📍 ${t('cust.location')}</label>${cePlaceHTML(name, locv)}
       <div class="lg-field"><label>🗣️ ${t('cl.field')}</label><div class="lg-seg"><button type="button" class="${ceLang === '' ? 'on' : ''}" data-act="ce-lang" data-id="">${t('inv.auto')}</button><button type="button" class="${ceLang === 'en' ? 'on' : ''}" data-act="ce-lang" data-id="en">EN</button><button type="button" class="${ceLang === 'es' ? 'on' : ''}" data-act="ce-lang" data-id="es">ES</button></div></div>
       <p class="muted small" style="margin:10px 2px">${t('cust.renameNote')}</p>
-      <div class="btns"><button class="btn primary" data-act="cust-save" data-id="${esc(name)}">${t('btn.save')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, null, true);
+      <div class="btns"><button class="btn primary" data-act="cust-save" data-id="${esc(name)}">${t('btn.save')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, () => { if (!$('#sheet') || $('#sheet').hidden || !pageStack.some((p) => p.key.startsWith('custedit|'))) ceDraft = null; }, true);
+  }
+  // Tap the Location field: every saved place to pick from (search at the top), or Add location (map circle that becomes a new saved place).
+  function sheetCustPlace(name) {
+    const c = storeCfg(), cur = ceDraft ? ceDraft.loc : '', list = c.locations.slice().sort((a, b) => a.name.localeCompare(b.name));
+    openSmall(`<h3>📍 ${t('cust.location')}</h3><button type="button" class="pkadd" data-act="ce-add" style="margin:0 0 10px">＋ ${t('cust.addLoc')}</button>
+      <input type="search" id="ce-q" placeholder="${t('pl.search')}" autocomplete="off" enterkeyhint="search" style="margin-bottom:8px">
+      <div class="cepl" id="ce-list">${list.map((l) => `<button type="button" class="lpi ${cur.toLowerCase() === l.name.toLowerCase() ? 'on' : ''}" data-act="ce-pick" data-id="${esc(l.name)}" data-n="${esc(l.name.toLowerCase())}"><span>${esc(l.name)}</span>${cur.toLowerCase() === l.name.toLowerCase() ? '<b>✓</b>' : ''}</button>`).join('') || `<p class="muted small">${t('cust.noPlaces')}</p>`}</div>
+      ${cur ? `<button type="button" class="btn" data-act="ce-pick" data-id="" style="margin-top:8px;width:100%">${t('cust.placeClear')}</button>` : ''}`, 'small');
   }
 
   // A customer's page: who they are to the business (not an account). Summary, then every invoice with its items; tap an invoice to see it, tap a picture to see the item.
@@ -3330,6 +3340,7 @@
           <div class="btns"><button class="btn dsolid" id="xfer-go" data-act="xfer-go" disabled>${t('xfer.go')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card'); }); });
   }
   document.addEventListener('input', (e) => { if (e.target.id === 'ds-try') { const b = document.getElementById('ds-trybox'); if (b) b.innerHTML = dcTry(dset(), e.target.value); return; } if (e.target.id === 'sset-q') { filterSettings(e.target.value); return; } if (e.target.dataset && e.target.dataset.rg) { const g = (i) => parseAmt(($('#' + i) || {}).value), ex = $('#rg-ex'); if (ex) ex.textContent = rgExample(g('rg-base'), g('rg-free'), g('rg-perkm'), g('rg-cap')); return; } if (e.target.id === 'pl-q') { plQ = e.target.value; plSearch(); } else if (e.target.id === 'rp-q') { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('#rp-list .tkr').forEach((r) => { r.hidden = !!q && !(r.dataset.n || '').includes(q); }); } });
+  document.addEventListener('input', (e) => { if (e.target.id === 'ce-q') { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('#ce-list .lpi').forEach((r) => { r.hidden = !!q && !(r.dataset.n || '').includes(q); }); } });
   document.addEventListener('input', (e) => { if (e.target.id === 'xfer-in') { const b = $('#xfer-go'); if (b) b.disabled = e.target.value.trim().toUpperCase() !== 'TRANSFER'; } });
 
   /* ---------- notifications (the bell) ---------- */
@@ -4374,13 +4385,16 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'fee-pin': { const o = Store.orders().find((x) => x.id === id), pp = o && pinPlace(o); if (!pp) return; const fee = SCore.priceOf(storeCfg(), pp), cur = Number(o.deliveryPrice) || 0; return askCard(t('fee.pinAsk', { z: esc(pp.name), fee: money(fee), name: esc(o.name) }), { ok: t('fee.ok') }).then((y) => { if (!y) return; Store.patch(o.id, { deliveryPrice: fee, total: Math.round((Number(o.total) - cur + fee) * 100) / 100, feeChanged: true }).then(() => { toast(t('fee.done')); setTimeout(() => sheetOrder(o.id, true), 300); }).catch(() => toast(t('store.pubError'))); }); }
       case 'fee-charge': { const o = Store.orders().find((x) => x.id === id); if (!o) return; const fee = normalFee(o); return askCard(t('fee.ask', { fee: money(fee), name: esc(o.name) }), { ok: t('fee.ok') }).then((y) => { if (!y) return; Store.patch(o.id, { deliveryPrice: fee, total: Math.round((Number(o.total) + fee) * 100) / 100, feeChanged: true }).then(() => { toast(t('fee.done')); setTimeout(() => sheetOrder(o.id, true), 300); }).catch(() => toast(t('store.pubError'))); }); }
       case 'pf-free': case 'pf-free-places': case 'pf-number': case 'pf-nick-add': case 'pf-nick-del': case 'split-open': case 'merge-open': case 'merge-go': case 'split-go': return peopleAct(t_.dataset.act, id, t_);
-      case 'cust-edit': return sheetCustEdit(id);
+      case 'cust-edit': ceDraft = null; return sheetCustEdit(id);
+      case 'ce-loc': { const nm = ($('#ce-name') || {}).value, lc = ($('#ce-loc') || {}).value, key = (pageStack[pageStack.length - 1].key || '').split('|')[1]; ceDraft = { for: key, name: nm === undefined ? key : nm, loc: lc || '' }; return sheetCustPlace(key); }
+      case 'ce-pick': { if (!ceDraft) return; ceDraft.loc = id; return closeSheet(); }
+      case 'ce-add': { if (!ceDraft) return; const key = ceDraft.for; closeSheet(); return setTimeout(() => openZone('new', false, null, (nz) => { ceDraft.loc = nz.name; sheetCustEdit(key); }), 60); }
       case 'cust-call': case 'cust-wa': { const pr = PE.byKey(state, id), ph = pr && pr.phone; if (!ph) { toast(t('cc.noNum')); return sheetPhones(); } const wl = SCore.waLink(ph); if (t_.dataset.act === 'cust-wa') return void window.open(wl, '_blank', 'noopener'); window.location.href = 'tel:+' + wl.replace(/^.*wa\.me\//, ''); return; }
       case 'cust-lang': { clName = id; return sheetChoice(t('cl.popTitle', { who: esc(id) }), 'cl-set', savedLang(id) || 'auto', [['auto', t('cl.optAuto')], ['en', I.LANGS.en['lang.name'] + ' · EN'], ['es', I.LANGS.es['lang.name'] + ' · ES']], t('cl.popNote', { who: esc(id) })); }
       case 'cl-set': { setClientLang(clName, id === 'auto' ? '' : id); closeSheet(); return; }
       case 'ce-lang': { ceLang = id; document.querySelectorAll('#sheet .lg-seg button').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return; }
       case 'cust-save': {
-        const to = $('#ce-name').value, loc = $('#ce-loc').value;
+        const to = $('#ce-name').value, loc = $('#ce-loc').value; ceDraft = null;
         if (peopleOn) { const pr = PE.byKey(state, id), nm = L.cleanName(to); if (!pr || !nm) return toast(t('cust.saved')); pr.name = nm; L.setPlace(state, id, loc); setClientLang(id, ceLang); save(); pageStack = pageStack.filter((p) => p.key !== 'custedit|' + id && p.key !== 'customer|' + id); toast(t('cust.saved')); render(); return sheetCustomer(id); }
         const save2 = () => { try {
           const final = L.renameCustomer(state, id, to); L.setPlace(state, final, loc); if (clientKey(id) !== clientKey(final)) setClientLang(id, ''); setClientLang(final, ceLang); save(); tidyPhotos();
