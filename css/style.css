@@ -1619,3 +1619,7 @@ a.btn.navopen{display:flex;align-items:center;justify-content:center;gap:8px;tex
 .svslot .btns{display:flex;flex-wrap:wrap;gap:8px}
 .svslot .btns .btn{flex:1 1 40%}.svslot .btns .btn.primary{flex-basis:100%}
 .svslot .btns .btn[data-act=sv-del]{flex:0 0 56px}
+.placebtn{display:flex;align-items:center;justify-content:space-between;width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:16px;text-align:left;color:inherit}
+.cepl{max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:6px}
+.cepl .lpi{display:flex;justify-content:space-between;align-items:center;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:16px;color:inherit;text-align:left}
+.cepl .lpi.on{border-color:var(--brand)}

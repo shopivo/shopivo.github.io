@@ -100,6 +100,7 @@
       ['jacquard', 'jacquard'], ['brocade', 'brocado'], ['organza', 'organza'], ['taffeta', 'tafetán'], ['crepe', 'crepé'], ['georgette', 'georgette'], ['poplin', 'popelín'], ['twill', 'sarga'], ['tweed', 'tweed'], ['flannel', 'franela'], ['bamboo', 'bambú'], ['hemp', 'cáñamo'], ['modal', 'modal'], ['lycra', 'licra'],
       ['elastane', 'elastano'], ['neoprene', 'neopreno'], ['silicone', 'silicona'], ['glass', 'vidrio'], ['ceramic', 'cerámica'], ['stainless steel', 'acero inoxidable'], ['titanium', 'titanio'], ['brass', 'latón'], ['zinc alloy', 'aleación de zinc'], ['sterling silver', 'plata de ley'],
       ['gold plated', 'baño de oro'], ['silver plated', 'baño de plata'], ['crystal', 'cristal'], ['diamond', 'diamante']]),
+    N('clothes', [['swim shorts', 'short de baño', 'm', 0, 'shorts de baño'], ['bikini cover up', 'cubre bikini', 'm'], ['bikini top', 'top de bikini', 'm'], ['bikini bottoms', 'parte de abajo de bikini', 'f']]),
     P('styles', [['letter print', 'con estampado de letras'], ['letters print', 'con estampado de letras'], ['cartoon print', 'con estampado de caricaturas'], ['cartoon bear print', 'con estampado de osito'], ['bear print', 'con estampado de osos'], ['heart print', 'con estampado de corazones'],
       ['star print', 'con estampado de estrellas'], ['flower print', 'con estampado de flores'], ['tropical print', 'con estampado tropical'], ['leaf print', 'con estampado de hojas'], ['butterfly print', 'con estampado de mariposas'], ['logo print', 'con estampado de logo'], ['slogan print', 'con estampado de frase'],
       ['number print', 'con estampado de número'], ['graphic print', 'con estampado gráfico'], ['deep v neck', 'de cuello en V profundo'], ['deep v', 'de escote profundo'], ['lantern sleeve', 'de manga farol'], ['lantern sleeves', 'de manga farol'], ['balloon sleeve', 'de manga globo'], ['balloon sleeves', 'de manga globo'],
@@ -258,6 +259,7 @@
   const fold = (s) => norm(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
   const enPlural = (w) => { const a = String(w).split(' '), l = a[a.length - 1]; a[a.length - 1] = /(s|x|z|ch|sh)$/i.test(l) ? l + 'es' : /[^aeiou]y$/i.test(l) ? l.slice(0, -1) + 'ies' : l + 's'; return a.join(' '); };
   const NUMEN = {}; Object.keys(NUM).forEach((k) => { NUMEN[fold(NUM[k])] = k; });
+  const ALIASES = [['vestido de baño', 'swimsuit', 'vestidos de baño'], ['bañador', 'swimsuit', 'bañadores'], ['traje de baño de una pieza', 'one piece swimsuit']], MAT = [['plata', 'silver'], ['oro', 'gold']];
   const revCache = new WeakMap();
   const reverse = (words) => {
     const arr = words || []; if (revCache.has(arr)) return revCache.get(arr);
@@ -269,6 +271,9 @@
       else if (kind === 'a') { add(es, { w: x, kind: 'a' }); if (x.inv !== 'all') [['m', true], ['f', false], ['f', true]].forEach(([g, pl]) => add(agree(x, g, pl), { w: x, kind: 'a' })); }
       else add(es, { w: x, kind });
     });
+    // other Spanish names for a thing the list already has ("vestido de baño" is also a swimsuit)
+    ALIASES.forEach(([es, en, pe]) => { const w = arr.find((x) => norm(x.en) === norm(en) && kindOf(x) === 'n'); if (!w) return; add(es, { w, kind: 'n', pl: false }); add(pe || pluralPhrase(es), { w, kind: 'n', pl: true }); });
+    MAT.forEach(([es, en]) => { const w = arr.find((x) => norm(x.en) === norm(en)); if (w) add(es, { w, kind: 'm' }); });   // "de plata" is a material
     const r = { m, max }; revCache.set(arr, r); return r;
   };
   const toEnglish = (desc, words) => {
