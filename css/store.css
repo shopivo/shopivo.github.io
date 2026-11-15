@@ -181,3 +181,4 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);ba
 .lg.fit.rounded img{border-radius:22%;width:40px}
 .lg.fit.square img{border-radius:6px;width:40px}
 .lg.fit.wide img{border-radius:6px}
+.lg.fit.circle.whole img{object-fit:contain;padding:18%;background:#fff}
