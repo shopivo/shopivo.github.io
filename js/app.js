@@ -3755,6 +3755,10 @@
         add({ key: 'send:inv:' + v.no, grp: 'attn', ic: '📤', always: true, title: t('notif.updInv', { name: esc(clabel(v.client)) }), sub: t('notif.updInvSub', { no: v.no, old: prev.no }), go: ['view-inv', v.no] });
       });
       MO.list(state).forEach((o) => {   // My orders: it arrived (tell her), and the order invoice changed after you sent it
+        if (o.handedAt && !o.adopted && !o.cancelledAt && o.invoice) {   // handed over (not one brought in from an old invoice): remind her to send the invoice, like an online order
+          const lat = L.invoiceForward(state, o.invoice).slice(-1)[0], hd = new Date(o.handedAt).getTime();
+          if (lat && !lat.sentAt && !lat.void && hd > MO_INV_FROM && Date.now() - hd > 5 * 60000) add({ key: 'send:moinv:' + o.id + ':' + lat.no, grp: 'attn', ic: '📤', always: true, title: t('notif.sendInv', { name: esc(clabel(o.client)) }), sub: t('notif.sendInvSub', { code: esc(o.code), no: lat.no }), go: ['mo-open', o.id] });
+        }
         if (o.cancelledAt || o.handedAt) return; const st = MO.stage(state, o);
         if (st === 'arrived' && !o.arrivedMsgAt && o.phone) add({ key: 'moarr:' + o.id, grp: 'attn', ic: '📦', always: true, title: t('mo.notifArrived', { name: esc(clabel(o.client)) }), sub: esc(o.code) + ' · ' + moNum(o), go: ['mo-open', o.id], wa: o.id });
         if (MO.preState(state, o) === 'changed') add({ key: 'send:mo:' + o.id + ':' + (o.pre.sentSig || '').length + ':' + MO.total(o), grp: 'attn', ic: '📤', always: true, title: t('mo.notifPre', { name: esc(clabel(o.client)) }), sub: esc(o.code) + ' · ' + t('mo.invoice', { no: o.pre.no }), go: ['mo-open', o.id] });
@@ -3785,6 +3789,7 @@
   }
   const notifUnread = (n, seen) => n.always || !seen[n.key];
   const UPD_FROM = window.__updFrom || 1794600000000;   // updated-invoice reminders only for updates made after this was introduced
+  const MO_INV_FROM = window.__moInvFrom || 1794772800000;   // My orders: send-invoice reminders only for orders handed over after they were introduced
   const INV_FROM = window.__invFrom || 1794158226039;   // invoice reminders only for orders confirmed after the update that introduced them
   // the bell's tabs
   const NOTIF_TABS = [['orders', 'notif.tOrders'], ['invoices', 'notif.tInvoices'], ['team', 'notif.tTeam'], ['stock', 'notif.tStock'], ['store', 'notif.tStore'], ['other', 'notif.tOther']];
