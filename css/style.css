@@ -1623,3 +1623,19 @@ a.btn.navopen{display:flex;align-items:center;justify-content:center;gap:8px;tex
 .cepl{max-height:46vh;overflow:auto;display:flex;flex-direction:column;gap:6px}
 .cepl .lpi{display:flex;justify-content:space-between;align-items:center;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:16px;color:inherit;text-align:left}
 .cepl .lpi.on{border-color:var(--brand)}
+/* Order Log: select and delete */
+.ordtip{text-align:center;margin:0 2px 8px}
+.sth .ord.sm{position:relative}
+.sth .ord .ordck{display:none}
+.sth .ord.sm .ordck{display:grid;place-items:center;width:26px;height:26px;flex:none;border-radius:50%;border:2px solid var(--line);color:#fff;font-weight:900;font-size:15px}
+.sth .ord.sm .ic{display:none}
+.sth .ord.sm.sel{border-color:var(--brand);box-shadow:0 0 0 2px var(--brand) inset}
+.sth .ord.sm.sel .ordck{background:var(--brand);border-color:var(--brand)}
+.sth .ord.sm.nosel{opacity:.45}
+#ordselbar{position:fixed;top:0;left:0;right:0;z-index:70;display:flex;align-items:center;gap:12px;padding:var(--sat) 14px 0;min-height:calc(54px + var(--sat));background:var(--bar);color:#fff;box-shadow:0 3px 14px rgba(0,0,0,.28)}
+#ordselbar b{flex:1;font-size:19px}
+#ordselbar .x{background:none;border:0;color:#fff;font-size:24px;padding:4px 8px}
+#ordselbar .all{background:rgba(255,255,255,.2);color:#fff;border:0;border-radius:99px;padding:9px 15px;font-weight:800;font-size:15px}
+#ordseldel{position:fixed;left:0;right:0;bottom:0;z-index:70;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 16px);background:var(--bg);box-shadow:0 -8px 24px rgba(0,0,0,.25);text-align:center}
+#ordseldel .btn{width:100%}#ordseldel small{display:block;margin-top:6px;color:var(--muted)}
+body.ordselecting #view{padding-bottom:140px}
