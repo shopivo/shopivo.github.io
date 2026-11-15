@@ -386,6 +386,9 @@
     const hd = document.querySelector('.appbar').getBoundingClientRect(); m.style.top = (hd.bottom - 6) + 'px';
     document.body.appendChild(sc); document.body.appendChild(m);
   }
+  // The top bar can be taller than its minimum (a logo, a big status bar): sticky switches under it measure the real height so they sit right under it.
+  const hdrSync = () => { const h = document.querySelector('.appbar'); if (h) document.documentElement.style.setProperty('--hdrh', Math.round(h.getBoundingClientRect().height) + 'px'); };
+  window.addEventListener('resize', hdrSync);
   function render() {
     document.documentElement.classList.toggle('invsq', invSquare());   // square invoice corners also show on the banner pictures and saved designs
     if ($('#tsearch') && tsKey !== tab + '|' + moreView) closeTopSearch(true);
@@ -406,7 +409,7 @@
     $('#view').innerHTML = (tab === 'home' ? installBanner() + signInBanner() + gdBanner() : '') + { home: Home, stock: Stock, sell: SellTab, people: People, promote: Promote, more: More }[tab]();
     if (chipX && $('.stchips')) $('.stchips').scrollLeft = chipX;
     gdSync();
-    renderActionBar();
+    renderActionBar(); hdrSync(); setTimeout(hdrSync, 250);
     syncHistory();
     showVersion();
     PUI.hydrate();

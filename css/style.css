@@ -1640,7 +1640,7 @@ a.btn.navopen{display:flex;align-items:center;justify-content:center;gap:8px;tex
 #ordseldel .btn{width:100%}#ordseldel small{display:block;margin-top:6px;color:var(--muted)}
 body.ordselecting #view{padding-bottom:140px}
 /* My orders */
-.mosw{position:sticky;top:calc(54px + var(--sat));z-index:6;background:var(--bg);padding:8px 0 6px;margin:0 0 4px}
+.mosw{position:sticky;top:var(--hdrh,calc(54px + var(--sat)));z-index:4;background:var(--bg);padding:8px 0 6px;margin:0 0 4px}
 .motag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--line);color:var(--ink)}
 .motag.wa{background:#d9f0e0;color:#1d6b3a}
 .obadge.mo{background:#7b5ea7;color:#fff}
