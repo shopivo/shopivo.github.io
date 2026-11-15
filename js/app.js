@@ -1579,11 +1579,12 @@
       <div class="cprow"><span id="cp-cur" class="cpcur" style="background:${cur}"></span><input id="cp-hex" type="text" value="${esc(String(cur).toUpperCase())}" maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
       <canvas id="cp-wheel" width="240" height="240"></canvas>
       <div class="ihr"><label>${t('ih.bright')}</label><input id="cp-val" type="range" min="5" max="100" value="${Math.round(cpV * 100)}"></div>
+      <div class="cphd">${t('ih.basics')}</div><div class="cpsws">${sw(['#ffffff', '#f2f2f2', '#bdbdbd', '#7a7a7a', '#333333', '#000000'])}</div>
       ${ban.length ? `<div class="cphd">${t('ih.fromBanner')}</div><div class="cpsws">${sw(ban)}</div>` : ''}
       ${rec.length ? `<div class="cphd">${t('ih.recentCols')}</div><div class="cpsws">${sw(rec)}</div>` : ''}
       <div class="btns">${tg.eye ? `<button type="button" class="btn" data-act="cp-eye">💧 ${t('ih.eye')}</button>` : ''}<button type="button" class="btn primary" data-act="close">${t('btn.done')}</button></div>`, 'card', onBack);
     cpWheel(); const cv = $('#cp-wheel');
-    const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); cpWheel(); cpUpdate(false); };
+    const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); if (cpS < 0.07) cpS = 0; cpWheel(); cpUpdate(false); };
     cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); at(e); cv._d = true; });
     cv.addEventListener('pointermove', (e) => { if (cv._d) at(e); });
     const end = () => { if (cv._d) { cv._d = false; cpUpdate(true); } }; cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
