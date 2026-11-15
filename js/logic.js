@@ -388,12 +388,14 @@
       profit: r2(profit), loss: r2(loss), landed, ref, status: paying + prev >= total ? 'Paid' : 'Owing' };
   };
 
+  // How many days after the invoice date a balance is due: one setting for every invoice (7 unless the owner changed it)
+  L.dueDays = (s) => { const n = Math.round(Number(s && s.settings && s.settings.dueDays)); return n >= 0 && n <= 365 ? n : 7; };
   L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero, orderId, no }) => {
     const p = L.previewInvoice(s, { itemIds, client, paying, allowZero, orderId });
     if (p.errors.length) throw fail(p.errors[0]);
     client = L.canonicalName(s, client);
     const d = date || new Date();
-    const due = new Date(d); due.setDate(due.getDate() + 7);
+    const due = new Date(d); due.setDate(due.getDate() + L.dueDays(s));
     const inv = {
       no: no || L.nextInvoiceNo(s), client, desc: p.lines.map((l) => l.desc).join(', '), lines: p.lines,
       total: r2(p.total), amountPaid: r2(p.paying), previouslyPaid: r2(p.prev), balance: r2(p.balance),

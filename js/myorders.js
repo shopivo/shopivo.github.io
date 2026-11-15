@@ -80,7 +80,7 @@
   MO.makePre = (s, id, date) => { const o = MO.byId(s, id); if (!o || o.handedAt || o.cancelledAt) throw fail('moHanded'); if (o.pre) return o.pre; const n = parseInt(String(Lg().nextInvoiceNo(s)).replace(/\D/g, ''), 10); const no = Lg().nextInvoiceNo(s); s.settings = s.settings || {}; s.settings.invoiceSeq = Math.max(num(s.settings.invoiceSeq), n); o.pre = { no, date: (date || new Date()).toISOString() }; return o.pre; };
   MO.preInvoice = (s, o) => {
     if (!o || !o.pre) return null; const total = MO.total(o), paid = Math.min(total, MO.deposits(o)), fee = MO.fee(o);
-    const due = new Date(o.pre.date); due.setDate(due.getDate() + 7);
+    const due = new Date(o.pre.date); due.setDate(due.getDate() + Lg().dueDays(s));
     return { no: o.pre.no, client: o.client, desc: o.rows.map((r) => r.desc).join(', '), lines: o.rows.map((r) => ({ desc: r.desc, qty: 1, price: r.price })), total, amountPaid: paid, previouslyPaid: 0, balance: r2(total - paid), delivery: fee, date: o.pre.date, due: due.toISOString(), dueOn: 'delivery', pre: true, orderId: o.id, updatedBy: '', ref: '', sentAt: o.pre.sentAt || 0, qty: o.rows.length, profit: 0, loss: 0, tip: 0 };
   };
   MO.preByNo = (s, no) => MO.list(s).find((o) => o.pre && o.pre.no === no && !o.handedAt && !o.cancelledAt) || null;

@@ -1903,6 +1903,7 @@
       <form id="f-settings"><label>${t('set.bizName')}</label><input name="businessName" value="${esc(bizName())}" autocomplete="off">
       <label>${t('set.bizCity')}</label><input name="bizCity" value="${esc(s.bizCity || '')}" autocomplete="off"><div class="grid2"><div><label>${t('set.bizPhone')}</label><input name="bizPhone" type="text" inputmode="tel" value="${esc(s.bizPhone || '')}" autocomplete="off"></div><div><label>${t('set.bizEmail')}</label><input name="bizEmail" type="text" inputmode="email" value="${esc(s.bizEmail || '')}" autocomplete="off"></div></div><div class="grid2"><div><label>${t('set.year')}</label><input name="year" type="text" inputmode="numeric" value="${s.year}"></div>
       <div><label>${t('set.margin')}</label><input name="defaultMargin" type="text" inputmode="decimal" value="${s.defaultMargin}"></div></div>
+      <label>${t('set.dueDays')}</label><input name="dueDays" type="text" inputmode="numeric" value="${L.dueDays(state)}"><p class="muted small" style="margin:4px 0 0">${t('set.dueDaysNote')}</p>
       <label>${t('set.markup')}</label><input name="markup" type="text" inputmode="decimal" step="0.001" value="${s.markup}">
       ${['USD', 'EUR', 'GBP'].map((c) => `<label>${t('set.rate', { c })}</label><input name="${c}" type="text" inputmode="decimal" step="0.0001" value="${s.rates[c]}">`).join('')}
       <p class="muted small">${t('set.rateNote')}</p>
@@ -3432,6 +3433,7 @@
   // Delivered / Collected: asks first (a tap by mistake must not move the order on) and says where the order will go
   function finishHanded(id, got) {
     const po = Store.orders().find((x) => x.id === id); if (!po) return;
+    { const pp = L.orderPay(state, orderInvoice(po)), lv = pp && state.invoices.find((v) => v.no === pp.inv); if (lv && !lv.updatedBy && pp.owing > 0) { const dd = new Date(); dd.setDate(dd.getDate() + L.dueDays(state)); lv.due = dd.toISOString(); save(); } }
     const dl = po.option === 'delivery', ow = Math.max(0, ((L.orderPay(state, orderInvoice(po)) || {}).owing || 0) - (got || 0)), how = dl ? t('ord.delivered') : t('ord.collected');
     Store.setStatus(id, 'done', tripsOf(po).length ? { trips: tripsOf(po).concat({ at: Date.now(), ids: toHand(po).map((i) => i.id) }) } : undefined).then(() => { ordDirty = true; toast(ow > 0 ? t('ord.toastHanded', { how, amount: plain(money(ow)) }) : t('ord.toastDone', { how })); const here = pageStack.length && pageStack[pageStack.length - 1].key === 'order|' + id; if (here) setTimeout(() => { sheetOrder(id, true); if (ow <= 0 && pageStack.length > 1) pageStack = pageStack.slice(-1); }, 450); else setTimeout(() => sheetOrder(id), 450); }).catch(() => toast(t('store.pubError')));
   }
@@ -4755,7 +4757,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (f.id === 'f-clear') { let failed = false; const wasOpen = clearOpen.has(d.batch); clearOpen.delete(d.batch); run(() => { try { return L.payClearing(state, d.batch, d.amount); } catch (err2) { failed = true; throw err2; } }, t('clear.recorded', { id: bl(d.batch) }), true); if (!failed) sheetBatch(d.batch); else if (wasOpen) clearOpen.add(d.batch); }
     if (f.id === 'f-receive') return askReceived(d.batch);
     if (f.id === 'f-settings') run(() => {
-      Object.assign(state.settings, { businessName: /^b-?ruiz$/i.test((d.businessName || '').trim()) ? '' : (d.businessName || '').trim(), bizCity: (d.bizCity || '').trim(), bizPhone: (d.bizPhone || '').trim(), bizEmail: (d.bizEmail || '').trim(), year: +d.year || state.settings.year, markup: +d.markup || 1, defaultMargin: d.defaultMargin === '' ? 100 : +d.defaultMargin });
+      Object.assign(state.settings, { businessName: /^b-?ruiz$/i.test((d.businessName || '').trim()) ? '' : (d.businessName || '').trim(), bizCity: (d.bizCity || '').trim(), bizPhone: (d.bizPhone || '').trim(), bizEmail: (d.bizEmail || '').trim(), year: +d.year || state.settings.year, dueDays: d.dueDays === '' || d.dueDays == null ? 7 : Math.max(0, Math.min(365, Math.round(+d.dueDays) || 0)), markup: +d.markup || 1, defaultMargin: d.defaultMargin === '' ? 100 : +d.defaultMargin });
       ['USD', 'EUR', 'GBP'].forEach((c) => { state.settings.rates[c] = +d[c] || state.settings.rates[c]; });
     }, t('set.saved'), true);
   });
