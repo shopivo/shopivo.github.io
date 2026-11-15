@@ -1704,3 +1704,13 @@ html[data-theme=dark] .roomwarn.mid,html[data-theme=dark] .roomnote.mid{backgrou
 a.btn{display:flex!important;align-items:center;justify-content:center;text-align:center;text-decoration:none}a.btn:not(.primary){color:var(--ink)}
 #planlock{display:flex;overflow-y:auto;-webkit-overflow-scrolling:touch}#planlock .plcard{margin:auto;padding:12px 0}
 .feebox{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}.feebox>b{display:block;margin-bottom:6px}.feerow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}.feerow small,.feebox>small{color:var(--mute);display:block;margin-bottom:2px}
+.itbd{background:var(--bad,#e8472f);color:#fff;border-radius:99px;padding:1px 7px;margin-left:6px;font-size:12px}.itbar .moshort{flex:1.1 1 0}
+/* Modern choice pop-ups (New, Sell an item): roomy rows, nothing clipped */
+.sheet.card{padding:24px 18px 18px;border-radius:26px;max-width:380px}
+.sheet.card h3{font-size:22px;font-weight:800;letter-spacing:-.01em;margin:0 2px 14px}
+.sheet.card .btns{gap:10px!important}
+.sheet.card .btns .btn.sich{height:auto;min-height:60px;padding:14px 44px 14px 16px;border-radius:18px;text-align:left;position:relative;box-shadow:none;border:1px solid var(--line);background:var(--card);color:var(--text,inherit);line-height:1.25}
+.sheet.card .btns .btn.sich.primary{background:var(--brand);border-color:var(--brand);color:#fff}
+.sheet.card .btns .btn.sich::after{content:"›";position:absolute;right:16px;top:50%;transform:translateY(-52%);font-size:26px;opacity:.5;font-weight:400}
+.sheet.card .btns .btn.sich b{font-size:16px;font-weight:700}
+.sheet.card .btns .btn.sich small{font-size:13.5px;line-height:1.35;margin-top:3px;opacity:.8;white-space:normal}
