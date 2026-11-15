@@ -11,7 +11,7 @@
   const pics = new Map();
   const cfg = () => SC.norm(A.state().settings.store);
   // Items inside an order nobody has answered yet: they are held back from the store until the order is accepted (then they are sold) or declined.
-  const reserved = () => orders.filter((o) => o.status === 'new').flatMap((o) => (o.items || []).map((i) => i.id)).filter(Boolean);
+  const reserved = () => orders.filter((o) => o.status === 'new').flatMap((o) => (o.items || []).map((i) => i.id)).filter(Boolean).concat(((A && A.state && A.state().items) || []).filter((i) => i.reservedFor).map((i) => i.id));   // plus what is kept for My orders (hidden from the store until handed over)
   const link = (c) => { c = c || cfg(); const id = c.slug || c.id; return id ? new URL('store.html?s=' + id, location.href).href : ''; };
   // Claims a short link name for this store (names/{name} points at the store). Resolves '' when done, or a reason: short, chars, reserved, taken, offline.
   async function claim(name) {

@@ -16,6 +16,7 @@
     ['batches', 'items', 'invoices'].forEach((c) => (s[c] || []).forEach((o) => { out[c][KEY[c](o)] = JSON.stringify(o); }));
     out.meta.settings = JSON.stringify(s.settings || {});
     out.meta.customers = JSON.stringify({ list: s.customers || [] });
+    if ((s.myOrders || []).length || s.myOrdersUsed) out.meta.myorders = JSON.stringify({ list: s.myOrders || [], credits: s.myCredits || {} });   // the owner's own orders (My orders), one small document
     if (s.people) out.meta.people = JSON.stringify({ v: s.peopleV || 1, people: s.people, decisions: s.decisions || [] });   // customers as people (numbers, nicknames, decisions)
     return out;
   };
@@ -27,7 +28,7 @@
     if (col === 'meta') {
       if (json == null) return;
       const o = JSON.parse(json);
-      if (id === 'settings') s.settings = Object.assign({}, s.settings, o); else if (id === 'customers') s.customers = o.list || []; else if (id === 'people') { s.people = o.people || []; s.decisions = o.decisions || []; s.peopleV = o.v || 1; }
+      if (id === 'settings') s.settings = Object.assign({}, s.settings, o); else if (id === 'customers') s.customers = o.list || []; else if (id === 'myorders') { s.myOrders = o.list || []; s.myCredits = o.credits || {}; s.myOrdersUsed = true; } else if (id === 'people') { s.people = o.people || []; s.decisions = o.decisions || []; s.peopleV = o.v || 1; }
       return;
     }
     const arr = s[col], i = arr.findIndex((o) => KEY[col](o) === id);
@@ -70,7 +71,7 @@
   // Empty the data (keeps settings): used when the cloud's copy replaces this phone's.
   // Treat this phone's current settings/customers as already known to the cloud (so the cloud's versions replace them).
   S.adoptMeta = (s, last) => { last.meta = S.docs(s).meta; };
-  S.clearData = (s) => { s.batches = []; s.items = []; s.invoices = []; s.customers = []; return s; };
+  S.clearData = (s) => { s.batches = []; s.items = []; s.invoices = []; s.customers = []; s.myOrders = []; s.myCredits = {}; return s; };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = S; else root.Sync = S;
 })(typeof window !== 'undefined' ? window : globalThis);
