@@ -1455,7 +1455,9 @@
   };
   const ihCfg = () => InvHeader.norm(InvHeader.fromKeys(state.settings.invHeader, state.settings.invPool));
   const ihPrune = () => { const p = state.settings.invPool; if (!p) return; InvHeader.prune(p, [state.settings.invHeader].concat((state.settings.invHeaderSaved || []).map((d) => d.cfg))); if (!Object.keys(p).length) delete state.settings.invPool; };
-  const ihImages = (cfg) => ({ logo: hdrImg(cfg.slots.logo || state.settings.bizLogo), title: hdrImg(cfg.slots.title), extra1: hdrImg(cfg.slots.extra1), extra2: hdrImg(cfg.slots.extra2), bg: hdrImg(cfg.bg.image.src) });
+  // On a white square or rounded tile the round logo from the saved set is used when there is one; otherwise the normal business logo
+  const hdrLogoSrc = (cfg) => cfg.slots.logo || (['square', 'rounded'].includes(cfg.items.logo.shape) && ((state.settings.bizLogoSet || []).find((x) => x.shape === 'circle') || {}).src) || state.settings.bizLogo;
+  const ihImages = (cfg) => ({ logo: hdrImg(hdrLogoSrc(cfg)), title: hdrImg(cfg.slots.title), extra1: hdrImg(cfg.slots.extra1), extra2: hdrImg(cfg.slots.extra2), bg: hdrImg(cfg.bg.image.src) });
   const ihInfo = () => { const s = state.settings, own = !!(s.businessName || s.bizCity || s.bizPhone || s.bizEmail); return { name: s.businessName || 'B.RUIZ', lines: own ? { city: s.bizCity, phone: s.bizPhone, email: s.bizEmail } : { city: 'Chaguanas', phone: '18683658857', email: 'berilexy.ruiz93@gmail.com' }, title: ti('doc.invoiceWord') }; };
   const ihSave = (cfg) => { state.settings.invPool = state.settings.invPool || {}; state.settings.invHeader = InvHeader.toKeys(cfg, state.settings.invPool); ihPrune(); save(); Object.keys(headCache).forEach((k) => delete headCache[k]); };
   // Once at start: move any pictures still stored inside designs into the shared pool and delete the ones nothing uses.
@@ -1474,7 +1476,7 @@
   const ihTxt = (path, label, ph) => `<div class="ihr"><label>${label}</label><input type="text" data-ih="${path}" value="${esc(InvHeader.getPath(ihCfg(), path) || '')}" placeholder="${esc(ph || '')}" autocomplete="off" maxlength="60"></div>`;
   const ihSec = (k, title, body) => `<details class="ihsec" data-ihk="${k}" ${ihOpenSecs[k] ? 'open' : ''}><summary>${title}</summary><div class="ihb">${body}</div></details>`;
   function ihPieceHTML(s, cfg) {
-    const it = cfg.items[s], src = s === 'logo' ? (cfg.slots.logo || state.settings.bizLogo) : cfg.slots[s];
+    const it = cfg.items[s], src = s === 'logo' ? hdrLogoSrc(cfg) : cfg.slots[s];
     const pic = `<div class="ihpic"><span class="ihth ${src ? '' : 'none'}">${src ? `<img src="${src}" alt="">` : '＋'}</span><div class="ihpb"><button type="button" class="btn" data-act="ih-slot" data-id="${s}">${src ? t('ih.replace') : t('ih.upload1')}</button>${cfg.slots[s] ? `<button type="button" class="btn" data-act="ih-clear" data-id="${s}">${t('ih.remove')}</button>` : ''}</div>${s === 'logo' && !cfg.slots.logo && state.settings.bizLogo ? `<small>${t('ih.useStore')}</small>` : ''}</div>`;
     const shape = ihChips(`items.${s}.shape`, t('ih.shape'), InvHeader.SHAPES.map((k) => [k, t('ih.sh.' + k)]));
     const adj = it.on ? `${shape}${ihRng(`items.${s}.size`, t('ih.size'), 20, 300)}${ihRng(`items.${s}.x`, t('ih.x'), -40, 760)}${ihRng(`items.${s}.y`, t('ih.y'), -40, 190)}${it.shape !== 'none' ? ihRng(`items.${s}.pad`, t('ih.pad'), 0, 30) + ihTog(`items.${s}.ring`, t('ih.ring')) + (it.ring ? ihCol(`items.${s}.ringColor`, t('ih.ringColor')) : '') : ''}${ihTog(`items.${s}.shadow`, t('ih.shadow'))}` : '';
@@ -1759,7 +1761,7 @@
   async function ihFromDesign(id) {
     const c = InvHeader.applyLayout(ihCfg(), 'A'), d = invDesign(id);
     c.bg.pattern.on = false; c.accent = '';
-    if (id === 'classic') { try { c.bg.type = 'image'; c.bg.image = { src: await fileData(BRAND.banner), tint: false, alpha: 0.55 }; } catch (e) { c.bg.type = 'solid'; c.bg.solid = '#f3e3ea'; } c.items.name.color = c.items.lines.color = c.items.invoice.color = '#111111'; }
+    if (id === 'classic') { try { c.bg.type = 'image'; c.bg.image = { src: await fileData(BRAND.banner), tint: false, alpha: 0.55 }; } catch (e) { c.bg.type = 'solid'; c.bg.solid = '#f3e3ea'; } c.items.name.color = c.items.lines.color = c.items.invoice.color = '#111111'; Object.assign(c.items.logo, { shape: 'square', pad: 7, size: 112, shadow: true }); }
     else { const hd = d.head || '#c79db5'; c.bg.type = 'solid'; c.bg.solid = hd; const rgb = /^#[0-9a-f]{6}$/i.test(hd) ? [1, 3, 5].map((i) => parseInt(hd.slice(i, i + 2), 16)) : [120, 90, 110], dark = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] < 150; c.items.name.color = c.items.lines.color = c.items.invoice.color = dark ? '#ffffff' : '#111111'; }
     state.settings.invoiceDesign = 'custom'; ihSave(InvHeader.norm(c)); toast(t('invd.editOpened')); sheetHeader();
   }
@@ -4443,7 +4445,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'ih-tog': { ihSet(id, !InvHeader.getPath(ihCfg(), id)); return ihRefresh(); }
-      case 'ih-set': { const i = id.indexOf('='), p = id.slice(0, i); let v = id.slice(i + 1); if (/^\d+$/.test(v) && /weight$/.test(p)) v = Number(v); ihSet(p, v); return ihRefresh(); }
+      case 'ih-set': { const i = id.indexOf('='), p = id.slice(0, i); let v = id.slice(i + 1); if (/^\d+$/.test(v) && /weight$/.test(p)) v = Number(v); ihSet(p, v); if (/^items\.(logo|title|extra1|extra2)\.shape$/.test(p) && (v === 'square' || v === 'rounded')) { const pp = p.replace('.shape', '.pad'), c0 = ihCfg(), key = p.split('.')[1]; if (c0.items[key].pad > 12) ihSet(pp, 7); } return ihRefresh(); }
       case 'ih-layout': ihSave(InvHeader.applyLayout(ihCfg(), id)); return ihRefresh();
       case 'ih-preset': ihSave(InvHeader.applyPreset(ihCfg(), id)); return ihRefresh();
       case 'ih-stop-add': { const c = ihCfg(), s = c.bg.grad.stops; if (s.length < 4) { const last = s[s.length - 1]; s.push({ c: InvHeader.mix(last.c, '#000000', 0.2), p: Math.min(1, last.p + 0.1) }); ihSave(InvHeader.norm(c)); } return ihRefresh(); }
