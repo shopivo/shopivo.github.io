@@ -29,4 +29,9 @@ assert.strictEqual(P.ms(new Date(5)), 5); assert.strictEqual(P.ms({ toMillis: ()
 assert.strictEqual(new Date(P.extend(now + 10 * D, now, 1)).getTime(), new Date(Date.UTC(2026, 11, 25)).getTime());
 assert.strictEqual(new Date(P.extend(null, Date.UTC(2026, 0, 31), 1)).toISOString().slice(0, 10), '2026-02-28');
 assert.strictEqual(new Date(P.extend(now - 40 * D, now, 12)).toISOString().slice(0, 10), '2027-11-15', 'an old end date starts from today');
+// payment helpers
+assert.strictEqual(P.ref('aB3-dE9fgh12345'), 'AB3DE9'); assert.strictEqual(P.ref(''), ''); assert.strictEqual(P.ref(null), '');
+assert.strictEqual(P.safeLink(' https://pay.example.com/x?a=1 '), 'https://pay.example.com/x?a=1');
+assert.strictEqual(P.safeLink('http://pay.example.com'), '', 'only secure links'); assert.strictEqual(P.safeLink('javascript:alert(1)'), ''); assert.strictEqual(P.safeLink('https://a b'), '');
+assert.strictEqual(P.waDigits('+1 (868) 555-0100'), '18685550100');
 console.log('plan tests passed');
