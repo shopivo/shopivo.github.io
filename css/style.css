@@ -1670,3 +1670,4 @@ body.ordselecting #view{padding-bottom:140px}
 .ovr .tp.ow b{color:var(--bad,#cf4b4b)}
 .sth .mosw .seg button,.sth .mosw .seg button.on{flex:1 1 0;width:auto}
 .sth .mosw .seg button.on{transform:none}
+.itbar .itsel{min-width:0;flex:1 1 0}.itbar .itgb{padding:0 12px;white-space:nowrap}.sheet.pick .bprow,.sheet.hdr .bprow{padding-left:22px!important;padding-right:22px!important}
