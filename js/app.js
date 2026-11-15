@@ -1667,23 +1667,47 @@
     g.clearRect(0, 0, cv.width, cv.height); g.drawImage(C.img, 0, 0, cv.width, cv.height); g.fillStyle = 'rgba(0,0,0,.55)'; g.fillRect(0, 0, cv.width, cv.height);
     g.save(); g.beginPath(); g.rect(C.fx * k, C.fy * k, C.fw * k, fh * k); g.clip(); g.drawImage(C.img, 0, 0, cv.width, cv.height); g.restore();
     g.strokeStyle = '#ffffff'; g.lineWidth = 2; g.strokeRect(C.fx * k, C.fy * k, C.fw * k, fh * k); g.fillStyle = '#ffffff'; [[0, 0], [1, 0], [0, 1], [1, 1]].forEach(([a, b]) => g.fillRect(C.fx * k + a * C.fw * k - 5, C.fy * k + b * fh * k - 5, 10, 10));
+    ihCrPrevSoon();
   }
+  // Sharpen (unsharp mask) and a gentle step-by-step enlarge for the banner piece.
+  function sharpenCanvas(cv, amount) {
+    const a = Math.max(0, Math.min(100, Number(amount) || 0)) / 100 * 1.3; if (!a) return cv;
+    const w = cv.width, h = cv.height, g = cv.getContext('2d'), im = g.getImageData(0, 0, w, h), d = im.data, src = new Uint8ClampedArray(d), tmp = new Float32Array(w * h * 3);
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {   // horizontal 3-tap blur
+      const o = (y * w + x) * 4, l = (y * w + Math.max(0, x - 1)) * 4, r = (y * w + Math.min(w - 1, x + 1)) * 4, t3 = (y * w + x) * 3;
+      for (let c = 0; c < 3; c++) tmp[t3 + c] = (src[l + c] + src[o + c] * 2 + src[r + c]) / 4;
+    }
+    for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {   // vertical 3-tap blur, then add back the difference
+      const o = (y * w + x) * 4, u = (Math.max(0, y - 1) * w + x) * 3, m = (y * w + x) * 3, b = (Math.min(h - 1, y + 1) * w + x) * 3;
+      for (let c = 0; c < 3; c++) { const blur = (tmp[u + c] + tmp[m + c] * 2 + tmp[b + c]) / 4; d[o + c] = src[o + c] + a * (src[o + c] - blur); }
+    }
+    g.putImageData(im, 0, 0); return cv;
+  }
+  function cropScaled(C, W, H) {
+    const ar = InvHeader.W / InvHeader.H, fh = C.fw / ar; let cur = document.createElement('canvas'); cur.width = Math.max(1, Math.round(C.fw)); cur.height = Math.max(1, Math.round(fh));
+    let g = cur.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(C.img, C.fx, C.fy, C.fw, fh, 0, 0, cur.width, cur.height);
+    while (cur.width * 1.5 < W) { const n = document.createElement('canvas'); n.width = Math.round(cur.width * 1.5); n.height = Math.round(cur.height * 1.5); const ng = n.getContext('2d'); ng.imageSmoothingQuality = 'high'; ng.drawImage(cur, 0, 0, n.width, n.height); cur = n; }
+    const out = document.createElement('canvas'); out.width = W; out.height = H; const og = out.getContext('2d'); og.fillStyle = '#ffffff'; og.fillRect(0, 0, W, H); og.imageSmoothingQuality = 'high'; og.drawImage(cur, 0, 0, W, H);
+    return sharpenCanvas(out, C.sharp);
+  }
+  let ihCrRaf = 0;
+  function ihCrPrevSoon() { cancelAnimationFrame(ihCrRaf); ihCrRaf = requestAnimationFrame(() => { const C = ihCr, cv = $('#cr-out'); if (!C || !cv) return; const o = cropScaled(C, 800, 190); cv.width = 800; cv.height = 190; cv.getContext('2d').drawImage(o, 0, 0); const info = $('#cr-info'); if (info) { const small = C.fw < 800; info.className = 'muted small' + (small ? ' crwarn' : ''); info.textContent = t(small ? 'ih.crop.small' : 'ih.crop.ok', { w: Math.round(C.fw) }); } }); }
   async function ihCropStart(f) {
     const url = URL.createObjectURL(f);
     try {
       const img = await new Promise((ok, no) => { const i = new Image(); i.onload = () => ok(i); i.onerror = () => no(new Error('img')); i.src = url; });
       const ar = InvHeader.W / InvHeader.H, maxW = Math.min(img.naturalWidth, img.naturalHeight * ar);
-      ihCr = { img, url, iw: img.naturalWidth, ih: img.naturalHeight, fw: maxW, fx: 0, fy: 0, drag: null }; ihCr.fx = (ihCr.iw - ihCr.fw) / 2; ihCr.fy = (ihCr.ih - ihCr.fw / ar) / 2;
+      ihCr = { img, url, iw: img.naturalWidth, ih: img.naturalHeight, fw: maxW, fx: 0, fy: 0, drag: null, sharp: 30 }; ihCr.fx = (ihCr.iw - ihCr.fw) / 2; ihCr.fy = (ihCr.ih - ihCr.fw / ar) / 2;
       const cw = Math.min(360, window.innerWidth - 56), chh = Math.round(cw * ihCr.ih / ihCr.iw);
       openSmall(`<h3>${t('ih.crop.title')}</h3><p class="muted small">${t('ih.crop.sub')}</p><canvas id="cr-cv" width="${cw}" height="${chh}" style="width:${cw}px;height:${chh}px;touch-action:none;border-radius:10px;display:block;margin:6px auto"></canvas>
-        <div class="ihr"><label>${t('ih.crop.size')}</label><input type="range" id="cr-zoom" min="15" max="100" step="1" value="100"></div><p class="muted small">${t('ih.crop.note')}</p>
+        <div class="ihr"><label>${t('ih.crop.size')}</label><input type="range" id="cr-zoom" min="15" max="100" step="1" value="100"></div><div class="ihr"><label>${t('ih.crop.sharp')}<b class="v">30</b></label><input type="range" id="cr-sharp" min="0" max="100" step="1" value="30"></div>
+        <div class="crprev"><small>${t('ih.crop.result')}</small><canvas id="cr-out" width="800" height="190"></canvas></div><p id="cr-info" class="muted small"></p><p class="muted small">${t('ih.crop.note')}</p>
         <div class="btns"><button class="btn primary" data-act="ihcr-go">${t('ih.crop.use')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet', () => { if (ihCr) { URL.revokeObjectURL(ihCr.url); ihCr = null; } });
       ihCrDraw();
     } catch (e) { URL.revokeObjectURL(url); toast(t('logo.err')); }
   }
   function ihCropOut() {
-    const C = ihCr, ar = InvHeader.W / InvHeader.H, fh = C.fw / ar, c = document.createElement('canvas'); c.width = 1600; c.height = 380; const g = c.getContext('2d');
-    g.fillStyle = '#ffffff'; g.fillRect(0, 0, c.width, c.height); g.imageSmoothingQuality = 'high'; g.drawImage(C.img, C.fx, C.fy, C.fw, fh, 0, 0, c.width, c.height);
+    const c = cropScaled(ihCr, 1600, 380);
     let q = 0.86, out = c.toDataURL('image/jpeg', q); while (out.length > 220000 && q > 0.5) { q -= 0.08; out = c.toDataURL('image/jpeg', q); }   // keep it small: only this piece is stored
     return out;
   }
@@ -5042,6 +5066,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   document.addEventListener('input', (e) => {
     const el = e.target;
     if (el.closest && el.closest('#tsearch')) { const pi = $(pageSearchSel()); if (pi) { pi.value = el.value; pi.dispatchEvent(new Event('input', { bubbles: true })); } return; }
+    if (el.id === 'cr-sharp' && ihCr) { ihCr.sharp = Number(el.value); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; ihCrPrevSoon(); return; }
     if (el.id === 'cr-zoom' && ihCr) { const ar = InvHeader.W / InvHeader.H, maxW = Math.min(ihCr.iw, ihCr.ih * ar), cx = ihCr.fx + ihCr.fw / 2, cy = ihCr.fy + ihCr.fw / ar / 2; ihCr.fw = maxW * Number(el.value) / 100; ihCr.fx = cx - ihCr.fw / 2; ihCr.fy = cy - ihCr.fw / ar / 2; ihCrClamp(); ihCrDraw(); return; }
     if (tm && (el.id === 'tm-name' || el.id === 'tm-sub')) { tm[el.id === 'tm-name' ? 'name' : 'sub'] = el.value; tmPaint(); return; }
     if (lm && el.id === 'lm-text') { lm.text = el.value.toUpperCase().replace(/\s/g, '').slice(0, 3) || 'B'; lmPaint(); return; }
