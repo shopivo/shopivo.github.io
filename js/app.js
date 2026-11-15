@@ -3433,21 +3433,21 @@
   function finishHanded(id, got) {
     const po = Store.orders().find((x) => x.id === id); if (!po) return;
     const dl = po.option === 'delivery', ow = Math.max(0, ((L.orderPay(state, orderInvoice(po)) || {}).owing || 0) - (got || 0)), how = dl ? t('ord.delivered') : t('ord.collected');
-    Store.setStatus(id, 'done', tripsOf(po).length ? { trips: tripsOf(po).concat({ at: Date.now(), ids: toHand(po).map((i) => i.id) }) } : undefined).then(() => { ordDirty = true; toast(ow > 0 ? t('ord.toastHanded', { how, amount: plain(money(ow)) }) : t('ord.toastDone', { how })); const here = pageStack.length && pageStack[pageStack.length - 1].key === 'order|' + id; if (here) setTimeout(() => { sheetOrder(id, true); if (ow <= 0 && pageStack.length > 1) pageStack = pageStack.slice(-1); }, 450); else dropPages('order|' + id); }).catch(() => toast(t('store.pubError')));
+    Store.setStatus(id, 'done', tripsOf(po).length ? { trips: tripsOf(po).concat({ at: Date.now(), ids: toHand(po).map((i) => i.id) }) } : undefined).then(() => { ordDirty = true; toast(ow > 0 ? t('ord.toastHanded', { how, amount: plain(money(ow)) }) : t('ord.toastDone', { how })); const here = pageStack.length && pageStack[pageStack.length - 1].key === 'order|' + id; if (here) setTimeout(() => { sheetOrder(id, true); if (ow <= 0 && pageStack.length > 1) pageStack = pageStack.slice(-1); }, 450); else setTimeout(() => sheetOrder(id), 450); }).catch(() => toast(t('store.pubError')));
   }
   // One hand-over for every order: online and My orders ask the same thing (how much did you receive now?) in the same pop-up
   function handInfo(kind, id, how) {
-    if (kind === 'mine') { const o = MO.byId(state, id); if (!o) return null; const p = MO.pay(state, o); return { code: o.code, total: p.total, paid: p.paid, owing: p.owing, how: how || o.option }; }
+    if (kind === 'mine') { const o = MO.byId(state, id); if (!o) return null; const p = MO.pay(state, o); return { code: o.code, name: clabel(o.client), total: p.total, paid: p.paid, owing: p.owing, how: how || o.option }; }
     const po = Store.orders().find((x) => x.id === id); if (!po) return null; const p = L.orderPay(state, orderInvoice(po)) || { total: Number(po.total) || 0, paid: 0, owing: Number(po.total) || 0 };
-    return { code: po.code || SCore.orderCode(po.id), total: p.total, paid: p.paid, owing: p.owing, how: how || po.option };
+    return { code: po.code || SCore.orderCode(po.id), name: po.name, total: p.total, paid: p.paid, owing: p.owing, how: how || po.option };
   }
   function handSheet(kind, id, how) {
     const h = handInfo(kind, id, how); if (!h) return; const dl = h.how === 'delivery';
-    openSmall(`<h3>${t(dl ? 'hand.tDel' : 'hand.tCol', { code: esc(h.code) })}</h3><p class="muted">${t('mo.handBody', { total: moneyText(h.total), dep: moneyText(h.paid), bal: moneyText(h.owing) })}</p><label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${h.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="hand-ok" data-kind="${kind}" data-id="${id}" data-how="${h.how}">${t(dl ? 'hand.okDel' : 'hand.okCol')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
+    openSmall(`<h3>${t(dl ? 'hand.tDel' : 'hand.tCol', { code: esc(h.code) })}</h3><p style="margin:0 0 6px;font-weight:700">${esc(h.name || '')}</p><p class="muted">${t('mo.handBody', { total: moneyText(h.total), dep: moneyText(h.paid), bal: moneyText(h.owing) })}</p><label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${h.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="hand-ok" data-kind="${kind}" data-id="${id}" data-how="${h.how}">${t(dl ? 'hand.okDel' : 'hand.okCol')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
   }
   function handOk(kind, id, how) {
     const amt = parseAmt(($('#hand-recv') || {}).value);
-    if (kind === 'mine') { try { const inv = MO.handOver(state, id, { how, paidNow: amt }); if (sharedBusiness()) inv.by = myName(); closeSheet(); toast(t('mo.handDone', { no: inv.no })); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+    if (kind === 'mine') { try { const inv = MO.handOver(state, id, { how, paidNow: amt }); if (sharedBusiness()) inv.by = myName(); closeSheet(); toast(t('mo.handDone', { no: inv.no })); save(); render(); return setTimeout(() => sheetMyOrder(id), 80); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
     const po = Store.orders().find((x) => x.id === id); if (!po) return; let got = 0;
     if (amt > 0) { try { const pay = L.orderPay(state, orderInvoice(po)); const inv = L.recordPayment(state, pay.inv, amt); if (sharedBusiness()) inv.by = myName(); got = amt; save(); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
     closeSheet(); return finishHanded(id, got);
