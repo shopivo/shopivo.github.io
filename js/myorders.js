@@ -17,13 +17,17 @@
   MO.itemOf = (s, row) => (row && row.itemId ? s.items.find((i) => i.id === row.itemId) || null : null);
   MO.reservedBy = (s, item) => (item && item.reservedFor ? MO.byId(s, item.reservedFor) : null);
 
+  // Is this item's batch still on its way? (a sold item no longer says In Transit itself, so the batch's received date tells)
+  MO.away = (s, it) => { const b = it && s.batches.find((x) => x.id === it.batchId); return !!b && b.status !== 'Closed' && (Lg().batchStatus(s, b) === 'In Transit' || (b.status === 'In Transit' && !b.dateReceived)); };
   // One row: ordered (typed, or its item is still in transit), arrived (its item is here), handed (given over).
-  MO.rowState = (s, o, row) => { if (o.handedAt) return 'handed'; const it = MO.itemOf(s, row); return !it || it.status === 'In Transit' ? 'ordered' : 'arrived'; };
+  MO.rowState = (s, o, row) => { if (o.handedAt) return 'handed'; const it = MO.itemOf(s, row);
+    if (o.adopted) { return it && MO.away(s, it) ? 'ordered' : 'arrived'; }   // an order made from an invoice: the item is already sold, so only its batch tells if it is here
+    return !it || it.status === 'In Transit' ? 'ordered' : 'arrived'; };
   MO.itemsTotal = (o) => r2((o.rows || []).reduce((n, r) => n + num(r.price), 0));
   MO.fee = (o) => (o.option === 'delivery' ? r2(Math.max(0, num(o.fee))) : 0);   // delivery fee (0 for pickup and for regulars with free delivery)
   MO.total = (o) => r2(MO.itemsTotal(o) + MO.fee(o));
   MO.deposits = (o) => r2((o.payments || []).reduce((n, p) => n + num(p.amount), 0));
-  MO.pay = (s, o) => { if (o.handedAt && o.invoice) { const p = Lg().orderPay(s, o.invoice); if (p) return { total: p.total, paid: p.paid, owing: p.owing }; } const t = MO.total(o), d = MO.deposits(o); return { total: t, paid: d, owing: r2(Math.max(0, t - d)) }; };
+  MO.pay = (s, o) => { if ((o.handedAt || o.adopted) && o.invoice) { const p = Lg().orderPay(s, o.invoice); if (p) return { total: p.total, paid: p.paid, owing: p.owing }; } const t = MO.total(o), d = MO.deposits(o); return { total: t, paid: d, owing: r2(Math.max(0, t - d)) }; };
   MO.stage = (s, o) => {
     if (o.cancelledAt) return 'done';
     if (o.handedAt) return MO.pay(s, o).owing > 0 ? 'handed' : 'done';
@@ -50,13 +54,13 @@
     } catch (e) { release(s, o); throw e; }   // all or nothing: a failed order keeps nothing reserved
     MO.list(s).push(o); s.myOrdersUsed = true; return o;   // myOrdersUsed: once there were orders, an empty list is still sent to the cloud
   };
-  MO.link = (s, id, idx, itemId) => { const o = MO.byId(s, id), r = o && o.rows[idx], it = s.items.find((i) => i.id === itemId); if (!o || !r || !it) throw fail('moNoItem'); if (o.handedAt) throw fail('moHanded'); reserve(s, o, it); const old = MO.itemOf(s, r); if (old && old.reservedFor === o.id) delete old.reservedFor; r.itemId = it.id; if (!r.desc) r.desc = it.desc; return o; };
-  MO.removeRow = (s, id, idx) => { const o = MO.byId(s, id); if (!o || o.handedAt) throw fail('moHanded'); if (o.rows.length < 2) throw fail('moLastRow'); const r = o.rows[idx], it = MO.itemOf(s, r); if (it && it.reservedFor === o.id) delete it.reservedFor; o.rows.splice(idx, 1); return o; };
-  MO.setFee = (s, id, fee) => { const o = MO.byId(s, id); if (!o || o.handedAt) throw fail('moHanded'); o.fee = r2(Math.max(0, num(fee))); return o; };
-  MO.setPrice = (s, id, idx, price) => { const o = MO.byId(s, id); if (!o || o.handedAt) throw fail('moHanded'); if (!(num(price) > 0)) throw fail('noPrice'); o.rows[idx].price = r2(num(price)); return o; };
-  MO.addPayment = (s, id, amount, date) => { const o = MO.byId(s, id); if (!o || o.handedAt || o.cancelledAt) throw fail('moHanded'); const a = num(amount); if (!(a > 0)) throw fail('noPaying'); if (a > MO.pay(s, o).owing + 0.005) throw fail('moTooMuch'); o.payments.push({ at: (date || new Date()).toISOString(), amount: r2(a) }); return o; };
+  MO.link = (s, id, idx, itemId) => { const o = MO.byId(s, id), r = o && o.rows[idx], it = s.items.find((i) => i.id === itemId); if (!o || !r || !it) throw fail('moNoItem'); if ((o.handedAt || o.adopted)) throw fail('moHanded'); reserve(s, o, it); const old = MO.itemOf(s, r); if (old && old.reservedFor === o.id) delete old.reservedFor; r.itemId = it.id; if (!r.desc) r.desc = it.desc; return o; };
+  MO.removeRow = (s, id, idx) => { const o = MO.byId(s, id); if (!o || (o.handedAt || o.adopted)) throw fail('moHanded'); if (o.rows.length < 2) throw fail('moLastRow'); const r = o.rows[idx], it = MO.itemOf(s, r); if (it && it.reservedFor === o.id) delete it.reservedFor; o.rows.splice(idx, 1); return o; };
+  MO.setFee = (s, id, fee) => { const o = MO.byId(s, id); if (!o || (o.handedAt || o.adopted)) throw fail('moHanded'); o.fee = r2(Math.max(0, num(fee))); return o; };
+  MO.setPrice = (s, id, idx, price) => { const o = MO.byId(s, id); if (!o || (o.handedAt || o.adopted)) throw fail('moHanded'); if (!(num(price) > 0)) throw fail('noPrice'); o.rows[idx].price = r2(num(price)); return o; };
+  MO.addPayment = (s, id, amount, date) => { const o = MO.byId(s, id); if (!o || (o.handedAt || o.adopted) || o.cancelledAt) throw fail('moHanded'); const a = num(amount); if (!(a > 0)) throw fail('noPaying'); if (a > MO.pay(s, o).owing + 0.005) throw fail('moTooMuch'); o.payments.push({ at: (date || new Date()).toISOString(), amount: r2(a) }); return o; };
   // what: 'refund' (the deposit goes back to her) or 'credit' (it stays with you as credit for her next order). Without a deposit it does not matter.
-  MO.cancel = (s, id, what, date) => { const o = MO.byId(s, id); if (!o || o.handedAt) throw fail('moHanded'); const dep = MO.deposits(o); release(s, o); o.cancelledAt = (date || new Date()).toISOString();
+  MO.cancel = (s, id, what, date) => { const o = MO.byId(s, id); if (!o || o.handedAt || o.adopted) throw fail('moHanded'); const dep = MO.deposits(o); release(s, o); o.cancelledAt = (date || new Date()).toISOString();
     if (dep > 0) { if (what === 'credit') { (s.myCredits = s.myCredits || {})[o.client] = r2(MO.credit(s, o.client) + dep); o.depositTo = 'credit'; } else { o.depositTo = 'refund'; } }
     return o; };
   MO.remove = (s, id) => { const o = MO.byId(s, id); if (!o) return; release(s, o); s.myOrders = MO.list(s).filter((x) => x.id !== id); };
@@ -66,6 +70,11 @@
   MO.handOver = (s, id, { how, paidNow, date }) => {
     const o = MO.byId(s, id); if (!o || o.cancelledAt) throw fail('moNoItem'); if (o.handedAt) throw fail('moHanded');
     if (MO.stage(s, o) !== 'arrived') throw fail('moNotArrived');
+    if (o.adopted && o.invoice) {   // made from an invoice: the sale is already on it, so hand over only marks it given and takes any payment on that invoice
+      const d0 = date || new Date(), pn = Math.max(0, num(paidNow)), pay = MO.pay(s, o); let inv = Lg().invoiceForward(s, o.invoice).slice(-1)[0];
+      if (pn > 0) { if (pn > pay.owing + 0.005) throw fail('moTooMuch'); inv = Lg().recordPayment(s, inv.no, pn, d0); }
+      o.handedAt = d0.toISOString(); o.how = how === 'pickup' ? 'pickup' : 'delivery'; return inv;
+    }
     const items = o.rows.map((r) => MO.itemOf(s, r)); items.forEach((it, n) => { it.price = o.rows[n].price; it.saleOn = false; it.discount = 0; it.delivery = 0; }); if (MO.fee(o) > 0) items[0].delivery = MO.fee(o);
     const total = MO.total(o), paying = r2(Math.min(total, MO.deposits(o) + Math.max(0, num(paidNow))));
     const inv = Lg().createInvoice(s, { itemIds: items.map((i) => i.id), client: o.client, paying, allowZero: true, date: date || new Date(), orderId: o.id, no: o.pre && !s.invoices.some((v) => v.no === o.pre.no) ? o.pre.no : undefined });
@@ -77,7 +86,7 @@
 
   // ---- the invoice you can send the moment you place the order. It has a real invoice number but it is NOT a sale yet: it lives on the order, outside the invoice log,
   // sales, profit and "owed". Handing over makes the real invoice with the same number.
-  MO.makePre = (s, id, date) => { const o = MO.byId(s, id); if (!o || o.handedAt || o.cancelledAt) throw fail('moHanded'); if (o.pre) return o.pre; const n = parseInt(String(Lg().nextInvoiceNo(s)).replace(/\D/g, ''), 10); const no = Lg().nextInvoiceNo(s); s.settings = s.settings || {}; s.settings.invoiceSeq = Math.max(num(s.settings.invoiceSeq), n); o.pre = { no, date: (date || new Date()).toISOString() }; return o.pre; };
+  MO.makePre = (s, id, date) => { const o = MO.byId(s, id); if (!o || o.handedAt || o.adopted || o.cancelledAt) throw fail('moHanded'); if (o.pre) return o.pre; const n = parseInt(String(Lg().nextInvoiceNo(s)).replace(/\D/g, ''), 10); const no = Lg().nextInvoiceNo(s); s.settings = s.settings || {}; s.settings.invoiceSeq = Math.max(num(s.settings.invoiceSeq), n); o.pre = { no, date: (date || new Date()).toISOString() }; return o.pre; };
   MO.preInvoice = (s, o) => {
     if (!o || !o.pre) return null; const total = MO.total(o), paid = Math.min(total, MO.deposits(o)), fee = MO.fee(o);
     const due = new Date(o.pre.date); due.setDate(due.getDate() + Lg().dueDays(s));
@@ -90,7 +99,7 @@
 
   // One item is late: the items that are here become their own order (the one you hand over now), the late ones go to a new order that keeps waiting.
   MO.split = (s, id) => {
-    const o = MO.byId(s, id); if (!o || o.handedAt || o.cancelledAt) throw fail('moHanded');
+    const o = MO.byId(s, id); if (!o || o.handedAt || o.adopted || o.cancelledAt) throw fail('moHanded');
     const here = o.rows.filter((r) => MO.rowState(s, o, r) === 'arrived'), late = o.rows.filter((r) => MO.rowState(s, o, r) !== 'arrived'); if (!here.length || !late.length) throw fail('moNothingToSplit');
     const n = { id: newId(), code: MO.nextCode(s), client: o.client, phone: o.phone, option: o.option, place: o.place, note: o.note, tag: o.tag, fee: 0, lat: o.lat == null ? null : o.lat, lng: o.lng == null ? null : o.lng, createdAt: new Date().toISOString(), rows: late, payments: [], invoice: '', handedAt: '', splitFrom: o.id };
     o.rows = here; MO.list(s).push(n);
@@ -99,6 +108,41 @@
     if (over > 0) { let left = over; const keep = []; (o.payments || []).slice().reverse().forEach((p) => { if (left <= 0) { keep.unshift(p); return; } const take = Math.min(left, num(p.amount)); left = r2(left - take); if (take > 0) n.payments.push({ at: p.at, amount: r2(take), credit: p.credit }); if (num(p.amount) - take > 0.004) keep.unshift(Object.assign({}, p, { amount: r2(num(p.amount) - take) })); }); o.payments = keep; }
     s.myOrdersUsed = true; return n;
   };
+
+  // ---- Bring in the invoices you already have: each purchase (an invoice and the later invoices that updated it) becomes one order that points at it.
+  // Nothing new is sold and no invoice is made, so sales, profit and "owed" do not change. Paid -> completed, owing -> handed over,
+  // sold from a batch still on its way -> ordered (arrived once the batch is received). opts: { skip: invoice numbers that belong to online orders, phoneOf(name) }.
+  MO.adoptPlan = (s, opts) => {
+    opts = opts || {}; const skip = new Set(opts.skip || []), have = new Set(), out = []; let voided = 0, online = 0;
+    MO.list(s).forEach((o) => { if (o.invoice) Lg().invoiceForward(s, o.invoice).forEach((v) => have.add(v.no)); });
+    s.invoices.forEach((root) => {
+      if (root.ref && s.invoices.some((v) => v.no === root.ref)) return;   // a later payment on an earlier purchase: counted with its first invoice
+      const chain = Lg().invoiceForward(s, root.no), head = chain[chain.length - 1];
+      if (chain.some((v) => have.has(v.no))) return;
+      if (chain.some((v) => skip.has(v.no))) { online++; return; }
+      if (head.void || chain.some((v) => v.void)) { voided++; return; }
+      let items = s.items.filter((i) => i.invoice === head.no); if (!items.length) items = s.items.filter((i) => chain.some((v) => v.no === i.invoice));
+      const rows = items.length ? items.map((i) => ({ itemId: i.id, desc: ((i.desc || '').trim() + (i.size ? ' · ' + i.size : '')) || i.id, price: r2(num(i.sold) || Lg().effectivePrice(i)) }))
+        : (head.lines || []).reduce((a, l) => { for (let k = 0; k < Math.max(1, num(l.qty)); k++) a.push({ itemId: '', desc: String(l.desc || '').trim() || head.no, price: r2(num(l.price)) }); return a; }, []);
+      if (!rows.length) rows.push({ itemId: '', desc: head.desc || head.no, price: r2(num(head.total)) });
+      const away = items.some((i) => MO.away(s, i));
+      const pay = Lg().orderPay(s, root.no), stage = away ? 'ordered' : pay.owing > 0 ? 'handed' : 'done';
+      out.push({ root, head, rows, away, stage, owing: pay.owing, total: pay.total });
+    });
+    const counts = { ordered: 0, arrived: 0, handed: 0, done: 0 }; out.forEach((x) => { counts[x.stage]++; });
+    return { list: out, counts, count: out.length, voided, online };
+  };
+  MO.adopt = (s, opts) => {
+    opts = opts || {}; const plan = MO.adoptPlan(s, opts); const when = new Date().toISOString();
+    plan.list.forEach((x) => {
+      const fee = r2(Math.max(0, num(x.head.delivery))), cl = x.head.client;
+      MO.list(s).push({ id: newId(), code: MO.nextCode(s), client: cl, phone: String((opts.phoneOf && opts.phoneOf(cl)) || '').trim(), option: fee > 0 ? 'delivery' : 'pickup', place: '', note: '', tag: 'pre', fee,
+        createdAt: x.root.date || when, rows: x.rows, payments: [], invoice: x.root.no, handedAt: x.away ? '' : (x.root.date || when), how: fee > 0 ? 'delivery' : 'pickup', adopted: true, adoptedAt: when });
+    });
+    if (plan.count) s.myOrdersUsed = true; return plan;
+  };
+  MO.adoptedCount = (s) => MO.list(s).filter((o) => o.adopted).length;
+  MO.undoAdopt = (s) => { const n = MO.adoptedCount(s); s.myOrders = MO.list(s).filter((o) => !o.adopted); return n; };   // the invoices were never changed, so removing the orders loses nothing
 
   // A map link someone sent on WhatsApp -> { lat, lng }; { short: true } when it is a short link that only the internet can open; null when it is not a place.
   MO.parsePin = (text) => {
