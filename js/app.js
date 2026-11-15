@@ -3759,7 +3759,17 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (!list.length) return q ? `<div class="opanel"><div class="oempty"><span class="em">🔍</span><span>${t('ord.noMatch', { q: esc(q) })}</span></div></div>` : `<div class="opanel"><div class="oempty"><span class="em">📝</span><span>${t('mo.empty.' + moFilter)}</span><small>${t('mo.emptyHint.' + moFilter)}</small></div></div>`;
     return list.map(moRow).join('');
   }
-  function MyOrdersLog() { return `<div class="sth">${moSwitch()}<div class="oqbar"><span aria-hidden="true">🔍</span><input class="oq" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(t('ord.search'))}" value="${esc(moQ)}" aria-label="${esc(t('ord.search'))}"><button class="oqx" data-act="ord-q-clear" aria-label="${t('ord.clear')}" ${moQ ? '' : 'hidden'}>✕</button></div>${moHead()}<p class="muted small ordtip">${t('mo.intro')}${!ordSel && MO.list(state).some(moDeletable) ? ' · ' + t('mo.selTip') : ''}</p><div class="mop">${moPanel()}</div></div><button class="mofab" data-act="mo-new">＋ ${t('mo.new')}</button>`; }
+  // My orders: the same small summary as the online Order Log (to deliver, to collect, owed). Tapping a cell opens the matching tab.
+  function moOverview() {
+    let del = 0, col = 0, wait = 0, owed = 0, oldest = -1;
+    MO.list(state).forEach((o) => { if (o.cancelledAt) return; const st = MO.stage(state, o);
+      if (st === 'arrived') { if (o.option === 'delivery') del += o.rows.length; else col += o.rows.length; }
+      if (st === 'ordered') wait += o.rows.filter((r) => MO.rowState(state, o, r) === 'ordered').length;
+      if (st === 'handed') { const ow = MO.pay(state, o).owing; if (ow > 0) { owed += ow; const since = new Date(o.handedAt); if (!isNaN(since)) oldest = Math.max(oldest, Math.floor((Date.now() - since) / 864e5)); } } });
+    const arrTxt = wait ? tn('ov.arriving', wait) : '', oldTxt = oldest < 0 ? '' : oldest < 1 ? t('ov.oldestToday') : tn('ov.oldest', oldest);
+    return `<div class="ovc"><div class="ovr"><button type="button" class="tp" data-act="mo-ov" data-id="arrived"><small>${t('ov.toDeliver')}</small><b>${del}</b></button><button type="button" class="tp" data-act="mo-ov" data-id="arrived"><small>${t('ov.toCollect')}</small><b>${col}</b></button><div class="${owed > 0 ? 'ow' : ''}" data-act="mo-ov" data-id="handed" role="button" tabindex="0" style="cursor:pointer"><small>${t('ov.owed')}</small><b>${money(owed)}</b></div></div>${arrTxt || oldTxt ? `<div class="ovf"><span>${arrTxt ? '⏳ ' + arrTxt : ''}</span><span>${oldTxt}</span></div>` : ''}</div>`;
+  }
+  function MyOrdersLog() { return `<div class="sth">${moSwitch()}<div class="ordov">${moOverview()}</div><div class="oqbar"><span aria-hidden="true">🔍</span><input class="oq" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(t('ord.search'))}" value="${esc(moQ)}" aria-label="${esc(t('ord.search'))}"><button class="oqx" data-act="ord-q-clear" aria-label="${t('ord.clear')}" ${moQ ? '' : 'hidden'}>✕</button></div>${moHead()}<p class="muted small ordtip">${t('mo.intro')}${!ordSel && MO.list(state).some(moDeletable) ? ' · ' + t('mo.selTip') : ''}</p><div class="mop">${moPanel()}</div></div><button class="mofab" data-act="mo-new">＋ ${t('mo.new')}</button>`; }
   const moRedraw = () => { const p = $('.mop'); if (p && ordSource === 'mine') { p.innerHTML = moPanel(); const h = $('.ordseg'); if (h) { h.outerHTML = moHead(); const n = $('.ordseg'); if (n) n.hidden = !!moQ.trim(); } document.querySelectorAll('.oqx').forEach((e) => { e.hidden = !moQ; }); } };
 
   // ---- one order
@@ -4498,6 +4508,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'sell-later': closeSheet(); return setTimeout(() => { moDraft = moDraftNew('wa'); ordSource = 'mine'; sheetMyNew(); }, 60);
       case 'mo-src': ordSource = id; ordSel = null; moQ = ''; return render();
       case 'mo-filter': moFilter = id; return render();
+      case 'mo-ov': moFilter = id; moQ = ''; return render();
       case 'mo-open': return sheetMyOrder(id);
       case 'mo-new': return sheetMyNew();
       case 'mo-batch': return sheetMoBatch();

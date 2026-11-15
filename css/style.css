@@ -1666,3 +1666,7 @@ body.ordselecting #view{padding-bottom:140px}
 .moloc{display:flex;gap:8px}.moloc input{flex:1;min-width:0}.moloc .btn{width:auto;white-space:nowrap}
 .mopin{display:block;margin:4px 0}.mopin.bad{color:var(--bad,#cf4b4b)}
 .bpg .rw{display:flex;align-items:center;gap:10px}.bpg .rw .t{flex:1;min-width:0}
+.mosw .seg{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.mosw .seg button{width:100%;min-width:0;padding-left:0;padding-right:0}
+.ovr .tp.ow b{color:var(--bad,#cf4b4b)}
+.sth .mosw .seg button,.sth .mosw .seg button.on{flex:1 1 0;width:auto}
+.sth .mosw .seg button.on{transform:none}
