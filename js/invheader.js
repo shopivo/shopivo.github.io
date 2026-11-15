@@ -8,7 +8,7 @@
   const mix = (hex, to, k) => { const a = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)), b = [1, 3, 5].map((i) => parseInt(to.slice(i, i + 2), 16)); return '#' + a.map((v, i) => Math.round(v + (b[i] - v) * k).toString(16).padStart(2, '0')).join(''); };
   const lum = (hex) => { const [r, g, b] = [1, 3, 5].map((i) => parseInt(hex.slice(i, i + 2), 16)); return 0.299 * r + 0.587 * g + 0.114 * b; };
 
-  const piece = (o) => Object.assign({ on: false, x: 38, y: 36, size: 100, shape: 'circle', pad: 16, shadow: true, ring: false, ringColor: '#6d1230', bubble: '#ffffff' }, o || {});
+  const piece = (o) => Object.assign({ on: false, x: 38, y: 36, size: 100, shape: 'circle', pad: 16, shadow: true, ring: false, ringColor: '#6d1230', border: false, borderW: 3, borderColor: '#ffffff', bubble: '#ffffff' }, o || {});
   const text = (o) => Object.assign({ on: true, x: 176, y: 72, size: 28, color: '#111111', weight: 700, text: '', align: 'left' }, o || {});
 
   const defaults = () => ({
@@ -54,7 +54,7 @@
 
   const num = (v, a, b, d) => (v === undefined || v === null || v === '' || !Number.isFinite(+v) ? d : clamp(v, a, b));
   const str = (v, d) => (typeof v === 'string' ? v : d);
-  const normPiece = (p, d) => { p = p || {}; return { on: !!(p.on !== undefined ? p.on : d.on), x: num(p.x, -200, 1000, d.x), y: num(p.y, -100, 300, d.y), size: num(p.size, 10, 400, d.size), shape: SHAPES.includes(p.shape) ? p.shape : d.shape, pad: num(p.pad, 0, 30, d.pad), shadow: p.shadow !== undefined ? !!p.shadow : d.shadow, ring: p.ring !== undefined ? !!p.ring : d.ring, ringColor: isHex(p.ringColor) ? p.ringColor : d.ringColor, bubble: isHex(p.bubble) ? p.bubble : d.bubble }; };
+  const normPiece = (p, d) => { p = p || {}; return { on: !!(p.on !== undefined ? p.on : d.on), x: num(p.x, -200, 1000, d.x), y: num(p.y, -100, 300, d.y), size: num(p.size, 10, 400, d.size), shape: SHAPES.includes(p.shape) ? p.shape : d.shape, pad: num(p.pad, 0, 30, d.pad), shadow: p.shadow !== undefined ? !!p.shadow : d.shadow, ring: p.ring !== undefined ? !!p.ring : d.ring, ringColor: isHex(p.ringColor) ? p.ringColor : d.ringColor, border: p.border !== undefined ? !!p.border : d.border, borderW: num(p.borderW, 1, 10, d.borderW), borderColor: isHex(p.borderColor) ? p.borderColor : d.borderColor, bubble: isHex(p.bubble) ? p.bubble : d.bubble }; };
   const normText = (p, d) => { p = p || {}; return { on: !!(p.on !== undefined ? p.on : d.on), x: num(p.x, -200, 1000, d.x), y: num(p.y, -100, 300, d.y), size: num(p.size, 6, 120, d.size), color: isHex(p.color) ? p.color : d.color, weight: [400, 600, 700, 900].includes(+p.weight) ? +p.weight : d.weight, text: str(p.text, d.text).slice(0, 60), align: ['left', 'center', 'right'].includes(p.align) ? p.align : d.align }; };
   function norm(c) {
     const d = defaults(); c = c || {};
@@ -150,6 +150,7 @@
     if (shapeFill) {
       const r = it.shape === 'circle' ? Math.min(b.w, b.h) / 2 : it.shape === 'rounded' ? Math.min(b.w, b.h) * 0.22 : 6;
       x.save(); if (it.shadow) { x.shadowColor = 'rgba(0,0,0,.28)'; x.shadowBlur = 8; x.shadowOffsetY = 2; }
+      if (it.border) { const w = it.borderW; x.fillStyle = it.borderColor; rr(x, it.x - w, it.y - w, b.w + w * 2, b.h + w * 2, r + w); x.fill(); x.shadowColor = 'transparent'; }
       x.fillStyle = it.bubble; rr(x, it.x, it.y, b.w, b.h, r); x.fill(); x.restore();
       if (it.ring) { x.save(); x.lineWidth = 3; x.strokeStyle = it.ringColor; rr(x, it.x + 1.5, it.y + 1.5, b.w - 3, b.h - 3, Math.max(0, r - 1.5)); x.stroke(); x.restore(); }
       const pad = (it.pad / 100) * Math.min(b.w, b.h), k = Math.min((b.w - pad * 2) / iw, (b.h - pad * 2) / ih);
