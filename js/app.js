@@ -2750,7 +2750,7 @@
         const L0 = 36, R0 = W - 36; let y = bannerH + 44;
         x.textBaseline = 'alphabetic';
         F('700', 16); x.fillStyle = INV.grey; x.textAlign = 'left'; x.fillText(ti('doc.billTo'), L0, y);
-        F('400', 26); x.fillStyle = '#000'; x.fillText(v.client, L0, y + 32);
+        F('400', 22); x.fillStyle = '#000'; x.fillText(v.client, L0, y + 32);
         [[ti('doc.invoiceNo'), v.no], [ti('doc.date'), invDate(v.date)], [ti('doc.due'), dueOnDelivery(v) ? ti('doc.dueDelivery') : invDate(v.due)]].forEach(([k, val], i) => {
           F('700', 15); x.fillStyle = INV.grey; x.textAlign = 'right'; x.fillText(k, R0 - 150, y + i * 26);
           F('400', 19); x.fillStyle = '#000'; x.fillText(val, R0, y + i * 26);

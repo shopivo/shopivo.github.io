@@ -120,7 +120,7 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .inv-body{padding:14px 16px 0;flex:1;display:flex;flex-direction:column}.inv-sum{flex:1}
 .inv .lbl{font-weight:700;font-size:11px;color:#767676;letter-spacing:.02em}
 .inv-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
-.inv .client{font-size:17px;margin-top:2px}
+.inv .client{font-size:15px;margin-top:2px}
 .inv-meta{display:grid;gap:3px;font-size:13px}.inv-meta div{display:flex;justify-content:flex-end;gap:12px}.inv-meta div span:last-child{min-width:78px;text-align:right}
 .inv-t{width:100%;border-collapse:collapse;font-size:13px}
 .inv-t th{background:var(--ih,#cea8bd);color:#fff;text-align:left;padding:8px 8px;font-size:12px}
