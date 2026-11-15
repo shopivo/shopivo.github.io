@@ -4033,7 +4033,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   // the delivery fee for an order: nothing for pickup or for a regular with free delivery at that pin, otherwise the saved place's price
   const moFeeFor = (d) => { if (d.option !== 'delivery') return { fee: 0, free: false }; const ord = { option: 'delivery', lat: d.lat, lng: d.lng, phone: d.phone, name: d.name || d.client, location: d.place }; const fp = d.lat != null && d.phone ? freeProfile(ord) : null; return fp ? { fee: 0, free: true } : { fee: normalFee(ord) || 0, free: false }; };
   const moItemRow = (i) => { const d = moDraft, free = moFree(i), on = d.pick[i.id] !== undefined, by = !free ? MO.byId(state, i.reservedFor) : null;
-    return `<div class="moit ${free ? '' : 'off'}"><button type="button" class="mpick" ${free ? `data-act="mo-tick" data-id="${i.id}"` : 'disabled'}>${PUI.thumb(i)}<span class="txt"><b>${esc(dn(i)) || t('item.untitled')}</b><small>${i.size ? esc(i.size) + ' · ' : ''}${i.status === 'In Transit' ? t('status.InTransit') : ''}${by ? ` <span class="obadge mo">${t('mo.reservedBy', { name: esc(clabel(by.client)) })}</span>` : ''}</small></span></button>${on ? `<div class="in"><span>TT$</span><input inputmode="decimal" data-mopick="${i.id}" value="${esc(d.pick[i.id])}" aria-label="${t('mo.typedPrice')}"></div>` : `<b class="pr">${money(L.effectivePrice(i))}</b>`}<span class="mck ${on ? 'on' : ''}" aria-hidden="true">${on ? '✓' : ''}</span></div>`; };
+    return `<div class="moit ${free ? '' : 'off'}"><button type="button" class="mpick" ${free ? `data-act="mo-tick" data-id="${i.id}"` : 'disabled'}>${PUI.thumb(i)}<span class="txt"><b>${esc(dn(i)) || t('item.untitled')}</b><small>${i.size ? esc(i.size) + ' · ' : ''}${i.status === 'In Transit' ? t('status.InTransit') : ''}${by ? ` <span class="obadge mo">${t('mo.reservedBy', { name: esc(clabel(by.client)) })}</span>` : ''}</small></span></button>${on ? `<div class="in"><span>TT$</span><input inputmode="decimal" data-mopick="${i.id}" value="${esc(d.pick[i.id])}" aria-label="${t('mo.typedPrice')}"></div>` : `<b class="pr" ${free ? `data-act="mo-tick" data-id="${i.id}"` : ''}>${money(L.effectivePrice(i))}</b>`}<button type="button" class="mck ${on ? 'on' : ''}" ${free ? `data-act="mo-tick" data-id="${i.id}"` : 'disabled'} role="checkbox" aria-checked="${on}" aria-label="${esc(dn(i)) || t('item.untitled')}">${on ? '✓' : ''}</button></div>`; };
   function moItemsHTML() {
     const d = moDraft;
     if (d.mode === 'wa') {   // a WhatsApp sale: anything you have in stock, with a search box
@@ -4065,6 +4065,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
         <label for="mo-link">${t('mo.loc')}</label><div class="moloc"><input id="mo-link" data-mod="link" value="${esc(d.link)}" placeholder="${t('mo.loc.paste')}" autocomplete="off" autocapitalize="off" spellcheck="false"><button type="button" class="btn" data-act="mo-map">📍 ${t('mo.loc.map')}</button></div><small class="muted">${t('mo.loc.how')}</small><div id="mo-pin">${moPinHTML()}</div><div id="mo-feeline">${moFeeHTML()}</div>
         <label for="mo-note">${t('mo.note')}</label><input id="mo-note" data-mod="note" value="${esc(d.note)}" placeholder="${t('mo.notePh')}" autocomplete="off">
         <div class="btns"><button type="button" class="btn primary" id="mo-save" data-act="mo-save">${moSaveLabel()}</button></div></div>`, null, true);
+    PUI.hydrate();
   }
   function sheetMoBatch() {
     const list = state.batches.slice().sort((a, b) => (bStatus(a) === 'In Transit' ? 0 : 1) - (bStatus(b) === 'In Transit' ? 0 : 1) || b.num - a.num), free = (b) => state.items.filter((i) => i.batchId === b.id && moFree(i)).length;
@@ -4098,7 +4099,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   document.addEventListener('input', (e) => {
     const el = e.target, d = el.dataset || {}; if (!moDraft) return;
     if (d.mod === 'link') { moReadLink(el.value); return; }
-    if (d.mod === 'search') { moDraft.search = el.value; const it = $('#mo-items'); if (it) it.innerHTML = moItemsHTML(); return; }
+    if (d.mod === 'search') { moDraft.search = el.value; const it = $('#mo-items'); if (it) { it.innerHTML = moItemsHTML(); PUI.hydrate(); } return; }
     if (d.mod) { moDraft[d.mod] = el.value; } else if (d.mopick) { moDraft.pick[d.mopick] = el.value; } else if (d.motd !== undefined) { moDraft.typed[Number(d.motd)].desc = el.value; } else if (d.motp !== undefined) { moDraft.typed[Number(d.motp)].price = el.value; } else return;
     moLive();
   });
@@ -4762,7 +4763,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mo-new': return sheetMyNew();
       case 'mo-batch': return sheetMoBatch();
       case 'mo-batchpick': if (moDraft) moDraft.batchId = id; return closeSheet();
-      case 'mo-tick': { if (!moDraft) return; if (moDraft.pick[id] !== undefined) delete moDraft.pick[id]; else { const it = state.items.find((x) => x.id === id); moDraft.pick[id] = String(it ? (L.effectivePrice(it) || '') : ''); } $('#mo-items').innerHTML = moItemsHTML(); return moLive(); }
+      case 'mo-tick': { if (!moDraft) return; if (moDraft.pick[id] !== undefined) delete moDraft.pick[id]; else { const it = state.items.find((x) => x.id === id); moDraft.pick[id] = String(it ? (L.effectivePrice(it) || '') : ''); } $('#mo-items').innerHTML = moItemsHTML(); PUI.hydrate(); return moLive(); }
       case 'mo-tyadd': { if (!moDraft) return; moDraft.typed.push({ desc: '', price: '' }); $('#mo-typed').innerHTML = moTypedHTML(); return; }
       case 'mo-tyrm': { if (!moDraft) return; moDraft.typed.splice(Number(id), 1); $('#mo-typed').innerHTML = moTypedHTML(); return moLive(); }
       case 'mo-opt': { if (!moDraft) return; moDraft.option = id; document.querySelectorAll('[data-act=mo-opt]').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return moLive(); }
