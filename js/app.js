@@ -2844,7 +2844,7 @@
   }
   function sendPdf(v, lang, download) {
     const canShare = (f) => !download && navigator.canShare && navigator.canShare({ files: [f] });
-    const ord = orderOfInvoice(v.no), done = (pr) => pr.then((sent) => { if (sent && ord) markInvSent(ord, v.no); });   // sharing an order's invoice ticks 'Invoice sent' on the order
+    const ord = orderOfInvoice(v.no), done = (pr) => pr.then((sent) => { if (sent) { const iv = state.invoices.find((x) => x.no === v.no); if (iv && !iv.sentAt) { iv.sentAt = Date.now(); save(); } if (ord) markInvSent(ord, v.no); } });   // sharing an order's invoice ticks 'Invoice sent' on the order
     const cachedKey = underLang(lang, () => pdfKey(v));
     if (pdfFiles.has(cachedKey)) {   // already drawn: answer the tap straight away
       const f = pdfFiles.get(cachedKey);
@@ -3356,6 +3356,12 @@
     if (can('team')) joinReqs.forEach((r) => add({ key: 'join:' + r.uid, grp: 'attn', ic: '👥', always: true, title: t('notif.join', { name: esc(r.name || r.email || '') }), sub: t('notif.joinSub'), go: ['req-open', r.uid] }));
     if (window.Store) {
       Store.orders().filter((o) => o.status === 'confirmed').forEach((o) => { const lat = latestInvOf(o), cf = tsAt(o.confirmedAt); if (lat && o.invSentNo !== lat.no && cf && cf.getTime() > INV_FROM && Date.now() - cf.getTime() > 5 * 60000) add({ key: 'send:' + o.id + ':' + lat.no, grp: 'attn', ic: '📤', always: true, title: t('notif.sendInv', { name: esc(o.name) }), sub: t('notif.sendInvSub', { code: esc(o.code || SCore.orderCode(o.id)), no: lat.no }), go: ['order-open', o.id] }); });
+      // an invoice that was updated (a sale from Stock added to it) after the customer was sent the old one: remind to send the new one
+      state.invoices.filter((v) => v.ref && !v.updatedBy && !v.void && !v.sentAt && new Date(v.date).getTime() > UPD_FROM && Date.now() - new Date(v.date).getTime() < 14 * DAY).forEach((v) => {
+        const prev = state.invoices.find((x) => x.no === v.ref), ord = orderOfInvoice(v.no); if (!prev || (ord && ord.status === 'confirmed')) return;   // a confirmed order has its own reminder above
+        if (!(prev.sentAt || (ord && ord.invSentNo === prev.no))) return;
+        add({ key: 'send:inv:' + v.no, grp: 'attn', ic: '📤', always: true, title: t('notif.updInv', { name: esc(clabel(v.client)) }), sub: t('notif.updInvSub', { no: v.no, old: prev.no }), go: ['view-inv', v.no] });
+      });
       Store.orders().filter((o) => o.status === 'new' || (Store.ageMs(o) > 0 && Store.ageMs(o) < 7 * DAY && o.status !== 'declined' && ['new', 'confirmed'].includes(stageOf(o)))).forEach((o) => add({ key: 'order:' + o.id, grp: 'orders', ic: '🛍️', always: o.status === 'new', title: t('notif.order', { code: esc(o.code || SCore.orderCode(o.id)), name: esc(o.name) }), sub: tn('notif.items', (o.items || []).length) + ' · ' + (o.option === 'delivery' ? t('store.delivery') : t('store.pickup')) + ' · ' + money(o.total), when: Store.when(o) ? ago(Store.when(o)) : '', go: ['order-open', o.id] }));
     }
     state.batches.filter((b) => bStatus(b) !== 'Closed').forEach((b) => {
@@ -3378,6 +3384,7 @@
     return out;
   }
   const notifUnread = (n, seen) => n.always || !seen[n.key];
+  const UPD_FROM = window.__updFrom || 1794600000000;   // updated-invoice reminders only for updates made after this was introduced
   const INV_FROM = window.__invFrom || 1794158226039;   // invoice reminders only for orders confirmed after the update that introduced them
   // the bell's tabs
   const NOTIF_TABS = [['orders', 'notif.tOrders'], ['invoices', 'notif.tInvoices'], ['team', 'notif.tTeam'], ['stock', 'notif.tStock'], ['store', 'notif.tStore'], ['other', 'notif.tOther']];
