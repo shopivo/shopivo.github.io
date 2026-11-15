@@ -387,6 +387,7 @@
     document.body.appendChild(sc); document.body.appendChild(m);
   }
   function render() {
+    document.documentElement.classList.toggle('invsq', invSquare());   // square invoice corners also show on the banner pictures and saved designs
     if ($('#tsearch') && tsKey !== tab + '|' + moreView) closeTopSearch(true);
     if (ordSel && !(tab === 'more' && moreView === 'orders')) { ordSel = null; syncHistory(); } ordSelSync();
     closeTopMenu();
@@ -1764,7 +1765,7 @@
     enterPage('invheader', '', () => sheetHeader());
     ihOn = true; const on = invDesignId() === 'custom';
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('ih.title')}</b><small>${t('ih.sub')}</small></div></div>
-      <div class="ihtop"><canvas id="ih-pv" width="1600" height="380" aria-label="${t('ih.title')}"></canvas><button type="button" class="btn primary" id="ih-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('ih.inUse') : t('ih.use')}</button></div>
+      <div class="ihtop"><canvas id="ih-pv" width="1600" height="380" aria-label="${t('ih.title')}"></canvas><button type="button" class="btn primary" id="ih-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('ih.inUse') : t('ih.use')}</button><button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button></div>
       <div class="pd" id="ih-body">${ihBodyHTML()}</div>
       <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`, () => { ihOn = false; render(); }, true);
     ihPaint();
@@ -2172,7 +2173,7 @@
     mbPage('mybiz', t('mb.title'), t('mb.sub'), `${mbHero(true)}<h3>${t('mb.title')}</h3><div class="list grp">${mbRow('🧾', t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'mb-inv')}${mbRow('💳', t('mb.card'), t('mb.cardSub', { n: nCard() }), 'mb-card')}${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo')}</div><div class="list grp" style="margin-top:12px">${mbRow('📇', t('mb.contact'), t('mb.contactSub'), 'bp-open')}</div>`);
   }
   function sheetMyInvoice() {
-    mbPage('myinvoice', t('mb.invoice'), t('mb.invLimit'), `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}${mbRow('🔤', t('tt.row'), t('tt.rowSub'), 'tt-open')}</div><h3>${t('mb.savedInv')}</h3>${svSlotsHTML('inv', true)}`);
+    mbPage('myinvoice', t('mb.invoice'), t('mb.invLimit'), `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}${mbRow('🔤', t('tt.row'), t('tt.rowSub'), 'tt-open')}${mbRow('👁', t('inv.sampleBtn'), t('inv.sampleSub'), 'inv-sample')}</div><h3>${t('mb.savedInv')}</h3>${svSlotsHTML('inv', true)}`);
   }
   function sheetMyCard() {
     mbPage('mycard', t('mb.card'), t('mb.cardLimit'), `<div class="list grp">${mbRow('✏️', t('mb.cardEdit'), t('mb.cardEditSub'), 'bc-open')}</div><h3>${t('mb.savedCards')}</h3>${svSlotsHTML('card', true)}<div class="btns"><button type="button" class="btn" data-act="bp-cardpdf">⬇ ${t('bz.cardDl')}</button></div>`);
@@ -5164,7 +5165,12 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       }
       case 'inv-bgcol': return openColorPick({ get: () => invBg()[id], set: (v) => { state.settings.invoiceBg = Object.assign({}, invBg(), { [id]: v }); save(); } }, () => setTimeout(() => (ihOn ? ihRefresh() : render()), 0));
       case 'inv-bggrad': state.settings.invoiceBg = Object.assign({}, invBg(), { grad: !invBg().grad }); save(); return ihOn ? ihRefresh() : render();
-      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); return ihOn ? ihRefresh() : render();
+      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); document.documentElement.classList.toggle('invsq', invSquare()); return ihOn ? ihRefresh() : render();
+      case 'inv-sample': {   // a made-up invoice in your design, so you can see the whole thing without a real sale
+        const d = new Date(), sample = { no: 'INV00123', client: ti('doc.sampleClient'), date: d.toISOString(), due: new Date(d.getTime() + 6048e5).toISOString(), lines: [{ desc: ti('doc.sampleItem'), qty: 1, price: 250 }, { desc: ti('doc.sampleItem2'), qty: 2, price: 60 }, { desc: ti('doc.sampleItem3'), qty: 1, price: 95 }], delivery: 30, total: 495, amountPaid: 200, previouslyPaid: 0, balance: 295 };
+        designOverride = null; toast(t('doc.preparing'));
+        return invoiceCanvas(sample, 'image/png', true).then((blob) => PUI.openViewer(URL.createObjectURL(blob))).catch((e) => toast('⚠️ ' + errMsg(e)));
+      }
       case 'inv-frame': state.settings.invoiceFrame = id; save(); return ihOn ? ihRefresh() : render();
       case 'invfs-open': return openInvEditor();
       case 'invfs-close': return closeInvEditor();
