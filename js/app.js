@@ -1383,6 +1383,16 @@
   }
   const fmtBytes = (n) => (n >= 1073741824 ? (n / 1073741824).toFixed(2) + ' GB' : n >= 1048576 ? (n / 1048576).toFixed(1) + ' MB' : Math.max(1, Math.round(n / 1024)) + ' KB');
   const meter = (id, pct) => `<div class="meter"><i id="${id}" style="width:${Math.max(0, Math.min(100, pct))}%"></i></div>`;
+  // How much of the one synced settings document your logos, pictures and designs are using (the cloud allows about 1 MB per document).
+  const ROOM_LIMIT = 1000000;
+  function settingsRoom() {
+    const st = state.settings, len = (v) => (typeof v === 'string' ? v.length : 0);
+    let total = 0; try { total = new Blob([JSON.stringify(st)]).size; } catch (e) { total = JSON.stringify(st).length; }
+    let pics = len(st.bizLogo); (st.bizLogoSet || []).forEach((x) => { pics += len(x && x.src); }); Object.values(st.invPool || {}).forEach((v) => { pics += len(v); });
+    const pct = Math.round(total / ROOM_LIMIT * 100);
+    return { total, pics, rest: Math.max(0, total - pics), pct, level: pct >= 90 ? 'high' : pct >= 70 ? 'mid' : 'ok' };
+  }
+  const roomNote = (r) => t(r.level === 'high' ? 'room.high' : r.level === 'mid' ? 'room.mid' : 'room.ok');
   function AboutPage() {
     const u = window.Cloud ? Cloud.usage() : { bytes: 0, reads: 0, writes: 0, known: false }, c = { b: state.batches.length, i: state.items.length, v: state.invoices.length };
     const line = (k, v, id) => `<div><span>${k}</span><span${id ? ` id="${id}"` : ''}>${v}</span></div>`;
@@ -1391,6 +1401,7 @@
       <p class="muted small">${t('about.rulesNote')}</p>
       <h2>${t('about.storage')}</h2><div class="sumbox" style="margin-top:0"><div><span>${t('about.cloud')}</span><b>${cloud.signedIn ? fmtBytes(u.bytes) + ' ' + t('about.of') + ' 1 GB' : t('about.signedOut')}</b></div>${meter('m-cloud', u.bytes / CLOUD_LIMIT * 100)}<p class="muted small" style="margin:4px 0 0">${t('about.cloudNote')}</p></div>
       <div class="sumbox"><div><span>${t('about.phone')}</span><b id="ab-phone">${t('about.measuring')}</b></div>${meter('m-phone', 0)}<p class="muted small" id="ab-phone-note" style="margin:4px 0 0"></p></div>
+      ${(() => { const r = settingsRoom(); return `<h2>${t('room.t')}</h2><div class="sumbox" style="margin-top:0"><div><span>${t('room.used')}</span><b>${r.pct}%</b></div>${meter('m-room', r.pct)}<p class="muted small" style="margin:4px 0 0">${t('room.parts', { a: fmtBytes(r.pics), b: fmtBytes(r.rest) })}</p><p class="roomnote ${r.level}">${roomNote(r)}</p></div>`; })()}
       <h2>${t('about.counts')}</h2><div class="sumbox" style="margin-top:0">${line(t('about.cBatches'), c.b)}${line(t('about.cItems'), c.i)}${line(t('about.cInvoices'), c.v)}${line(t('about.cPhotos'), '<span id="ab-photos">…</span>')}${line(t('about.origs'), '<span id="ab-orig">…</span>')}${line(t('about.oldThumbs'), '<span id="ab-old">…</span>')}</div>
       <h2>${t('about.usage')}</h2><div class="sumbox" style="margin-top:0">${line(t('about.reads'), u.reads.toLocaleString() + ' / 50,000')}${meter('m-r', u.reads / 500)}${line(t('about.writes'), u.writes.toLocaleString() + ' / 20,000')}${meter('m-w', u.writes / 200)}<p class="muted small" style="margin:4px 0 0">${t('about.usageNote')}</p></div>`;
   }
@@ -1524,7 +1535,8 @@
       <div class="ihsamp" aria-hidden="true"><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.item')}</span><span>${t('ih.samp.price')}</span></div><div class="sr" style="background:${ic.tint}"><span>—</span><span>00.00</span></div><div class="sr" style="background:${ic.band}"><span>—</span><span>00.00</span></div><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.total')}</span><span>00.00</span></div></div>
       <p class="muted small" style="margin:6px 0 8px">${auto ? t('ih.accentIsAuto') : ''}</p>${auto ? '' : `<button type="button" class="btn" data-act="ih-set" data-id="accent=">${t('ih.accentAuto')}</button>`}`);
     const saved = ihSec('saved', t('ih.sec.saved'), ihSavedHTML());
-    return `${layout}${imgs}${text}${banner}${invcol}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div>`;
+    const rm = settingsRoom(), roomBox = rm.level === 'ok' ? '' : `<div class="roomwarn ${rm.level}" role="status"><b>${t('room.warnT', { p: rm.pct })}</b><span>${roomNote(rm)}</span></div>`;
+    return `${roomBox}${layout}${imgs}${text}${banner}${invcol}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div><div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
   }
   function ihRefresh() { const b = $('#ih-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ihBodyHTML(); $('#sheet').scrollTop = sc; const u = $('#ih-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('ih.inUse') : t('ih.use'); } ihPaint(); }
   // ---- colour picker: circle + brightness, colours taken from the banner, tap-the-header eyedropper, recent colours ----
@@ -1545,11 +1557,12 @@
       return out.map((c) => '#' + c.map((x) => x.toString(16).padStart(2, '0')).join(''));
     } catch (e) { return []; }
   }
+  // The circle is drawn at least half bright, so it always shows colours even when the colour loaded is black.
   function cpWheel() {
     const cv = $('#cp-wheel'); if (!cv) return; const x = cv.getContext('2d'), n = cv.width, R = n / 2, img = x.createImageData(n, n);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const dx = i - R + 0.5, dy = j - R + 0.5, r = Math.sqrt(dx * dx + dy * dy), o = (j * n + i) * 4; if (r > R) continue;
-      const hx = hsv2hex(((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360, r / R, cpV); img.data[o] = parseInt(hx.slice(1, 3), 16); img.data[o + 1] = parseInt(hx.slice(3, 5), 16); img.data[o + 2] = parseInt(hx.slice(5, 7), 16); img.data[o + 3] = 255;
+      const hx = hsv2hex(((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360, r / R, 0.45 + 0.55 * cpV); img.data[o] = parseInt(hx.slice(1, 3), 16); img.data[o + 1] = parseInt(hx.slice(3, 5), 16); img.data[o + 2] = parseInt(hx.slice(5, 7), 16); img.data[o + 3] = 255;
     }
     x.putImageData(img, 0, 0);
     const a = cpH * Math.PI / 180, mx = R + Math.cos(a) * cpS * R, my = R + Math.sin(a) * cpS * R;
@@ -1567,11 +1580,12 @@
       <div class="cprow"><span id="cp-cur" class="cpcur" style="background:${cur}"></span><input id="cp-hex" type="text" value="${esc(String(cur).toUpperCase())}" maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
       <canvas id="cp-wheel" width="240" height="240"></canvas>
       <div class="ihr"><label>${t('ih.bright')}</label><input id="cp-val" type="range" min="5" max="100" value="${Math.round(cpV * 100)}"></div>
+      <div class="cphd">${t('ih.basics')}</div><div class="cpsws">${sw(['#ffffff', '#f2f2f2', '#bdbdbd', '#7a7a7a', '#333333', '#000000'])}</div>
       ${ban.length ? `<div class="cphd">${t('ih.fromBanner')}</div><div class="cpsws">${sw(ban)}</div>` : ''}
       ${rec.length ? `<div class="cphd">${t('ih.recentCols')}</div><div class="cpsws">${sw(rec)}</div>` : ''}
       <div class="btns">${tg.eye ? `<button type="button" class="btn" data-act="cp-eye">💧 ${t('ih.eye')}</button>` : ''}<button type="button" class="btn primary" data-act="close">${t('btn.done')}</button></div>`, 'card', onBack);
     cpWheel(); const cv = $('#cp-wheel');
-    const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); cpWheel(); cpUpdate(false); };
+    const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); if (cpS < 0.07) cpS = 0; if (cpV < 0.2) { cpV = 1; const vr0 = $('#cp-val'); if (vr0) vr0.value = 100; } cpWheel(); cpUpdate(false); };
     cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); at(e); cv._d = true; });
     cv.addEventListener('pointermove', (e) => { if (cv._d) at(e); });
     const end = () => { if (cv._d) { cv._d = false; cpUpdate(true); } }; cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
@@ -1579,6 +1593,13 @@
     const hi = $('#cp-hex'); hi.addEventListener('input', () => { let v = hi.value.trim(); if (v[0] !== '#') v = '#' + v; if (/^#[0-9a-fA-F]{6}$/.test(v)) { [cpH, cpS, cpV] = hex2hsv(v); vr.value = Math.round(cpV * 100); cpWheel(); cpUpdate(true, true); } });
   }
 
+  let ihsaSlot = 0;
+  function ihSaveAs() {
+    const slots = [0, 1].map((n) => svSlot('inv', n)); ihsaSlot = slots[0] ? (slots[1] ? 0 : 1) : 0;
+    openSmall(`<h3>${t('ih.saveAs')}</h3><div class="ihr"><label>${t('ih.saveName')}</label><input id="ihsa-name" type="text" maxlength="30" value="${esc(t('mb.invN', { n: ihsaSlot + 1 }))}" autocomplete="off"></div>
+      <div class="ihr"><label>${t('ih.saveWhere')}</label><div class="chiprow">${slots.map((d, n) => `<button type="button" class="chip ${n === ihsaSlot ? 'on' : ''}" data-act="ihsa-pick" data-id="${n}">${d ? esc(d.name) + ' · ' + t('ih.replace') : t('ih.emptySlot', { n: n + 1 })}</button>`).join('')}</div></div>
+      <div class="btns"><button type="button" class="btn primary" data-act="ihsa-go">${t('btn.save')}</button><button type="button" class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
+  }
   function sheetHeader() {
     enterPage('invheader', '', () => sheetHeader());
     ihOn = true; const on = invDesignId() === 'custom';
@@ -4523,6 +4544,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || !r._undo || !r._undo.length) return; r.value = r._undo.pop(); r.dispatchEvent(new Event('input', { bubbles: true })); if (!r._undo.length) t_.remove(); return; }
+      case 'ih-saveas': return ihSaveAs();
+      case 'ihsa-pick': { ihsaSlot = Number(id); document.querySelectorAll('[data-act=ihsa-pick]').forEach((b) => b.classList.toggle('on', Number(b.dataset.id) === ihsaSlot)); return; }
+      case 'ihsa-go': { const el = $('#ihsa-name'), nm = (el && el.value.trim()) || ''; if (!nm) return toast(t('ih.needName')); svSave('inv', ihsaSlot, nm); toast(t('ih.savedOk')); return closeSheet(); }
       case 'ih-colpick': return openColorPick({ get: () => ihVal(id), set: (v) => ihSet(id, v), eye: id });
       case 'lm-colpick': { if (!lm) return; const keep = lm, k = id, tx = $('#lm-text'); if (tx) keep.text = tx.value.toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || keep.text; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetLogoMaker(keep), 0)); }
       case 'bc-colpick': return openColorPick({ get: () => bcPath(id), set: (v) => bcSet(id, v) });
