@@ -1602,11 +1602,15 @@
       ${custom ? `<div class="ihr col"><label>${t('invd.bgCol')}</label>${sw('c1')}</div><div class="ihr tgl"><span>${t('invd.bgGrad')}</span>${swt('inv-bggrad', '1', b.grad)}</div>${b.grad ? `<div class="ihr col"><label>${t('invd.bgCol2')}</label>${sw('c2')}</div><div class="ihr"><label>${t('ih.angle')}<b class="v">${b.angle}</b></label><input type="range" min="0" max="360" step="1" value="${b.angle}" data-invbg="angle"></div>` : ''}` : ''}
       ${fr === 'tint' ? '' : `<div class="ihr"><label>${t('invd.shadowAmt')}<b class="v">${invShadow()}</b></label><input type="range" min="0" max="100" step="1" value="${invShadow()}" data-invsh="1"></div>`}`;
   }
-  function InvDesignPage() {
+  // The picture background settings (frame, colour, gradient, shadow, corners). Shown on the Invoice design page and inside the Invoice creator; both change the same settings.
+  function frameBlockHTML() {
     const fr = invFrame(), frames = [['tint', t('invd.frameTint')], ['soft', t('invd.frameSoft')], ['shadow', t('invd.frameShadow')], ['custom', t('invd.frameCustom')], ['none', t('invd.frameNone')]];
+    return `<div class="invset"><h3>${t('invd.frame')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.frame')}" style="margin:0">${frames.map(([k, l]) => `<button type="button" class="chip ${fr === k ? 'on' : ''}" role="radio" aria-checked="${fr === k}" data-act="inv-frame" data-id="${k}">${l}</button>`).join('')}</div><p class="muted small" style="margin:8px 0 0">${t('invd.frameNote')}</p>${frameExtraHTML(fr)}</div>
+      <div class="invset"><h3>${t('invd.corners')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.corners')}" style="margin:0">${[['round', t('invd.cRound')], ['square', t('invd.cSquare')]].map(([k, l]) => `<button type="button" class="chip ${(invSquare() ? 'square' : 'round') === k ? 'on' : ''}" role="radio" aria-checked="${(invSquare() ? 'square' : 'round') === k}" data-act="inv-corners" data-id="${k}">${l}</button>`).join('')}</div></div>`;
+  }
+  function InvDesignPage() {
     return `<p class="muted small" style="margin:0 2px 10px">${t('invd.note')}</p>
-      <div class="invset"><h3>${t('invd.frame')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.frame')}" style="margin:0">${frames.map(([k, l]) => `<button type="button" class="chip ${fr === k ? 'on' : ''}" role="radio" aria-checked="${fr === k}" data-act="inv-frame" data-id="${k}">${l}</button>`).join('')}</div><p class="muted small" style="margin:8px 0 0">${t('invd.frameNote')}</p>${frameExtraHTML(fr)}</div>
-      <div class="invset"><h3>${t('invd.corners')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.corners')}" style="margin:0">${[['round', t('invd.cRound')], ['square', t('invd.cSquare')]].map(([k, l]) => `<button type="button" class="chip ${(invSquare() ? 'square' : 'round') === k ? 'on' : ''}" role="radio" aria-checked="${(invSquare() ? 'square' : 'round') === k}" data-act="inv-corners" data-id="${k}">${l}</button>`).join('')}</div></div>
+      ${frameBlockHTML()}
       <button type="button" class="row tap ihentry" data-act="ih-open"><span style="font-size:22px">🎨</span><div class="grow"><b>${t('ih.open')}</b><small>${t('ih.openSub')}</small></div><span class="chev">›</span></button>
       <div id="invpanel">${invColourPanel()}</div><div class="dsgrid" id="dsgrid" role="radiogroup" aria-label="${t('set.invDesign')}">${invCards()}</div>`;
   }
@@ -1689,9 +1693,10 @@
     const invcol = ihSec('invcol', t('ih.sec.invcol'), `<p class="muted small" style="margin:0 0 6px">${t('ih.invcolSub')}</p>${ihCol('accent', t('ih.accent'))}
       <div class="ihsamp" aria-hidden="true"><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.item')}</span><span>${t('ih.samp.price')}</span></div><div class="sr" style="background:${ic.tint}"><span>—</span><span>00.00</span></div><div class="sr" style="background:${ic.band}"><span>—</span><span>00.00</span></div><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.total')}</span><span>00.00</span></div></div>
       <p class="muted small" style="margin:6px 0 8px">${auto ? t('ih.accentIsAuto') : ''}</p>${auto ? '' : `<button type="button" class="btn" data-act="ih-set" data-id="accent=">${t('ih.accentAuto')}</button>`}`);
+    const pagebg = ihSec('pagebg', t('ih.sec.pagebg'), `<p class="muted small" style="margin:0 0 6px">${t('ih.pagebgSub')}</p>${frameBlockHTML()}`);
     const saved = ihSec('saved', t('ih.sec.saved'), ihSavedHTML());
     const rm = settingsRoom(), roomBox = rm.level === 'ok' ? '' : `<div class="roomwarn ${rm.level}" role="status"><b>${t('room.warnT', { p: rm.pct })}</b><span>${roomNote(rm)}</span></div>`;
-    return `${roomBox}${layout}${imgs}${text}${banner}${invcol}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div><div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
+    return `${roomBox}${layout}${imgs}${text}${banner}${invcol}${pagebg}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div><div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
   }
   function ihRefresh() { const b = $('#ih-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ihBodyHTML(); $('#sheet').scrollTop = sc; const u = $('#ih-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('ih.inUse') : t('ih.use'); } ihPaint(); }
   // ---- colour picker: circle + brightness, colours taken from the banner, tap-the-header eyedropper, recent colours ----
@@ -5157,10 +5162,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
         designOverride = t_.dataset.act === 'inv-design-view' ? id : null; toast(t('doc.preparing'));
         return invoiceCanvas(inv, 'image/png', true).then((blob) => PUI.openViewer(URL.createObjectURL(blob))).catch((e) => toast('⚠️ ' + errMsg(e))).finally(() => { designOverride = null; });
       }
-      case 'inv-bgcol': return openColorPick({ get: () => invBg()[id], set: (v) => { state.settings.invoiceBg = Object.assign({}, invBg(), { [id]: v }); save(); } }, () => setTimeout(render, 0));
-      case 'inv-bggrad': state.settings.invoiceBg = Object.assign({}, invBg(), { grad: !invBg().grad }); save(); return render();
-      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); return render();
-      case 'inv-frame': state.settings.invoiceFrame = id; save(); return render();
+      case 'inv-bgcol': return openColorPick({ get: () => invBg()[id], set: (v) => { state.settings.invoiceBg = Object.assign({}, invBg(), { [id]: v }); save(); } }, () => setTimeout(() => (ihOn ? ihRefresh() : render()), 0));
+      case 'inv-bggrad': state.settings.invoiceBg = Object.assign({}, invBg(), { grad: !invBg().grad }); save(); return ihOn ? ihRefresh() : render();
+      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); return ihOn ? ihRefresh() : render();
+      case 'inv-frame': state.settings.invoiceFrame = id; save(); return ihOn ? ihRefresh() : render();
       case 'invfs-open': return openInvEditor();
       case 'invfs-close': return closeInvEditor();
       case 'invfs-pick': state.settings.invoiceDesign = id; save(); invFsChips(); invFsControls(); invFsPreview(); return;
