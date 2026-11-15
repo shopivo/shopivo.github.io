@@ -25,7 +25,7 @@
     'cust.Owing': 'Owing', 'cust.UpToDate': 'Up to date',
     'filter.all': 'All',
     /* buttons / common */
-    'fab.batchS': 'Batch', 'fab.orderS': 'Order', 'fab.new': 'New', 'fab.order': 'New order', 'fab.orderSub': 'For a customer who orders ahead', 'dlv.mine': 'My orders – ready to hand over', 'btn.save': 'Save', 'btn.delete': 'Delete', 'btn.cancel': 'Cancel', 'btn.close': 'Close', 'btn.done': 'Done', 'btn.gotIt': 'Got it', 'btn.newBatch': '+ New batch', 'btn.importXlsx': 'Import my .xlsx workbook',
+    'fab.batchS': 'Batch', 'fab.orderS': 'Order', 'fab.new': 'New', 'fab.order': 'New order', 'fab.orderSub': 'For a customer who orders ahead', 'dlv.mine': 'My orders – ready to hand over', 'hand.tDel': 'Delivered {code}', 'hand.tCol': 'Picked up {code}', 'hand.okDel': 'Delivered', 'hand.okCol': 'Picked up', 'btn.save': 'Save', 'btn.delete': 'Delete', 'btn.cancel': 'Cancel', 'btn.close': 'Close', 'btn.done': 'Done', 'btn.gotIt': 'Got it', 'btn.newBatch': '+ New batch', 'btn.importXlsx': 'Import my .xlsx workbook',
     'aria.dismiss': 'Dismiss', 'aria.remove': 'Remove', 'aria.selectItem': 'Select for invoice',
     /* install banner + guides */
     'install.title': 'Install the Shopivo app', 'install.sub.prompt': 'Works offline, opens like a normal app', 'install.sub.add': 'Add it to your home screen',
@@ -789,7 +789,7 @@
     'invstatus.Paid': 'Pagada', 'invstatus.Owing': 'Pendiente', 'invstatus.Updated': 'Actualizada',
     'cust.Owing': 'Debe', 'cust.UpToDate': 'Al día',
     'filter.all': 'Todos',
-    'fab.batchS': 'Lote', 'fab.orderS': 'Pedido', 'fab.new': 'Nuevo', 'fab.order': 'Nuevo pedido', 'fab.orderSub': 'Para un cliente que pide con anticipación', 'dlv.mine': 'Mis pedidos – listos para entregar', 'btn.save': 'Guardar', 'btn.delete': 'Eliminar', 'btn.cancel': 'Cancelar', 'btn.close': 'Cerrar', 'btn.done': 'Listo', 'btn.gotIt': 'Entendido', 'btn.newBatch': '+ Nuevo lote', 'btn.importXlsx': 'Importar mi libro .xlsx',
+    'fab.batchS': 'Lote', 'fab.orderS': 'Pedido', 'fab.new': 'Nuevo', 'fab.order': 'Nuevo pedido', 'fab.orderSub': 'Para un cliente que pide con anticipación', 'dlv.mine': 'Mis pedidos – listos para entregar', 'hand.tDel': 'Entregado {code}', 'hand.tCol': 'Recogido {code}', 'hand.okDel': 'Entregado', 'hand.okCol': 'Recogido', 'btn.save': 'Guardar', 'btn.delete': 'Eliminar', 'btn.cancel': 'Cancelar', 'btn.close': 'Cerrar', 'btn.done': 'Listo', 'btn.gotIt': 'Entendido', 'btn.newBatch': '+ Nuevo lote', 'btn.importXlsx': 'Importar mi libro .xlsx',
     'aria.dismiss': 'Descartar', 'aria.remove': 'Quitar', 'aria.selectItem': 'Seleccionar para facturar',
     'install.title': 'Instala la app Shopivo', 'install.sub.prompt': 'Funciona sin internet y se abre como una app normal', 'install.sub.add': 'Agrégala a tu pantalla de inicio',
     'install.btn': 'Instalar', 'install.how': 'Cómo', 'install.done': 'App instalada 🎉',

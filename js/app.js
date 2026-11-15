@@ -3430,12 +3430,29 @@
   const ICON_GMAPS = '<img src="icons/gmaps.png" alt="" width="40" height="40">', ICON_WAZE = '<img src="icons/waze.png" alt="" width="40" height="40">';   // the Google Maps and Waze app icons (copied from the seller's own phone)
   const spotBtns = (gp) => { const ml = SCore.mapLinks(gp.lat, gp.lng); return `<a class="ic" data-act="pin-open" href="${ml.google}" target="_blank" rel="noopener" aria-label="Google Maps" title="Google Maps">${ICON_GMAPS}</a><a class="ic" data-act="pin-open" href="${ml.waze}" target="_blank" rel="noopener" aria-label="Waze" title="Waze">${ICON_WAZE}</a>`; };   // each icon with its name under it is one tap target
   // Delivered / Collected: asks first (a tap by mistake must not move the order on) and says where the order will go
-  function markHanded(id) {
+  function finishHanded(id, got) {
     const po = Store.orders().find((x) => x.id === id); if (!po) return;
-    const dl = po.option === 'delivery', ow = (L.orderPay(state, orderInvoice(po)) || {}).owing || 0, how = dl ? t('ord.delivered') : t('ord.collected');
-    return askCard(t(dl ? 'ord.askDelivered' : 'ord.askCollected') + ' ' + (ow > 0 ? t('ord.askOwing', { amount: plain(money(ow)) }) : t('ord.askPaid')), { title: t(dl ? 'ord.askTitleDel' : 'ord.askTitleCol'), ok: t(dl ? 'ord.yesDelivered' : 'ord.yesCollected'), no: t('ord.no') }).then((y) => {
-      if (y) Store.setStatus(id, 'done', tripsOf(po).length ? { trips: tripsOf(po).concat({ at: Date.now(), ids: toHand(po).map((i) => i.id) }) } : undefined).then(() => { ordDirty = true; toast(ow > 0 ? t('ord.toastHanded', { how, amount: plain(money(ow)) }) : t('ord.toastDone', { how })); const here = pageStack.length && pageStack[pageStack.length - 1].key === 'order|' + id; if (here) setTimeout(() => { sheetOrder(id, true); if (ow <= 0 && pageStack.length > 1) pageStack = pageStack.slice(-1); }, 450); else dropPages('order|' + id); }).catch(() => toast(t('store.pubError'))); });
+    const dl = po.option === 'delivery', ow = Math.max(0, ((L.orderPay(state, orderInvoice(po)) || {}).owing || 0) - (got || 0)), how = dl ? t('ord.delivered') : t('ord.collected');
+    Store.setStatus(id, 'done', tripsOf(po).length ? { trips: tripsOf(po).concat({ at: Date.now(), ids: toHand(po).map((i) => i.id) }) } : undefined).then(() => { ordDirty = true; toast(ow > 0 ? t('ord.toastHanded', { how, amount: plain(money(ow)) }) : t('ord.toastDone', { how })); const here = pageStack.length && pageStack[pageStack.length - 1].key === 'order|' + id; if (here) setTimeout(() => { sheetOrder(id, true); if (ow <= 0 && pageStack.length > 1) pageStack = pageStack.slice(-1); }, 450); else dropPages('order|' + id); }).catch(() => toast(t('store.pubError')));
   }
+  // One hand-over for every order: online and My orders ask the same thing (how much did you receive now?) in the same pop-up
+  function handInfo(kind, id, how) {
+    if (kind === 'mine') { const o = MO.byId(state, id); if (!o) return null; const p = MO.pay(state, o); return { code: o.code, total: p.total, paid: p.paid, owing: p.owing, how: how || o.option }; }
+    const po = Store.orders().find((x) => x.id === id); if (!po) return null; const p = L.orderPay(state, orderInvoice(po)) || { total: Number(po.total) || 0, paid: 0, owing: Number(po.total) || 0 };
+    return { code: po.code || SCore.orderCode(po.id), total: p.total, paid: p.paid, owing: p.owing, how: how || po.option };
+  }
+  function handSheet(kind, id, how) {
+    const h = handInfo(kind, id, how); if (!h) return; const dl = h.how === 'delivery';
+    openSmall(`<h3>${t(dl ? 'hand.tDel' : 'hand.tCol', { code: esc(h.code) })}</h3><p class="muted">${t('mo.handBody', { total: moneyText(h.total), dep: moneyText(h.paid), bal: moneyText(h.owing) })}</p><label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${h.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="hand-ok" data-kind="${kind}" data-id="${id}" data-how="${h.how}">${t(dl ? 'hand.okDel' : 'hand.okCol')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
+  }
+  function handOk(kind, id, how) {
+    const amt = parseAmt(($('#hand-recv') || {}).value);
+    if (kind === 'mine') { try { const inv = MO.handOver(state, id, { how, paidNow: amt }); if (sharedBusiness()) inv.by = myName(); closeSheet(); toast(t('mo.handDone', { no: inv.no })); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+    const po = Store.orders().find((x) => x.id === id); if (!po) return; let got = 0;
+    if (amt > 0) { try { const pay = L.orderPay(state, orderInvoice(po)); const inv = L.recordPayment(state, pay.inv, amt); if (sharedBusiness()) inv.by = myName(); got = amt; save(); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+    closeSheet(); return finishHanded(id, got);
+  }
+  const markHanded = (id) => handSheet('online', id);
   // From a "Waiting for items to arrive" box: open the batch the late item is in, scrolled to the Mark received button
   function openBatchToReceive(bid) {
     sheetBatch(bid);
@@ -3858,10 +3875,6 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     const o = MO.byId(state, id); if (!o) return;
     const items = state.items.filter((i) => !L.isSold(i) && moFree(i) && i.desc).sort((a, b) => (a.status === 'In Transit' ? 0 : 1) - (b.status === 'In Transit' ? 0 : 1)).slice(0, 120);
     openSmall(`<h3>🔗 ${t('mo.link')}</h3><input type="search" id="mo-lq" placeholder="${t('pick.search')}" autocomplete="off" style="margin-bottom:8px"><div class="cepl" id="mo-llist">${items.map((i) => `<button type="button" class="lpi" data-act="mo-linkpick" data-id="${i.id}" data-o="${o.id}" data-i="${idx}" data-n="${esc((i.desc + ' ' + (i.size || '') + ' ' + i.id).toLowerCase())}"><span class="txt"><b>${esc(i.desc)}</b><small class="muted">${i.size ? esc(i.size) + ' · ' : ''}${esc(bl(i.batchId))} · ${i.status === 'In Transit' ? t('status.InTransit') : t('mo.it.arrived')}</small></span></button>`).join('') || `<p class="muted small">${t('stock.none')}</p>`}</div>`, 'small');
-  }
-  function moHandSheet(id, how) {
-    const o = MO.byId(state, id); if (!o) return; const pay = MO.pay(state, o);
-    openSmall(`<h3>${t('mo.handT', { code: esc(o.code) })}</h3><p class="muted">${t('mo.handBody', { total: moneyText(pay.total), dep: moneyText(pay.paid), bal: moneyText(pay.owing) })}</p><label for="mo-recv">${t('mo.recv')}</label><input id="mo-recv" inputmode="decimal" value="${pay.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="mo-hand-ok" data-id="${o.id}" data-how="${how}">${t('mo.handOk')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
   }
   function moAmountSheet(title, act, id, idx, value) { openSmall(`<h3>${title}</h3><input id="mo-amt" inputmode="decimal" value="${esc(value || '')}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="${act}" data-id="${id}" data-i="${idx == null ? '' : idx}">${t('btn.save')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card'); }
   const moRefresh = (id) => { save(); render(); const k = pageStack.length ? pageStack[pageStack.length - 1].key : ''; if (k === 'myorder|' + id) sheetMyOrder(id); };
@@ -4541,8 +4554,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mo-rm': return askCard(t('mo.rm') + '?', { danger: true, ok: t('mo.rm') }).then((y) => { if (!y) return; try { MO.removeRow(state, id, Number(t_.dataset.i)); moRefresh(id); } catch (e) { toast('⚠️ ' + errMsg(e)); } });
       case 'mo-pay': return moAmountSheet(t('mo.addPay'), 'mo-pay-ok', id, '', '');
       case 'mo-pay-ok': { try { MO.addPayment(state, id, $('#mo-amt').value); closeSheet(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
-      case 'mo-hand': return moHandSheet(id, t_.dataset.how);
-      case 'mo-hand-ok': { try { const inv = MO.handOver(state, id, { how: t_.dataset.how, paidNow: parseAmt(($('#mo-recv') || {}).value) }); if (sharedBusiness()) inv.by = myName(); closeSheet(); toast(t('mo.handDone', { no: inv.no })); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+      case 'mo-hand': return handSheet('mine', id, t_.dataset.how);
+      case 'hand-ok': return handOk(t_.dataset.kind, id, t_.dataset.how);
       case 'mo-send': { const o = MO.byId(state, id); if (!o) return; const lat = o.invoice ? L.invoiceForward(state, o.invoice).slice(-1)[0] : null; return lat ? shareInvoicePdf(lat.no, false) : o.pre ? shareInvoicePdf(o.pre.no, false) : null; }
       case 'mo-pre': { try { MO.makePre(state, id); save(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
       case 'mo-fee': { const o = MO.byId(state, id); return o && moAmountSheet(t('mo.feeT'), 'mo-fee-ok', id, '', String(MO.fee(o) || '')); }
