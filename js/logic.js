@@ -61,7 +61,7 @@
       defaultMargin: 100,
       rates: { USD: 6.78, EUR: 7.61, GBP: 9.09, TTD: 1 },
     },
-    batches: [], items: [], invoices: [], customers: [],
+    batches: [], items: [], invoices: [], customers: [], myOrders: [],
   });
 
   L.effectiveRate = (s, code) => (code === 'TTD' ? 1 : (s.settings.rates[code] || 0) * s.settings.markup);
@@ -330,6 +330,7 @@
 
   // Bring data saved by an older version up to date (idempotent): recompute per-item paid/owing.
   L.migrate = (s) => {
+    if (!Array.isArray(s.myOrders)) s.myOrders = [];
     L.cleanNames(s);
     s.items.forEach((i) => { if (i.price === undefined) i.price = 0; if (i.photo === undefined) i.photo = null; if (i.discount === undefined) i.discount = 0; if (i.saleOn === undefined) i.saleOn = false; });
     if (s.items.some((i) => i.invoice && i.paid === undefined)) {
@@ -346,7 +347,7 @@
    * invoice this one replaces carry over, overpayment becomes a tip, and a tip that exceeds profit
    * turns into a loss (profit is floored at 0).
    */
-  L.previewInvoice = (s, { itemIds, client, paying, allowZero }) => {
+  L.previewInvoice = (s, { itemIds, client, paying, allowZero, orderId }) => {
     const items = itemIds.map((id) => s.items.find((i) => i.id === id)).filter(Boolean);
     client = L.canonicalName(s, client);
     const errors = [];
@@ -355,6 +356,7 @@
     if (!client) errors.push('noClient');
     if (items.some((i) => !i.desc.trim())) errors.push('noDesc');
     if (items.some((i) => L.effectivePrice(i) <= 0)) errors.push('noPrice');
+    if (items.some((i) => i.reservedFor && i.reservedFor !== orderId)) errors.push('reserved');   // kept for a customer's order (My orders)
     if (items.length && (allowZero ? paying < 0 : paying <= 0)) errors.push('noPaying');
 
     const landed = items.reduce((t, i) => t + L.itemCalc(s.batches.find((b) => b.id === i.batchId), i).landed, 0);
@@ -386,8 +388,8 @@
       profit: r2(profit), loss: r2(loss), landed, ref, status: paying + prev >= total ? 'Paid' : 'Owing' };
   };
 
-  L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero }) => {
-    const p = L.previewInvoice(s, { itemIds, client, paying, allowZero });
+  L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero, orderId }) => {
+    const p = L.previewInvoice(s, { itemIds, client, paying, allowZero, orderId });
     if (p.errors.length) throw fail(p.errors[0]);
     client = L.canonicalName(s, client);
     const d = date || new Date();

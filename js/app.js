@@ -340,7 +340,7 @@
   function renderTools() {
     const el = $('#appbar-right'); if (!el) return;
     const btn = (act, label, icon, extra, id) => `<button class="round" data-act="${act}"${id ? ` data-id="${id}"` : ''} aria-label="${label}"><svg viewBox="0 0 24 24">${ICONS[icon]}</svg>${extra || ''}</button>`;
-    const n = ($('#back').hidden || isSettings()) ? notifCount() : 0, sel = pageSearchSel(), active = sel === '.oq' ? ordQ.trim() : sel === '.dq' ? dlvQ.trim() : sel === '.iq' ? invQ.trim() : sel === '.itq' ? itQ.trim() : sel === '.cq' ? cuQ.trim() : '';
+    const n = ($('#back').hidden || isSettings()) ? notifCount() : 0, sel = pageSearchSel(), active = sel === '.oq' ? (moMine() ? moQ : ordQ).trim() : sel === '.dq' ? dlvQ.trim() : sel === '.iq' ? invQ.trim() : sel === '.itq' ? itQ.trim() : sel === '.cq' ? cuQ.trim() : '';
     const sbtn = sel ? btn('tsearch-open', t('tool.search'), 'search', active ? '<i class="dot"></i>' : '') : '';
     if (tab === 'more' && moreView === 'batches') { const k = blCount(blF); el.innerHTML = `<div class="tools">${sbtn}${k ? btn('bl-filter-open', t('tool.filter'), 'filter', `<b class="nb">${k}</b>`) : ''}${btn('tmenu', t('tool.more'), 'dots', '', 'bl')}</div>`; return; }   // the funnel shows only while a filter is on
     if (tab === 'more' && moreView === 'deliveries') { el.innerHTML = `<div class="tools">${sbtn}${btn('tmenu', t('tool.more'), 'dots', !dset().home ? '<i class="dot"></i>' : '', 'dlv')}</div>`; return; }   // same ⋮ menu as the other logs, plus a Delivery settings shortcut
@@ -558,7 +558,7 @@
     return `<div class="item ${sel ? 'sel' : ''} ${i.status === 'Paid' ? 'paid' : ''}" data-id="${i.id}">
       <label class="chk" aria-label="${t('aria.selectItem')}"><input type="checkbox" data-sel ${sel ? 'checked' : ''}></label>
       <button class="main" data-act="edit-item" data-id="${i.id}">${PUI.thumb(i).replace(/<\/span>$/, (sale && !L.isSold(i) ? `<small class="saleoff ph-sale">−${Number(i.discount)}%</small>` : offStrip(i)) + '</span>')}<span class="txt"><b>${esc(dn(i)) || `<span class="muted">${t('item.untitled')}</span>`}${String(i.desc || '').trim() && !String(i.size || '').trim() && !L.isSold(i) ? ` <i class="szwarn" title="${t('size.missingTip')}">!</i>` : ''}</b>
-        <small>${i.id}${i.size ? ' · <b class="szb">' + esc(szLabel(i.size)) + '</b>' : ''}${tag ? `<span class="bl2">${esc(blShort(i.batchId))}</span>` : ''}</small>${i.customer || i.invoice || (L.isHeld(i) && !L.isSold(i)) ? `<small>${[i.customer ? esc(i.customer) : '', i.invoice || '', L.isHeld(i) && !L.isSold(i) ? '🔒 ' + t('stock.ordered') : ''].filter(Boolean).join(' · ')}</small>` : ''}</span></button>
+        <small>${i.id}${i.size ? ' · <b class="szb">' + esc(szLabel(i.size)) + '</b>' : ''}${tag ? `<span class="bl2">${esc(blShort(i.batchId))}</span>` : ''}</small>${(() => { const mo = i.reservedFor ? MO.byId(state, i.reservedFor) : null, rs = mo && !mo.cancelledAt ? '🔒 ' + t('mo.reservedBy', { name: esc(clabel(mo.client)) }) : ''; return i.customer || i.invoice || rs || (L.isHeld(i) && !L.isSold(i)) ? `<small>${[i.customer ? esc(i.customer) : '', i.invoice || '', rs, L.isHeld(i) && !L.isSold(i) ? '🔒 ' + t('stock.ordered') : ''].filter(Boolean).join(' · ')}</small>` : ''; })()}</span></button>
       <div class="side"><span class="pill ${i.status.replace(' ', '')}">${stLabel(i.status)}</span><b>${isNoPrice(i) ? noPriceTag : priceHtml}</b></div>
       <button class="share-btn" data-act="photo-share" data-id="${i.id}" aria-label="${t('photo.share')}" ${noPhoto ? 'disabled' : ''}>${SHARE}</button></div>`;
   }
@@ -3718,7 +3718,114 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     const arrTxt = arr ? tn('ov.arriving', arr) : '', oldTxt = oldest < 0 ? '' : oldest < 1 ? t('ov.oldestToday') : tn('ov.oldest', oldest);
     return `<div class="ovc"><div class="ovr"><button type="button" class="tp" data-act="ov-go" data-id="deliveries"><small>${t('ov.toDeliver')}</small><b>${del}</b></button><button type="button" class="tp" data-act="ov-go" data-id="pickups"><small>${t('ov.toCollect')}</small><b>${col}</b></button><div class="${owed > 0 ? 'ow' : ''}"><small>${t('ov.owed')}</small><b>${money(owed)}</b></div></div>${arrTxt || oldTxt ? `<div class="ovf"><span>${arrTxt ? '⏳ ' + arrTxt : ''}</span><span>${oldTxt}</span></div>` : ''}</div>`;
   }
-  function OrderLog() { return `<div class="sth"><div class="ordov">${ordOverview()}</div>${ordHead()}${!ordSel && Store.orders().some(orderDeletable) ? `<p class="muted small ordtip">${t('ord.selTip')}</p>` : ''}<div class="ordp" data-lim="${ordLimit}">${ordPanel(ordLimit)}</div></div>`; }
+  /* ---------- My orders: the owner's own orders (regulars, pre-orders, sales agreed off the site). Logic lives in js/myorders.js ---------- */
+  const MO = window.MyOrders;
+  let ordSource = 'online', moFilter = 'ordered', moDraft = null, moQ = '';
+  const moMine = () => ordSource === 'mine' && tab === 'more' && moreView === 'orders';
+  const moMatch = (o, q) => { const n = q.trim().toLowerCase(), d = n.replace(/\D/g, ''); return !n || [o.code, clabel(o.client), o.client, o.invoice].concat(o.rows.map((r) => r.desc)).some((x) => String(x || '').toLowerCase().includes(n)) || (d.length >= 3 && String(o.phone || '').replace(/\D/g, '').includes(d)); };
+  const moSwitch = () => `<div class="mosw"><div class="seg" role="tablist"><button class="${ordSource === 'online' ? 'on' : ''}" data-act="mo-src" data-id="online" role="tab">${t('mo.src.online')}</button><button class="${ordSource === 'mine' ? 'on' : ''}" data-act="mo-src" data-id="mine" role="tab">${t('mo.src.mine')}</button></div></div>`;
+  const moBadge = (o) => { const st = MO.stage(state, o); return o.cancelledAt ? opl('gone', t('mo.st.cancelled')) : st === 'ordered' ? opl('arr', t('mo.st.ordered')) : st === 'arrived' ? opl('paid', t('mo.st.arrived')) : st === 'handed' ? opl('owing', t('mo.st.handed')) : opl('paid', '✓ ' + t('mo.st.done')); };
+  const moNum = (o) => (o.rows.length === 1 ? t('mo.nItems1') : t('mo.nItems', { n: o.rows.length }));
+  function moRow(o) {
+    const st = MO.stage(state, o), left = o.rows.filter((r) => MO.rowState(state, o, r) === 'ordered').length, pay = MO.pay(state, o);
+    const info = o.cancelledAt ? t('mo.st.cancelled') : st === 'ordered' ? (left ? t('mo.onWay', { n: left }) : '') : st === 'arrived' ? t('mo.allHere') : st === 'handed' ? t('mo.owes', { amt: moneyText(pay.owing) }) : '';
+    return `<button class="ord" data-act="mo-open" data-id="${o.id}"><span class="ic">📝</span><div class="mid"><b>${esc(o.code)} · ${esc(clabel(o.client))}</b><small>${moNum(o)}${info ? ' · ' + esc(info) : ''}</small><small><span class="motag ${o.tag}">${t('mo.tag.' + o.tag)}</span></small></div><div class="end"><b>${money(pay.total)}</b>${moBadge(o)}</div></button>`;
+  }
+  function moHead() {
+    const c = MO.counts(state), tabs = ['ordered', 'arrived', 'handed', 'done'];
+    return `<div class="seg ordseg four">${tabs.map((f) => `<button class="${moFilter === f ? 'on' : ''}" data-act="mo-filter" data-id="${f}"${f === 'done' ? ` aria-label="${esc(t('ord.f.done'))} ${c[f]}"` : ''}>${f === 'done' ? `<span class="tk" aria-hidden="true">✓</span> ${c[f]}` : `${t('mo.f.' + f)} ${c[f]}`}</button>`).join('')}</div>`;
+  }
+  function moPanel() {
+    const q = moQ.trim(), list = MO.list(state).filter((o) => (q ? moMatch(o, q) : MO.stage(state, o) === moFilter)).sort((a, b) => new Date(b.handedAt || b.createdAt) - new Date(a.handedAt || a.createdAt));
+    if (!list.length) return q ? `<div class="opanel"><div class="oempty"><span class="em">🔍</span><span>${t('ord.noMatch', { q: esc(q) })}</span></div></div>` : `<div class="opanel"><div class="oempty"><span class="em">📝</span><span>${t('mo.empty.' + moFilter)}</span><small>${t('mo.emptyHint.' + moFilter)}</small></div></div>`;
+    return list.map(moRow).join('');
+  }
+  function MyOrdersLog() { return `<div class="sth">${moSwitch()}<div class="oqbar"><span aria-hidden="true">🔍</span><input class="oq" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(t('ord.search'))}" value="${esc(moQ)}" aria-label="${esc(t('ord.search'))}"><button class="oqx" data-act="ord-q-clear" aria-label="${t('ord.clear')}" ${moQ ? '' : 'hidden'}>✕</button></div>${moHead()}<p class="muted small ordtip">${t('mo.intro')}</p><div class="mop">${moPanel()}</div></div><button class="mofab" data-act="mo-new">＋ ${t('mo.new')}</button>`; }
+  const moRedraw = () => { const p = $('.mop'); if (p && ordSource === 'mine') { p.innerHTML = moPanel(); const h = $('.ordseg'); if (h) { h.outerHTML = moHead(); const n = $('.ordseg'); if (n) n.hidden = !!moQ.trim(); } document.querySelectorAll('.oqx').forEach((e) => { e.hidden = !moQ; }); } };
+
+  // ---- one order
+  const moRowText = (o, r) => { const s = MO.rowState(state, o, r), it = MO.itemOf(state, r); return o.handedAt ? t('mo.it.handed') : !it ? t('mo.it.typed') : s === 'ordered' ? t('mo.it.ordered') + ' · ' + esc(bl(it.batchId)) : t('mo.it.arrived'); };
+  function sheetMyOrder(id) {
+    const o = MO.byId(state, id); if (!o) return;
+    enterPage('myorder', id, () => sheetMyOrder(id));
+    const st = MO.stage(state, o), pay = MO.pay(state, o), steps = ['ordered', 'arrived', 'handed', 'done'], at = steps.indexOf(st), canEdit = !o.handedAt && !o.cancelledAt;
+    const left = o.rows.filter((r) => MO.rowState(state, o, r) === 'ordered').length, inv = o.invoice ? (L.invoiceForward(state, o.invoice).slice(-1)[0] || null) : null;
+    const stepBar = o.cancelledAt ? '' : `<div class="fstep">${steps.map((k, n) => `<span class="${n < at ? 'dn' : n === at ? 'on' : ''}">${t(k === 'done' ? 'mo.st.done' : 'mo.f.' + k)}</span>`).join('')}</div>`;
+    const rowsHTML = o.rows.map((r, n) => `<div class="morow"><div class="t"><b>${esc(r.desc)}</b><small>${moRowText(o, r)}</small></div><b class="p">${money(r.price)}</b></div>${canEdit ? `<div class="mobtns">${!MO.itemOf(state, r) ? `<button type="button" data-act="mo-link" data-id="${o.id}" data-i="${n}">🔗 ${t('mo.link')}</button>` : ''}<button type="button" data-act="mo-price" data-id="${o.id}" data-i="${n}">${t('mo.price')}</button>${o.rows.length > 1 ? `<button type="button" data-act="mo-rm" data-id="${o.id}" data-i="${n}">${t('mo.rm')}</button>` : ''}</div>` : ''}`).join('');
+    const pays = (o.handedAt && o.invoice ? (L.orderPay(state, o.invoice) || { payments: [] }).payments : o.payments).map((p, n) => `<div class="r ok"><i>✓</i><span class="tx">${n === 0 && !o.handedAt ? t('mo.deposit') : t('mo.payN', { n: n + 1 })}<small>${esc(dayMon(new Date(p.date || p.at)))}</small></span><b>${money(p.amount)}</b></div>`).join('');
+    const pct = pay.total > 0 ? Math.max(0, Math.min(100, Math.round(pay.paid / pay.total * 100))) : 0;
+    const invCard = inv ? `<div class="cklist" style="margin-top:10px"><div class="r ok tap" role="button" tabindex="0" data-act="view-inv" data-id="${inv.no}"><i>✓</i><span class="tx">${t('mo.invoice', { no: inv.no })}<small>${pay.owing > 0 ? t('mo.owes', { amt: moneyText(pay.owing) }) : t('mo.paidFull')}</small></span><button type="button" class="ckview" data-act="view-inv" data-id="${inv.no}">${t('mo.view')} ›</button></div>${inv.sentAt ? `<div class="r ok"><i>✓</i><span class="tx">${t('ck.sent')}<small>${esc(fullWhen(new Date(inv.sentAt)))}</small></span></div>` : `<div class="r todo"><i>○</i><span class="tx">${t('ck.notSent')}</span><button type="button" class="ckview" data-act="mo-send" data-id="${o.id}">${t('mo.sendInv')} ›</button></div>`}</div>` : '';
+    const acts = canEdit ? (st === 'arrived' ? `<div class="btns"><button class="btn ${o.option === 'delivery' ? 'primary' : ''}" data-act="mo-hand" data-id="${o.id}" data-how="delivery">🚚 ${t('mo.delivered')}</button><button class="btn ${o.option === 'pickup' ? 'primary' : ''}" data-act="mo-hand" data-id="${o.id}" data-how="pickup">🛍️ ${t('mo.pickedUp')}</button></div><p class="muted small" style="text-align:center">${t('mo.handNote')}</p>` : `<p class="muted small" style="text-align:center">${t('mo.waiting', { n: left })}</p>`) : (o.handedAt && pay.owing > 0 && inv ? `<div class="btns"><button class="btn primary" data-act="pay-inv" data-id="${inv.no}">${t('mo.takePay')}</button></div>` : '');
+    const foot = canEdit ? `<p class="ocancel"><button data-act="mo-cancel" data-id="${o.id}">${t('mo.cancel')}</button><small>${t('mo.cancelNote')}</small></p>` : ((o.cancelledAt || st === 'done') ? `<p class="ocancel"><button data-act="mo-del" data-id="${o.id}">${t('mo.delete')}</button></p>` : '');
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${esc(o.code)} · ${esc(clabel(o.client))}</b><small>${t('mo.tag.' + o.tag)} · ${moNum(o)}</small></div></div>
+      <div class="pd bpg">${stepBar}
+        <div class="card" style="padding:12px"><b>${t('mo.customer')}</b><div class="rw"><div class="t"><small>${esc(o.phone)} · ${t('mo.' + o.option)}${o.place ? ' · ' + esc(o.place) : ''}</small>${o.note ? `<small style="white-space:pre-wrap">${esc(o.note)}</small>` : ''}</div>${o.phone ? `<a class="btn" style="flex:none;width:46px;padding:8px 0;text-align:center" href="${esc(SCore.waLink(o.phone))}" target="_blank" rel="noopener">💬</a>` : ''}</div></div>
+        <div class="card" style="padding:12px;margin-top:10px"><b>${t('mo.items')}</b>${rowsHTML}<div class="sub tot" style="display:flex;justify-content:space-between;margin-top:6px"><span>${t('sell.totalRow')}</span><b>${money(pay.total)}</b></div></div>
+        <div class="card" style="padding:12px;margin-top:10px"><b>${t('mo.payment')}</b><div class="bar"><i style="width:${pct}%"></i></div><small>${t('mo.paidOf', { paid: moneyText(pay.paid), total: moneyText(pay.total) })}${pay.owing > 0 ? ' · ' + t('mo.owes', { amt: moneyText(pay.owing) }) : ''}</small>${pays ? `<div class="cklist" style="margin-top:8px">${pays}</div>` : ''}${canEdit && pay.owing > 0 ? `<button type="button" class="btn" style="width:100%;margin-top:8px" data-act="mo-pay" data-id="${o.id}">＋ ${t('mo.addPay')}</button>` : ''}</div>
+        ${invCard}${acts}${foot}</div>`, null, true);
+  }
+
+  // ---- new order: customer, batch, items, deposit, delivery or pickup
+  const moDraftNew = () => ({ name: '', phone: '', batchId: '', pick: {}, typed: [], deposit: '', option: 'delivery', place: '', note: '', tag: 'pre' });
+  const moSum = () => { const d = moDraft; return Object.values(d.pick).reduce((n, v) => n + (parseFloat(String(v).replace(',', '.')) || 0), 0) + d.typed.reduce((n, x) => n + (parseFloat(String(x.price).replace(',', '.')) || 0), 0); };
+  const moFree = (i) => !L.isSold(i) && !(i.reservedFor && MO.byId(state, i.reservedFor) && !MO.byId(state, i.reservedFor).cancelledAt);
+  function moItemsHTML() {
+    const d = moDraft, b = state.batches.find((x) => x.id === d.batchId); if (!b) return `<p class="muted small">${t('mo.batchPick')}</p>`;
+    const list = state.items.filter((i) => i.batchId === b.id && !L.isSold(i));
+    if (!list.length) return `<p class="muted small">${t('mo.noFree')}</p>`;
+    return list.map((i) => { const free = moFree(i), on = d.pick[i.id] !== undefined, by = !free ? MO.byId(state, i.reservedFor) : null;
+      return `<div class="moit ${free ? '' : 'off'}"><button type="button" class="mpick" ${free ? `data-act="mo-tick" data-id="${i.id}"` : 'disabled'}>${PUI.thumb(i)}<span class="txt"><b>${esc(dn(i)) || t('item.untitled')}</b><small>${i.size ? esc(i.size) + ' · ' : ''}${i.status === 'In Transit' ? t('status.InTransit') : ''}${by ? ` <span class="obadge mo">${t('mo.reservedBy', { name: esc(clabel(by.client)) })}</span>` : ''}</small></span></button>${on ? `<div class="in"><span>TT$</span><input inputmode="decimal" data-mopick="${i.id}" value="${esc(d.pick[i.id])}" aria-label="${t('mo.typedPrice')}"></div>` : `<b class="pr">${money(L.effectivePrice(i))}</b>`}<span class="mck ${on ? 'on' : ''}" aria-hidden="true">${on ? '✓' : ''}</span></div>`; }).join('');
+  }
+  const moTypedHTML = () => moDraft.typed.map((x, n) => `<div class="moty"><input placeholder="${t('mo.typedDesc')}" data-motd="${n}" value="${esc(x.desc)}" autocomplete="off"><input inputmode="decimal" placeholder="${t('mo.typedPrice')}" data-motp="${n}" value="${esc(x.price)}"><button type="button" class="x" data-act="mo-tyrm" data-id="${n}" aria-label="${t('aria.remove')}">✕</button></div>`).join('');
+  const moSaveLabel = () => t('mo.save', { amt: moneyText(moSum()) });
+  function sheetMyNew() {
+    if (!moDraft) moDraft = moDraftNew(); const d = moDraft; enterPage('mynew', '', () => sheetMyNew());
+    const b = state.batches.find((x) => x.id === d.batchId), c = storeCfg();
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('mo.nTitle')}</b><small>${t('mo.nSub')}</small></div></div>
+      <div class="pd bpg" id="mo-form"><label for="mo-name">${t('mo.name')}</label><input id="mo-name" data-mod="name" value="${esc(d.name)}" autocomplete="off" list="mo-cust" enterkeyhint="next"><datalist id="mo-cust">${state.customers.slice(0, 200).map((n) => `<option value="${esc(n)}">`).join('')}</datalist>
+        <label for="mo-phone">${t('mo.phone')}</label><input id="mo-phone" data-mod="phone" type="tel" inputmode="tel" value="${esc(d.phone)}" autocomplete="off" placeholder="${t('ex.label')} 1 868 555 0100">
+        <label>${t('mo.batch')}</label><button type="button" class="placebtn" data-act="mo-batch"><span id="mo-batchtxt">${b ? esc(bl(b.id)) : `<i class="muted">${t('mo.batchPick')}</i>`}</span><span class="chev">›</span></button>
+        <label>${t('mo.pickItems')}</label><div class="card" style="padding:4px 12px" id="mo-items">${moItemsHTML()}</div>
+        <label>${t('mo.typed')}</label><div id="mo-typed">${moTypedHTML()}</div><button type="button" class="pkadd" data-act="mo-tyadd">＋ ${t('mo.typedAdd')}</button>
+        <label for="mo-dep">${t('mo.deposit2')}</label><input id="mo-dep" data-mod="deposit" inputmode="decimal" value="${esc(d.deposit)}" placeholder="0.00">
+        <div class="seg" style="grid-template-columns:1fr 1fr;margin-top:12px"><button class="${d.option === 'delivery' ? 'on' : ''}" data-act="mo-opt" data-id="delivery">🚚 ${t('mo.delivery')}</button><button class="${d.option === 'pickup' ? 'on' : ''}" data-act="mo-opt" data-id="pickup">🛍️ ${t('mo.pickup')}</button></div>
+        <label for="mo-place">${t('mo.place')}</label><input id="mo-place" data-mod="place" value="${esc(d.place)}" autocomplete="off" list="mo-places" placeholder="${t('mo.placePick')}"><datalist id="mo-places">${(c.locations || []).map((l) => `<option value="${esc(l.name)}">`).join('')}</datalist>
+        <label for="mo-note">${t('mo.note')}</label><input id="mo-note" data-mod="note" value="${esc(d.note)}" placeholder="${t('mo.notePh')}" autocomplete="off">
+        <div class="btns"><button type="button" class="btn primary" id="mo-save" data-act="mo-save">${moSaveLabel()}</button></div></div>`, null, true);
+  }
+  function sheetMoBatch() {
+    const list = state.batches.slice().sort((a, b) => (bStatus(a) === 'In Transit' ? 0 : 1) - (bStatus(b) === 'In Transit' ? 0 : 1) || b.num - a.num), free = (b) => state.items.filter((i) => i.batchId === b.id && moFree(i)).length;
+    openSmall(`<h3>${t('mo.batchT')}</h3><div class="cepl">${list.map((b) => `<button type="button" class="lpi ${moDraft && moDraft.batchId === b.id ? 'on' : ''}" data-act="mo-batchpick" data-id="${b.id}"><span>${esc(bl(b.id))}</span><small class="muted">${bStatus(b) === 'In Transit' ? t('status.InTransit') : t('status.Received')} · ${tn('notif.items', free(b))}</small></button>`).join('') || `<p class="muted small">${t('stock.none')}</p>`}</div>`, 'small');
+  }
+  function sheetMoLink(id, idx) {
+    const o = MO.byId(state, id); if (!o) return;
+    const items = state.items.filter((i) => !L.isSold(i) && moFree(i) && i.desc).sort((a, b) => (a.status === 'In Transit' ? 0 : 1) - (b.status === 'In Transit' ? 0 : 1)).slice(0, 120);
+    openSmall(`<h3>🔗 ${t('mo.link')}</h3><input type="search" id="mo-lq" placeholder="${t('pick.search')}" autocomplete="off" style="margin-bottom:8px"><div class="cepl" id="mo-llist">${items.map((i) => `<button type="button" class="lpi" data-act="mo-linkpick" data-id="${i.id}" data-o="${o.id}" data-i="${idx}" data-n="${esc((i.desc + ' ' + (i.size || '') + ' ' + i.id).toLowerCase())}"><span class="txt"><b>${esc(i.desc)}</b><small class="muted">${i.size ? esc(i.size) + ' · ' : ''}${esc(bl(i.batchId))} · ${i.status === 'In Transit' ? t('status.InTransit') : t('mo.it.arrived')}</small></span></button>`).join('') || `<p class="muted small">${t('stock.none')}</p>`}</div>`, 'small');
+  }
+  function moHandSheet(id, how) {
+    const o = MO.byId(state, id); if (!o) return; const pay = MO.pay(state, o);
+    openSmall(`<h3>${t('mo.handT', { code: esc(o.code) })}</h3><p class="muted">${t('mo.handBody', { total: moneyText(pay.total), dep: moneyText(pay.paid), bal: moneyText(pay.owing) })}</p><label for="mo-recv">${t('mo.recv')}</label><input id="mo-recv" inputmode="decimal" value="${pay.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="mo-hand-ok" data-id="${o.id}" data-how="${how}">${t('mo.handOk')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
+  }
+  function moAmountSheet(title, act, id, idx, value) { openSmall(`<h3>${title}</h3><input id="mo-amt" inputmode="decimal" value="${esc(value || '')}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="${act}" data-id="${id}" data-i="${idx == null ? '' : idx}">${t('btn.save')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card'); }
+  const moRefresh = (id) => { save(); render(); const k = pageStack.length ? pageStack[pageStack.length - 1].key : ''; if (k === 'myorder|' + id) sheetMyOrder(id); };
+  const moAfter = (id) => { save(); render(); closeSheet(); const k = pageStack.length ? pageStack[pageStack.length - 1].key : ''; if (k === 'myorder|' + id) return sheetMyOrder(id); if (id) sheetMyOrder(id); };
+  async function moSave() {
+    const d = moDraft; if (!d) return;
+    const name = L.cleanName(d.name); if (!name) return toast(t('err.moNoClient'));
+    const ph = String(d.phone || '').trim(); if (!ph) return toast(t('err.moNoPhone')); if (peopleOn && !PE.valid(ph)) return toast(t('pp.badPhone'));
+    let key = name; if (peopleOn) { key = await resolveOrderCustomer({ name, phone: ph, place: d.place }); if (!key) return; }
+    const rows = Object.keys(d.pick).map((id) => ({ itemId: id, price: d.pick[id] })).concat(d.typed.filter((x) => String(x.desc).trim() || String(x.price).trim()).map((x) => ({ itemId: '', desc: x.desc, price: x.price })));
+    try { const o = MO.create(state, { client: key, phone: ph, option: d.option, place: d.place, note: d.note, tag: d.tag, rows, deposit: d.deposit }); if (sharedBusiness()) o.by = myName(); save(); moDraft = null; toast(t('mo.saved')); ordSource = 'mine'; moFilter = 'ordered'; pageStack = pageStack.filter((p) => p.key !== 'mynew|'); sheetMyOrder(o.id); render(); }
+    catch (e) { toast('⚠️ ' + errMsg(e)); }
+  }
+  document.addEventListener('input', (e) => {
+    const el = e.target, d = el.dataset || {}; if (!moDraft) return;
+    if (d.mod) { moDraft[d.mod] = el.value; } else if (d.mopick) { moDraft.pick[d.mopick] = el.value; } else if (d.motd !== undefined) { moDraft.typed[Number(d.motd)].desc = el.value; } else if (d.motp !== undefined) { moDraft.typed[Number(d.motp)].price = el.value; } else return;
+    const b = $('#mo-save'); if (b) b.textContent = moSaveLabel();
+  });
+  document.addEventListener('input', (e) => { if (e.target.id === 'mo-lq') { const q = e.target.value.trim().toLowerCase(); document.querySelectorAll('#mo-llist .lpi').forEach((r) => { r.hidden = !!q && !(r.dataset.n || '').includes(q); }); } });
+
+  function OrderLog() { if (ordSource === 'mine') return MyOrdersLog(); return `<div class="sth">${moSwitch()}<div class="ordov">${ordOverview()}</div>${ordHead()}${!ordSel && Store.orders().some(orderDeletable) ? `<p class="muted small ordtip">${t('ord.selTip')}</p>` : ''}<div class="ordp" data-lim="${ordLimit}">${ordPanel(ordLimit)}</div></div>`; }
   // The invoice an order was turned into (saved on the order; older orders: the invoice their sold items are on).
   // An order's saved invoice number only counts when that invoice was made after the order arrived. After a reset or an import the
   // numbers start again, and an old number could otherwise point at someone else's invoice.
@@ -4337,6 +4444,29 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ord-selx': ordSel = null; return ordSelRedraw();
       case 'ord-selall': { if (!ordSel) return; const c = ordCandidates(); if (c.length && c.every((o) => ordSel.has(o.id))) c.forEach((o) => ordSel.delete(o.id)); else c.forEach((o) => ordSel.add(o.id)); return ordSelRedraw(); }
       case 'ord-seldel': { if (!ordSel || !ordSel.size) return; const ids = [...ordSel], n = ids.length; return askCard(n === 1 ? t('ord.delSelAsk1') : t('ord.delSelAskN', { n }), { danger: true, ok: n === 1 ? t('ord.delSel1') : t('ord.delSelN', { n }), title: n === 1 ? t('ord.delSelT1') : t('ord.delSelTN', { n }) }).then((y) => { if (!y) return; Promise.all(ids.map((x) => Store.remove(x).then(() => 1, () => 0))).then((r) => { const k = r.reduce((a, b) => a + b, 0); ordSel = null; toast(k === n ? (k === 1 ? t('ord.deleted') : t('ord.delSelDone', { n: k })) : t('store.pubError')); ordLimit = 20; render(); }); }); }
+      case 'mo-src': ordSource = id; ordSel = null; moQ = ''; return render();
+      case 'mo-filter': moFilter = id; return render();
+      case 'mo-open': return sheetMyOrder(id);
+      case 'mo-new': return sheetMyNew();
+      case 'mo-batch': return sheetMoBatch();
+      case 'mo-batchpick': if (moDraft) moDraft.batchId = id; return closeSheet();
+      case 'mo-tick': { if (!moDraft) return; if (moDraft.pick[id] !== undefined) delete moDraft.pick[id]; else { const it = state.items.find((x) => x.id === id); moDraft.pick[id] = String(it ? (L.effectivePrice(it) || '') : ''); } $('#mo-items').innerHTML = moItemsHTML(); const bt = $('#mo-save'); if (bt) bt.textContent = moSaveLabel(); return; }
+      case 'mo-tyadd': { if (!moDraft) return; moDraft.typed.push({ desc: '', price: '' }); $('#mo-typed').innerHTML = moTypedHTML(); return; }
+      case 'mo-tyrm': { if (!moDraft) return; moDraft.typed.splice(Number(id), 1); $('#mo-typed').innerHTML = moTypedHTML(); const bt = $('#mo-save'); if (bt) bt.textContent = moSaveLabel(); return; }
+      case 'mo-opt': { if (!moDraft) return; moDraft.option = id; document.querySelectorAll('[data-act=mo-opt]').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return; }
+      case 'mo-save': return moSave();
+      case 'mo-link': return sheetMoLink(id, Number(t_.dataset.i));
+      case 'mo-linkpick': { try { MO.link(state, t_.dataset.o, Number(t_.dataset.i), id); closeSheet(); return moRefresh(t_.dataset.o); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+      case 'mo-price': { const o = MO.byId(state, id), r = o && o.rows[Number(t_.dataset.i)]; return r && moAmountSheet(t('mo.price'), 'mo-price-ok', id, t_.dataset.i, String(r.price)); }
+      case 'mo-price-ok': { try { MO.setPrice(state, id, Number(t_.dataset.i), $('#mo-amt').value); closeSheet(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+      case 'mo-rm': return askCard(t('mo.rm') + '?', { danger: true, ok: t('mo.rm') }).then((y) => { if (!y) return; try { MO.removeRow(state, id, Number(t_.dataset.i)); moRefresh(id); } catch (e) { toast('⚠️ ' + errMsg(e)); } });
+      case 'mo-pay': return moAmountSheet(t('mo.addPay'), 'mo-pay-ok', id, '', '');
+      case 'mo-pay-ok': { try { MO.addPayment(state, id, $('#mo-amt').value); closeSheet(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+      case 'mo-hand': return moHandSheet(id, t_.dataset.how);
+      case 'mo-hand-ok': { try { const inv = MO.handOver(state, id, { how: t_.dataset.how, paidNow: parseAmt(($('#mo-recv') || {}).value) }); if (sharedBusiness()) inv.by = myName(); closeSheet(); toast(t('mo.handDone', { no: inv.no })); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
+      case 'mo-send': { const o = MO.byId(state, id), lat = o && o.invoice ? L.invoiceForward(state, o.invoice).slice(-1)[0] : null; return lat && shareInvoicePdf(lat.no, false); }
+      case 'mo-cancel': { const o = MO.byId(state, id); if (!o) return; const dep = MO.deposits(o); return askCard(dep > 0 ? t('mo.cancelDep', { dep: moneyText(dep) }) : t('mo.cancelAsk'), { danger: true, title: t('mo.cancelT'), ok: t('mo.cancelOk') }).then((y) => { if (!y) return; MO.cancel(state, id); toast(t('mo.cancelled')); moRefresh(id); }); }
+      case 'mo-del': { const o = MO.byId(state, id); if (!o) return; return askCard(t('mo.delAsk', { code: o.code }), { danger: true, ok: t('mo.delOk') }).then((y) => { if (!y) return; MO.remove(state, id); save(); toast(t('mo.deleted')); dropPages('myorder|' + id); closeSheet(); render(); }); }
       case 'order-delete': { const od = Store.orders().find((x) => x.id === id); if (!od) return; return askCard(t('ord.deleteAsk', { code: od.code || SCore.orderCode(od.id) }), { danger: true, ok: t('ord.deleteOk') }).then((y) => { if (y) Store.remove(id).then(() => { toast(t('ord.deleted')); dropPages('order|' + id); closeSheet(); render(); }).catch(() => toast(t('store.pubError'))); }); }
       case 'order-decline': return declineOrder(id);
       case 'loc-yes': { closeSheet(); const o = Store.orders().find((x) => x.id === id); return o && doConfirmOrder(o); }
@@ -4344,7 +4474,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ord-sent-mark': { const o = Store.orders().find((x) => x.id === id), lat = o && latestInvOf(o); return lat && markInvSent(o, lat.no); }
       case 'ord-send-inv': { const o = Store.orders().find((x) => x.id === id), lat = o && latestInvOf(o); return lat && shareInvoicePdf(lat.no, false); }
       case 'ord-more': ordLimit += 20; document.querySelectorAll('.ordp').forEach((e) => { if (e.dataset.lim !== '5') e.dataset.lim = ordLimit; }); return refreshOrders();
-      case 'ord-q-clear': ordQ = ''; document.querySelectorAll('.oq').forEach((e) => { e.value = ''; }); return refreshOrders();
+      case 'ord-q-clear': if (moMine()) { moQ = ''; document.querySelectorAll('.oq').forEach((e) => { e.value = ''; }); return moRedraw(); } ordQ = ''; document.querySelectorAll('.oq').forEach((e) => { e.value = ''; }); return refreshOrders();
       case 'wait-open': return waitOpen(id);
       case 'wait-batch': closeSheet(); return openBatchToReceive(id);
       case 'dv-toggle': { if (dvSel) { if (dvSel.has(id)) dvSel.delete(id); else dvSel.add(id); } return sheetDeliver(dvOrd, true); }
@@ -4600,6 +4730,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     else if (el.classList.contains('itq')) { itQ = el.value; itLimit = 100; itRefresh(); }
     else if (el.classList.contains('blq')) { const l = $('#blog'); if (l) l.innerHTML = batchLogRows(el.value); }
     else if (el.classList.contains('bq')) { const l = $('#bpl'); if (l) { l.innerHTML = bpRows(el.value); l.scrollTop = 0; } const nn = $('#bp-n'); if (nn) nn.textContent = el.value.trim() ? t('bp.found', { n: L.batchSearch(state.batches, el.value).length }) : t('bp.n', { n: state.batches.length }); }
+    else if (el.classList.contains('oq') && moMine()) { moQ = el.value; moRedraw(); }
     else if (el.classList.contains('oq')) { ordQ = el.value; ordLimit = 20; document.querySelectorAll('.ordp').forEach((e) => { if (e.dataset.lim !== '5') e.dataset.lim = 20; }); refreshOrders(); }
     else if (el.id === 'w-q') { wordQ = el.value; wordsRefresh(); }
     else if (el.id === 'w-try') tryName();

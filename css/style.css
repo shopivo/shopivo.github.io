@@ -1639,3 +1639,23 @@ a.btn.navopen{display:flex;align-items:center;justify-content:center;gap:8px;tex
 #ordseldel{position:fixed;left:0;right:0;bottom:0;z-index:70;padding:12px 16px calc(env(safe-area-inset-bottom,0px) + 16px);background:var(--bg);box-shadow:0 -8px 24px rgba(0,0,0,.25);text-align:center}
 #ordseldel .btn{width:100%}#ordseldel small{display:block;margin-top:6px;color:var(--muted)}
 body.ordselecting #view{padding-bottom:140px}
+/* My orders */
+.mosw{position:sticky;top:calc(54px + var(--sat));z-index:6;background:var(--bg);padding:8px 0 6px;margin:0 0 4px}
+.motag{display:inline-block;font-size:11px;font-weight:700;padding:1px 8px;border-radius:99px;background:var(--line);color:var(--ink)}
+.motag.wa{background:#d9f0e0;color:#1d6b3a}
+.obadge.mo{background:#7b5ea7;color:#fff}
+.mofab{position:fixed;right:16px;bottom:calc(96px + env(safe-area-inset-bottom,0px));z-index:30;background:var(--brand);color:#fff;border:0;border-radius:99px;padding:13px 20px;font-weight:800;font-size:16px;box-shadow:0 6px 18px rgba(0,0,0,.3)}
+.morow{display:flex;justify-content:space-between;align-items:center;gap:10px;padding:8px 0;border-bottom:1px solid var(--line)}
+.morow .t{min-width:0}.morow small{display:block;color:var(--muted)}
+.mobtns{display:flex;flex-wrap:wrap;gap:6px;padding:4px 0 8px}
+.mobtns button{background:none;border:1px solid var(--line);border-radius:99px;padding:5px 11px;font-size:13px;color:inherit}
+.moit{display:flex;align-items:center;gap:8px;padding:8px 0;border-bottom:1px solid var(--line)}
+.moit.off{opacity:.55}
+.moit .mpick{display:flex;flex:1;min-width:0;align-items:center;gap:10px;background:none;border:0;text-align:left;color:inherit;padding:0}
+.moit .txt small{display:block;color:var(--muted)}
+.moit .pr{white-space:nowrap}
+.moit .in{display:flex;align-items:center;gap:4px}.moit .in input{width:86px;min-height:38px;padding:6px 8px}
+.mck{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;color:#fff;font-weight:900;font-size:15px}
+.mck.on{background:var(--brand);border-color:var(--brand)}
+.moty{display:flex;gap:6px;margin-bottom:6px}.moty input:first-child{flex:1}.moty input:nth-child(2){width:96px}.moty .x{background:none;border:0;color:inherit;font-size:18px}
+.lpi .txt{display:block;min-width:0}.lpi .txt b,.lpi .txt small{display:block}
