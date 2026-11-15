@@ -377,7 +377,7 @@
   }
   function render() {
     if ($('#tsearch') && tsKey !== tab + '|' + moreView) closeTopSearch(true);
-    if (ordSel && !(tab === 'more' && moreView === 'orders')) ordSel = null; ordSelSync();
+    if (ordSel && !(tab === 'more' && moreView === 'orders')) { ordSel = null; syncHistory(); } ordSelSync();
     closeTopMenu();
     cleanSelected();
     const moreTitles = { deliveries: 'more.deliveries', orders: 'more.orders', batches: 'more.batches', invoices: 'title.invoices', items: 'title.items', summary: 'title.summary', settings: 'title.settings' };
@@ -3664,7 +3664,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     top.innerHTML = `<button type="button" class="x" data-act="ord-selx" aria-label="${t('btn.close')}">✕</button><b>${n === 1 ? t('ord.sel1') : t('ord.selN', { n })}</b><button type="button" class="all" data-act="ord-selall">${all ? t('ord.selNone') : t('ord.selAll')}</button>`;
     bot.innerHTML = `<button type="button" class="btn dsolid" data-act="ord-seldel" ${n ? '' : 'disabled'}>🗑 ${n === 1 ? t('ord.delSel1') : t('ord.delSelN', { n })}</button><small>${t('ord.selOnly')}</small>`;
   }
-  const ordSelRedraw = () => { refreshOrders(); ordSelSync(); };
+  const ordSelRedraw = () => { refreshOrders(); ordSelSync(); syncHistory(); };
   function ordSelEnter(id) { ordSel = new Set(id ? [id] : []); try { if (navigator.vibrate) navigator.vibrate(18); } catch (e) { /* no buzz */ } ordSelRedraw(); }
   let ordLpTimer = 0, ordLpAt = null;
   document.addEventListener('pointerdown', (e) => {
@@ -4685,7 +4685,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   // Every layer you can back out of (non-home tab, a More sub-screen, an open sheet) is one history entry,
   // so the system Back button / gesture closes the top layer first. At Home, Back asks to press again to exit.
   let hist = 0, skipPops = 0, exitArmed = false, exitTimer, reconTimer;
-  const depth = () => (places.length - 1) + ($('#tsearch') ? 1 : 0) + ($('#sheet').hidden ? 0 : Math.max(1, pageStack.length)) + PUI.layers();
+  const depth = () => (places.length - 1) + (ordSelOn() ? 1 : 0) + ($('#tsearch') ? 1 : 0) + ($('#sheet').hidden ? 0 : Math.max(1, pageStack.length)) + PUI.layers();
   function reconcile() {
     reconTimer = null;
     if (skipPops > 0) return;                        // a back traversal is still in flight
@@ -4705,7 +4705,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     const n = st.d == null ? 0 : st.d;
     if (n >= hist) return;                           // stale entry from before a reload: nothing to undo
     hist = n;
-    if ($('#tsearch')) closeTopSearch();             // the search bar over the top bar is the top layer
+    if (ordSelOn()) { ordSel = null; ordSelSync(); }   // selecting orders in the Order Log is the top layer: Back only un-selects
+    else if ($('#tsearch')) closeTopSearch();             // the search bar over the top bar is the top layer
     else if (PUI.isOpen()) PUI.back();
     else if (!$('#sheet').hidden) pageBack();
     else if (places.length > 1) { themeDraft = null; placeBack(); }
