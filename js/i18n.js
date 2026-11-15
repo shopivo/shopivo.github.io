@@ -271,7 +271,7 @@
     'ih.shape': 'Shape', 'ih.sh.circle': 'Circle', 'ih.sh.rounded': 'White rounded tile',
     'ih.sh.square': 'White square tile', 'ih.sh.none': 'No background', 'ih.size': 'Size',
     'ih.x': 'Across', 'ih.y': 'Down', 'ih.pad': 'Space inside',
-    'ih.shadow': 'Shadow', 'ih.border': 'Border', 'ih.borderW': 'Border thickness', 'ih.borderColor': 'Border colour', 'ih.pickColor': 'Choose a colour', 'ih.bright': 'Brightness', 'ih.fromBanner': 'From your banner', 'ih.recentCols': 'Recent colours', 'ih.eye': 'Pick from the header', 'ih.eyeTip': 'Tap the spot on the header picture to copy its colour', 'ih.eyeDone': 'Colour picked', 'ih.undo': 'Undo the last change', 'ih.ring': 'Ring', 'ih.ringColor': 'Ring colour',
+    'ih.shadow': 'Shadow', 'ih.border': 'Border', 'ih.borderW': 'Border thickness', 'ih.borderColor': 'Border colour', 'ih.pickColor': 'Choose a colour', 'ih.bright': 'Brightness', 'ih.fromBanner': 'From your banner', 'ih.recentCols': 'Recent colours', 'ih.eye': 'Pick from the header', 'ih.eyeTip': 'Tap the spot on the header picture to copy its colour', 'ih.eyeDone': 'Colour picked', 'ih.undo': 'Undo', 'ih.ring': 'Ring', 'ih.ringColor': 'Ring colour',
     'ih.name': 'Business name', 'ih.nameText': 'Text (empty = your business name)', 'ih.lines': 'Contact lines',
     'ih.invoiceWord': 'The word INVOICE', 'ih.tagline': 'Tagline', 'ih.text': 'Text',
     'ih.color': 'Colour', 'ih.weight': 'Weight', 'ih.align': 'Align',

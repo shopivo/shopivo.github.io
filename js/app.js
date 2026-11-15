@@ -1444,12 +1444,12 @@
       <button type="button" class="row tap ihentry" data-act="ih-open"><span style="font-size:22px">🎨</span><div class="grow"><b>${t('ih.open')}</b><small>${t('ih.openSub')}</small></div><span class="chev">›</span></button>
       <div id="invpanel">${invColourPanel()}</div><div class="dsgrid" id="dsgrid" role="radiogroup" aria-label="${t('set.invDesign')}">${invCards()}</div>`;
   }
-  // Small undo next to each slider in the creators: goes back to where it was before the last drag (tap again to return).
+  // Undo next to each slider in the creators: each tap steps back one change (the button goes away when nothing is left to undo).
   const rngOk = (el) => el && el.tagName === 'INPUT' && el.type === 'range' && el.closest('.ihr') && el.id !== 'cr-zoom';
   document.addEventListener('pointerdown', (e) => { if (rngOk(e.target)) e.target.dataset.pre = e.target.value; }, true);
   document.addEventListener('change', (e) => {
     const el = e.target; if (!rngOk(el) || el.dataset.pre === undefined || el.dataset.pre === el.value) return;
-    el.dataset.prev = el.dataset.pre; delete el.dataset.pre;
+    (el._undo = el._undo || []).push(el.dataset.pre); delete el.dataset.pre;
     const lb = el.closest('.ihr').querySelector('label'); if (!lb || lb.querySelector('.rundo')) return;
     const b = document.createElement('button'); b.type = 'button'; b.className = 'rundo'; b.dataset.act = 'rng-undo'; b.setAttribute('aria-label', t('ih.undo')); b.textContent = '↶';
     lb.insertBefore(b, lb.querySelector('.v'));
@@ -4517,7 +4517,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-add': { const f = $('#ih-file'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
-      case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || r.dataset.prev === undefined) return; const cur = r.value; r.value = r.dataset.prev; r.dataset.prev = cur; r.dispatchEvent(new Event('input', { bubbles: true })); return; }
+      case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || !r._undo || !r._undo.length) return; r.value = r._undo.pop(); r.dispatchEvent(new Event('input', { bubbles: true })); if (!r._undo.length) t_.remove(); return; }
       case 'ih-colpick': return openColorPick({ get: () => InvHeader.getPath(ihCfg(), id), set: (v) => ihSet(id, v), eye: id });
       case 'lm-colpick': { if (!lm) return; const keep = lm, k = id, tx = $('#lm-text'); if (tx) keep.text = tx.value.toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || keep.text; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetLogoMaker(keep), 0)); }
       case 'bc-colpick': return openColorPick({ get: () => bcPath(id), set: (v) => bcSet(id, v) });
