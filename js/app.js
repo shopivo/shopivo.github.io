@@ -1500,7 +1500,7 @@
   const ihSec = (k, title, body) => `<details class="ihsec" data-ihk="${k}" ${ihOpenSecs[k] ? 'open' : ''}><summary>${title}</summary><div class="ihb">${body}</div></details>`;
   function ihPieceHTML(s, cfg) {
     const it = cfg.items[s], src = s === 'logo' ? hdrLogoSrc(cfg) : cfg.slots[s];
-    const pic = `<div class="ihpic"><span class="ihth ${src ? '' : 'none'}">${src ? `<img src="${src}" alt="">` : '＋'}</span><div class="ihpb"><button type="button" class="btn" data-act="ih-slot" data-id="${s}">${src ? t('ih.replace') : t('ih.upload1')}</button>${cfg.slots[s] ? `<button type="button" class="btn" data-act="ih-clear" data-id="${s}">${t('ih.remove')}</button>` : ''}</div>${s === 'logo' && !cfg.slots.logo && state.settings.bizLogo ? `<small>${t('ih.useStore')}</small>` : ''}</div>`;
+    const pic = `<div class="ihpic"><span class="ihth ${src ? '' : 'none'}">${src ? `<img src="${src}" alt="">` : '＋'}</span><div class="ihpb"><button type="button" class="btn" data-act="ih-slot" data-id="${s}">${src ? t('ih.replace') : t('ih.upload1')}</button>${s === 'title' ? `<button type="button" class="btn" data-act="tm-open">✨ ${t('tm.open')}</button>` : ''}${cfg.slots[s] ? `<button type="button" class="btn" data-act="ih-clear" data-id="${s}">${t('ih.remove')}</button>` : ''}</div>${s === 'logo' && !cfg.slots.logo && state.settings.bizLogo ? `<small>${t('ih.useStore')}</small>` : ''}</div>`;
     const shape = ihChips(`items.${s}.shape`, t('ih.shape'), InvHeader.SHAPES.map((k) => [k, t('ih.sh.' + k)]));
     const adj = it.on ? `${shape}${ihRng(`items.${s}.size`, t('ih.size'), 20, 300)}${ihRng(`items.${s}.x`, t('ih.x'), -40, 760)}${ihRng(`items.${s}.y`, t('ih.y'), -40, 190)}${it.shape !== 'none' ? ihRng(`items.${s}.pad`, t('ih.pad'), 0, 30) + ihTog(`items.${s}.ring`, t('ih.ring')) + (it.ring ? ihCol(`items.${s}.ringColor`, t('ih.ringColor')) : '') + (it.shape === 'square' || it.shape === 'rounded' ? ihTog(`items.${s}.cline`, t('ih.cline')) + (it.cline ? ihRng(`items.${s}.clineW`, t('ih.clineW'), 1, 8) + ihCol(`items.${s}.clineColor`, t('ih.clineColor')) : '') : '') + ihTog(`items.${s}.border`, t('ih.border')) + (it.border ? ihRng(`items.${s}.borderW`, t('ih.borderW'), 1, 10) + ihCol(`items.${s}.borderColor`, t('ih.borderColor')) : '') : ''}${ihTog(`items.${s}.shadow`, t('ih.shadow'))}` : '';
     return `<details class="ihsub" data-ihk="p:${s}" ${ihOpenSecs['p:' + s] ? 'open' : ''}><summary><span>${t('ih.slot.' + s)}</span>${swt('ih-tog', `items.${s}.on`, it.on)}</summary><div class="ihb">${pic}${adj}</div></details>`;
@@ -1720,6 +1720,44 @@
       <div class="btns"><button class="btn primary" data-act="lm-use">${t('lm.use')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet', () => { lm = null; });
     lmPaint();
   }
+
+  // ---- Title maker: builds the "B-RUIZ / ONLINE STORE" name picture from text (name, thin line, small line under it) ----
+  let tm = null;
+  const tmFonts = { bold: '800 {s}px Inter, Arial, sans-serif', serif: 'italic 700 {s}px Georgia, Caladea, serif', round: '700 {s}px "Trebuchet MS", Inter, sans-serif', slim: '300 {s}px Inter, Arial, sans-serif' };
+  function tmCanvas(maxW) {
+    const g0 = document.createElement('canvas').getContext('2d'), NS = 200, SS = 54;
+    const spaced = (g, txt, sp) => { let w = 0; for (const ch of txt) w += g.measureText(ch).width + sp; return w - sp; };
+    const draw = (g, txt, cx, y, sp) => { const w = spaced(g, txt, sp); let x = cx - w / 2; g.textAlign = 'left'; for (const ch of txt) { g.fillText(ch, x, y); x += g.measureText(ch).width + sp; } };
+    const name = (tm.name || ' ').trim() || ' ', sub = (tm.sub || '').trim();
+    g0.font = tmFonts[tm.style].replace('{s}', NS); const nsp = NS * 0.03, nw = spaced(g0, name, nsp);
+    g0.font = tmFonts.bold.replace('{s}', SS).replace('800', '600'); const ssp = SS * 0.3, sw = sub ? spaced(g0, sub, ssp) : 0;
+    const W = Math.ceil(Math.max(nw, sw) + 40), pad = 20, lineGap = 22, subGap = 24;
+    const H = Math.ceil(NS * 0.8 + (tm.line === 'on' ? lineGap + 6 : 0) + (sub ? subGap + SS * 0.8 : 0) + pad * 2);
+    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.textBaseline = 'alphabetic';
+    let y = pad + NS * 0.78; g.fillStyle = tm.nameCol; g.font = tmFonts[tm.style].replace('{s}', NS); draw(g, name, W / 2, y, nsp);
+    if (tm.line === 'on') { y += lineGap; g.fillStyle = tm.lineCol; g.fillRect(W / 2 - Math.max(nw, sw) / 2, y, Math.max(nw, sw), 6); y += 6; }
+    if (sub) { y += subGap + SS * 0.72; g.fillStyle = tm.subCol; g.font = tmFonts.bold.replace('{s}', SS).replace('800', '600'); draw(g, sub, W / 2, y, ssp); }
+    if (W <= maxW) return c;
+    const o = document.createElement('canvas'); o.width = maxW; o.height = Math.round(H * maxW / W); o.getContext('2d').drawImage(c, 0, 0, o.width, o.height); return o;
+  }
+  function tmPaint() { const cv = $('#tm-cv'); if (!cv || !tm) return; const src = tmCanvas(640); cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0); }
+  function sheetTitleMaker(keep) {
+    const brand = Theme.brand();
+    tm = keep || { name: String(bizName()).toUpperCase(), sub: 'ONLINE STORE', style: 'bold', nameCol: '#333333', subCol: brand, lineCol: brand, line: 'on' };
+    const chips = (k, opts) => `<div class="chiprow">${opts.map(([v, l]) => `<button type="button" class="chip ${tm[k] === v ? 'on' : ''}" data-act="tm-set" data-id="${k}=${v}">${l}</button>`).join('')}</div>`;
+    const sw = (k, label) => `<div class="ihr col"><label>${label}</label><button type="button" class="ihsw" data-act="tm-colpick" data-id="${k}" style="background:${tm[k]}" aria-label="${t('ih.pickColor')}"></button></div>`;
+    openSmall(`<h3>${t('tm.title')}</h3><p class="muted small">${t('tm.sub')}</p><div class="tmpv"><canvas id="tm-cv"></canvas></div>
+      <div class="ihr"><label>${t('tm.name')}</label><input type="text" id="tm-name" value="${esc(tm.name)}" maxlength="24" autocomplete="off"></div>
+      <div class="ihr"><label>${t('tm.line2')}</label><input type="text" id="tm-sub" value="${esc(tm.sub)}" maxlength="30" autocomplete="off" placeholder="${t('tm.line2ph')}"></div>
+      <div class="ihr"><label>${t('lm.style')}</label>${chips('style', [['bold', t('lm.st.bold')], ['serif', t('lm.st.serif')], ['round', t('lm.st.round')], ['slim', t('lm.st.slim')]])}</div>
+      <div class="ihr"><label>${t('tm.rule')}</label>${chips('line', [['on', t('tm.on')], ['off', t('tm.off')]])}</div>
+      ${sw('nameCol', t('tm.nameCol'))}${sw('subCol', t('tm.subCol'))}${sw('lineCol', t('tm.lineCol'))}
+      <div class="btns"><button class="btn primary" data-act="tm-use">${t('tm.use')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet', () => { tm = null; });
+    tmPaint();
+  }
+  function tmUse() {
+    if (!tm) return; const src = tmCanvas(720).toDataURL('image/png'); ihAssign('title', { src }); toast(t('tm.done')); closeSheet(); ihRefresh();
+  }
   function lmUse() {
     if (!lm) return; const cv = lmCanvas(256); state.settings.bizLogo = cv.toDataURL('image/png'); state.settings.bizLogoShape = lm.shape === 'circle' ? 'circle' : lm.shape === 'rounded' ? 'rounded' : 'square'; state.settings.bizLogoPick = 'auto';
     save(); Store.publish && Store.publish(true); toast(t('logo.saved')); closeSheet(); render(); refreshLogoUI(); if (gdOn()) gdDraw(false);
@@ -1830,7 +1868,7 @@
     const P = cfg.pattern, pat = ihSec('bc5', t('bz.pat'), `${bcTog('pattern.on', t('bz.patOn'))}${P.on ? `${bcChips('pattern.sides', t('bz.patSides'), [['both', t('bz.both')], ['front', t('bc.front')], ['back', t('bc.back')]])}${bcChips('pattern.place', t('bz.patPlace'), ['corners', 'all', 'tl', 'tr', 'bl', 'br'].map((k) => [k, t('bz.pl.' + k)]))}${bcRng('pattern.opacity', t('bz.patOp'), 0.04, 0.5, 0.01, true)}${bcRng('pattern.size', t('bz.patSize'), 20, 110, 1)}${bcRng('pattern.tilt', t('bz.patTilt'), -45, 45, 1)}<p class="muted small">${t('bz.patNote')}</p>` : ''}`);
     const saved = ihSec('bc7', t('mb.savedCards'), svSlotsHTML('card', false));
     const print = ihSec('bc4', t('bc.print'), `${bcChips('sides', t('bc.sides'), [['both', t('bc.sides.both')], ['front', t('bc.sides.front')], ['frontblank', t('bc.sides.blank')]])}${bcTog('bleed', t('bc.bleed'))}<p class="muted small">${t('bc.bleedNote')}</p>
-      <div class="btns"><button type="button" class="btn primary" data-act="bc-pdf">⬇ ${t('bc.dlPdf')}</button><button type="button" class="btn" data-act="bc-png" data-id="front">⬇ ${t('bc.dlFront')}</button><button type="button" class="btn" data-act="bc-png" data-id="back">⬇ ${t('bc.dlBack')}</button></div><p class="muted small">${t('bc.printNote')}</p>`);
+      <div class="btns"><button type="button" class="btn primary" data-act="bc-share">📤 ${t('bc.share')}</button><button type="button" class="btn" data-act="bc-pic">💾 ${t('mb.savePic')}</button></div><div class="btns"><button type="button" class="btn" data-act="bc-pdf">⬇ ${t('bc.dlPdf')}</button><button type="button" class="btn" data-act="bc-png" data-id="front">⬇ ${t('bc.dlFront')}</button><button type="button" class="btn" data-act="bc-png" data-id="back">⬇ ${t('bc.dlBack')}</button></div><p class="muted small">${t('bc.printNote')}</p>`);
     return `${col}${what}${arrange}${pat}${qr}${saved}${print}`;
   }
   function bcRefresh() { const b = $('#bc-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = bcBodyHTML(); $('#sheet').scrollTop = sc; bcPaint(); }
@@ -1843,6 +1881,23 @@
     bcSide = 'front'; { const cv = $('#bc-pv'); cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } bcPaint();
   }
   const bcDownload = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  // Share the card as one picture (front above back) through the phone's share sheet; saves the picture instead where sharing is not available.
+  async function cardImage(cfgIn) {
+    const cfg = CardMaker.norm(cfgIn || bcCfg()), sides = cfg.sides === 'front' ? ['front'] : [cfg.sides === 'both' ? 'back' : 'blank'];
+    const parts = [bcCanvas('front', cfg, 1.5)].concat(sides[0] === 'front' ? [] : [bcCanvas(sides[0], cfg, 1.5)]), gap = 48, pad = 48;
+    const W = Math.max(...parts.map((c) => c.width)) + pad * 2, H = parts.reduce((a, c) => a + c.height, 0) + gap * (parts.length - 1) + pad * 2;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.fillStyle = '#f4eff2'; g.fillRect(0, 0, W, H);
+    let y = pad; parts.forEach((c) => { g.save(); g.shadowColor = 'rgba(0,0,0,.18)'; g.shadowBlur = 18; g.shadowOffsetY = 6; g.drawImage(c, (W - c.width) / 2, y); g.restore(); y += c.height + gap; });
+    const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png'));
+    return { blob, file: new File([blob], `${bcFile()}-business-card.png`, { type: 'image/png' }) };
+  }
+  async function cardShare(cfgIn) {
+    const { blob, file } = await cardImage(cfgIn);
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: bizName(), text: bizName() }); } catch (e) { if (e && e.name !== 'AbortError') toast('⚠️ ' + t('bc.shareErr')); } return; }
+    bcDownload(blob, file.name); toast(t('bc.sharedDl'));
+  }
+  // One tap: the card picture goes straight into the phone's downloads.
+  async function cardSave(cfgIn) { const { blob, file } = await cardImage(cfgIn); bcDownload(blob, file.name); toast(t('bc.savedPic')); }
   const bcBlob = (cv, type, q) => new Promise((ok) => cv.toBlob(ok, type, q));
   const bcFile = () => (state.settings.businessName || 'business').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'business';
   async function bcMakePdf() {
@@ -1902,7 +1957,7 @@
     const d = svSlot(kind, i), use = d && svInUse(kind, d), b = (a, label, cls) => `<button type="button" class="btn ${cls || ''}" data-act="${a}" data-id="${kind}:${i}">${label}</button>`;
     const pic = !thumbs ? '' : d ? (kind === 'inv' ? `<canvas class="svc" data-svc="inv:${i}:h" width="800" height="190"></canvas>` : `<div class="svpair"><canvas class="svc" data-svc="card:${i}:front"></canvas><canvas class="svc" data-svc="card:${i}:back"></canvas></div>`) : '<div class="svempty">＋</div>';
     return `<div class="card svslot"><div class="svh"><input type="text" class="svname" data-svname="${kind}:${i}" value="${esc(d ? d.name : '')}" placeholder="${t(kind === 'inv' ? 'mb.invN' : 'mb.cardN', { n: i + 1 })}" maxlength="30" autocomplete="off" aria-label="${t('ih.nameDesign')}">${use ? `<span class="chip on">${t('mb.inUse')}</span>` : ''}</div>${pic}
-      <div class="btns">${d ? b('sv-edit', t('mb.edit'), 'primary') + (kind === 'inv' && !use ? b('sv-use', t('mb.use')) : '') + b('sv-save', t('mb.over')) + `<button type="button" class="btn" data-act="sv-del" data-id="${kind}:${i}" aria-label="${t('ih.delete')}">✕</button>` : b('sv-save', t('mb.saveHere'), 'primary') + b('sv-new', t('mb.makeNew'))}</div></div>`;
+      <div class="btns">${d ? b('sv-edit', t('mb.edit'), 'primary') + (kind === 'inv' && !use ? b('sv-use', t('mb.use')) : '') + (kind === 'card' ? b('sv-share', '📤 ' + t('mb.share')) + b('sv-pic', '💾 ' + t('mb.savePic')) : '') + b('sv-save', t('mb.over')) + `<button type="button" class="btn" data-act="sv-del" data-id="${kind}:${i}" aria-label="${t('ih.delete')}">✕</button>` : b('sv-save', t('mb.saveHere'), 'primary') + b('sv-new', t('mb.makeNew'))}</div></div>`;
   };
   const svSlotsHTML = (kind, thumbs) => `${svCard(kind, 0, thumbs)}${svCard(kind, 1, thumbs)}<p class="muted small">${t('mb.limit')}</p>`;
   function svRedraw() { if (typeof ihOn !== 'undefined' && ihOn && $('#ih-body')) return ihRefresh(); if (bcOn && $('#bc-body')) return bcRefresh(); const top = (pageStack[pageStack.length - 1] || {}).key || '', pg = { 'myinvoice|': sheetMyInvoice, 'mycard|': sheetMyCard }[top]; if (pg) return pg(); }
@@ -4537,6 +4592,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'bc-tog': bcSet(id, !bcPath(id)); return bcRefresh();
       case 'bc-set': { const i = id.indexOf('='), p = id.slice(0, i), v = id.slice(i + 1); if (p === 'scheme') { bcSave(CardMaker.applyScheme(bcCfg(), v, InvHeader.colours(ihCfg()).head)); } else bcSet(p, v); return bcRefresh(); }
       case 'bc-side': bcSide = id; document.querySelectorAll('.bcside .chip').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return bcPaint();
+      case 'bc-share': return cardShare();
+      case 'bc-pic': return cardSave();
+      case 'sv-pic': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d || k !== 'card') return; return cardSave(d.cfg); }
+      case 'sv-share': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d || k !== 'card') return; return cardShare(d.cfg); }
       case 'bc-png': { const cfg = bcCfg(); return bcBlob(bcCanvas(id, cfg, 2), 'image/png').then((b) => bcDownload(b, `${bcFile()}-card-${id}-${cfg.bleed ? 'bleed-1125x675' : '1050x600'}.png`)); }
       case 'bc-pdf': return bcMakePdf().then((b) => bcDownload(b, `${bcFile()}-business-card-${bcCfg().bleed ? 'WITH-BLEED-3.75x2.25in' : '3.5x2in'}.pdf`));
       case 'ih-open': return sheetHeader();
@@ -4544,6 +4603,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || !r._undo || !r._undo.length) return; r.value = r._undo.pop(); r.dispatchEvent(new Event('input', { bubbles: true })); if (!r._undo.length) t_.remove(); return; }
+      case 'tm-open': return sheetTitleMaker();
+      case 'tm-set': { if (!tm) return; const i = id.indexOf('='); const nm = $('#tm-name'), sb = $('#tm-sub'); if (nm) tm.name = nm.value; if (sb) tm.sub = sb.value; tm[id.slice(0, i)] = id.slice(i + 1); document.querySelectorAll('[data-act=tm-set]').forEach((b) => { const j = b.dataset.id.indexOf('='); b.classList.toggle('on', tm[b.dataset.id.slice(0, j)] === b.dataset.id.slice(j + 1)); }); return tmPaint(); }
+      case 'tm-colpick': { if (!tm) return; const keep = tm, k = id, nm = $('#tm-name'), sb = $('#tm-sub'); if (nm) keep.name = nm.value; if (sb) keep.sub = sb.value; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetTitleMaker(keep), 0)); }
+      case 'tm-use': return tmUse();
       case 'ih-saveas': return ihSaveAs();
       case 'ihsa-pick': { ihsaSlot = Number(id); document.querySelectorAll('[data-act=ihsa-pick]').forEach((b) => b.classList.toggle('on', Number(b.dataset.id) === ihsaSlot)); return; }
       case 'ihsa-go': { const el = $('#ihsa-name'), nm = (el && el.value.trim()) || ''; if (!nm) return toast(t('ih.needName')); svSave('inv', ihsaSlot, nm); toast(t('ih.savedOk')); return closeSheet(); }
@@ -4979,6 +5042,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     const el = e.target;
     if (el.closest && el.closest('#tsearch')) { const pi = $(pageSearchSel()); if (pi) { pi.value = el.value; pi.dispatchEvent(new Event('input', { bubbles: true })); } return; }
     if (el.id === 'cr-zoom' && ihCr) { const ar = InvHeader.W / InvHeader.H, maxW = Math.min(ihCr.iw, ihCr.ih * ar), cx = ihCr.fx + ihCr.fw / 2, cy = ihCr.fy + ihCr.fw / ar / 2; ihCr.fw = maxW * Number(el.value) / 100; ihCr.fx = cx - ihCr.fw / 2; ihCr.fy = cy - ihCr.fw / ar / 2; ihCrClamp(); ihCrDraw(); return; }
+    if (tm && (el.id === 'tm-name' || el.id === 'tm-sub')) { tm[el.id === 'tm-name' ? 'name' : 'sub'] = el.value; tmPaint(); return; }
     if (lm && el.id === 'lm-text') { lm.text = el.value.toUpperCase().replace(/\s/g, '').slice(0, 3) || 'B'; lmPaint(); return; }
     if (lm && (el.id === 'lm-bg' || el.id === 'lm-fg')) { lm[el.id === 'lm-bg' ? 'bg' : 'fg'] = el.value; lmPaint(); return; }
     if (el.dataset.svname) { const [k, n] = el.dataset.svname.split(':'), d = svSlot(k, Number(n)); if (d) { d.name = el.value.slice(0, 30); save(); } return; }
