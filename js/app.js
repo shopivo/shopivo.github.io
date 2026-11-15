@@ -1592,10 +1592,25 @@
       ${hasBlend ? `<label for="inv-blend">${t('invd.blend')}</label><input id="inv-blend" type="range" min="-90" max="90" step="1" value="${blend}" data-inv="blend">` : ''}
       <div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="invfs-open">🎨 ${t('invd.wheel')} · ${t('invd.fullEditor')}</button><button type="button" class="btn" data-act="inv-reset">${t('invd.reset')}</button></div></div>`;
   }
+  // Background and shadow of the saved or shared invoice picture. The little preview moves as you drag the shadow.
+  const frShadowCss = () => { const k = invShadow() / 50; return k <= 0 ? 'none' : `0 ${Math.round(6 * Math.min(2, k) + 3)}px ${Math.round(14 * Math.min(2, k) + 6)}px rgba(0,0,0,${Math.min(0.6, 0.22 * k).toFixed(2)})`; };
+  function frameExtraHTML(fr) {
+    if (fr === 'none') return '';
+    const b = invBg(), custom = fr === 'custom', sw = (id) => `<button type="button" class="ihsw" data-act="inv-bgcol" data-id="${id}" style="background:${b[id]}" aria-label="${t('ih.pickColor')}"></button>`;
+    const prevBg = custom ? invBgCss(b) : fr === 'tint' ? '#f1e3ea' : fr === 'soft' ? '#f8f2f5' : '#fff';
+    return `<div class="frprev" style="background:${prevBg}"><i style="box-shadow:${fr === 'tint' ? 'none' : frShadowCss()}"></i></div>
+      ${custom ? `<div class="ihr col"><label>${t('invd.bgCol')}</label>${sw('c1')}</div><div class="ihr tgl"><span>${t('invd.bgGrad')}</span>${swt('inv-bggrad', '1', b.grad)}</div>${b.grad ? `<div class="ihr col"><label>${t('invd.bgCol2')}</label>${sw('c2')}</div><div class="ihr"><label>${t('ih.angle')}<b class="v">${b.angle}</b></label><input type="range" min="0" max="360" step="1" value="${b.angle}" data-invbg="angle"></div>` : ''}` : ''}
+      ${fr === 'tint' ? '' : `<div class="ihr"><label>${t('invd.shadowAmt')}<b class="v">${invShadow()}</b></label><input type="range" min="0" max="100" step="1" value="${invShadow()}" data-invsh="1"></div>`}`;
+  }
+  // The picture background settings (frame, colour, gradient, shadow, corners). Shown on the Invoice design page and inside the Invoice creator; both change the same settings.
+  function frameBlockHTML() {
+    const fr = invFrame(), frames = [['tint', t('invd.frameTint')], ['soft', t('invd.frameSoft')], ['shadow', t('invd.frameShadow')], ['custom', t('invd.frameCustom')], ['none', t('invd.frameNone')]];
+    return `<div class="invset"><h3>${t('invd.frame')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.frame')}" style="margin:0">${frames.map(([k, l]) => `<button type="button" class="chip ${fr === k ? 'on' : ''}" role="radio" aria-checked="${fr === k}" data-act="inv-frame" data-id="${k}">${l}</button>`).join('')}</div><p class="muted small" style="margin:8px 0 0">${t('invd.frameNote')}</p>${frameExtraHTML(fr)}</div>
+      <div class="invset"><h3>${t('invd.corners')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.corners')}" style="margin:0">${[['round', t('invd.cRound')], ['square', t('invd.cSquare')]].map(([k, l]) => `<button type="button" class="chip ${(invSquare() ? 'square' : 'round') === k ? 'on' : ''}" role="radio" aria-checked="${(invSquare() ? 'square' : 'round') === k}" data-act="inv-corners" data-id="${k}">${l}</button>`).join('')}</div></div>`;
+  }
   function InvDesignPage() {
-    const fr = invFrame(), frames = [['tint', t('invd.frameTint')], ['shadow', t('invd.frameShadow')], ['none', t('invd.frameNone')]];
     return `<p class="muted small" style="margin:0 2px 10px">${t('invd.note')}</p>
-      <div class="invset"><h3>${t('invd.frame')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.frame')}" style="margin:0">${frames.map(([k, l]) => `<button type="button" class="chip ${fr === k ? 'on' : ''}" role="radio" aria-checked="${fr === k}" data-act="inv-frame" data-id="${k}">${l}</button>`).join('')}</div><p class="muted small" style="margin:8px 0 0">${t('invd.frameNote')}</p></div>
+      ${frameBlockHTML()}
       <button type="button" class="row tap ihentry" data-act="ih-open"><span style="font-size:22px">🎨</span><div class="grow"><b>${t('ih.open')}</b><small>${t('ih.openSub')}</small></div><span class="chev">›</span></button>
       <div id="invpanel">${invColourPanel()}</div><div class="dsgrid" id="dsgrid" role="radiogroup" aria-label="${t('set.invDesign')}">${invCards()}</div>`;
   }
@@ -1678,9 +1693,10 @@
     const invcol = ihSec('invcol', t('ih.sec.invcol'), `<p class="muted small" style="margin:0 0 6px">${t('ih.invcolSub')}</p>${ihCol('accent', t('ih.accent'))}
       <div class="ihsamp" aria-hidden="true"><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.item')}</span><span>${t('ih.samp.price')}</span></div><div class="sr" style="background:${ic.tint}"><span>—</span><span>00.00</span></div><div class="sr" style="background:${ic.band}"><span>—</span><span>00.00</span></div><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.total')}</span><span>00.00</span></div></div>
       <p class="muted small" style="margin:6px 0 8px">${auto ? t('ih.accentIsAuto') : ''}</p>${auto ? '' : `<button type="button" class="btn" data-act="ih-set" data-id="accent=">${t('ih.accentAuto')}</button>`}`);
+    const pagebg = ihSec('pagebg', t('ih.sec.pagebg'), `<p class="muted small" style="margin:0 0 6px">${t('ih.pagebgSub')}</p>${frameBlockHTML()}`);
     const saved = ihSec('saved', t('ih.sec.saved'), ihSavedHTML());
     const rm = settingsRoom(), roomBox = rm.level === 'ok' ? '' : `<div class="roomwarn ${rm.level}" role="status"><b>${t('room.warnT', { p: rm.pct })}</b><span>${roomNote(rm)}</span></div>`;
-    return `${roomBox}${layout}${imgs}${text}${banner}${invcol}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div><div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
+    return `${roomBox}${layout}${imgs}${text}${banner}${invcol}${pagebg}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div><div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
   }
   function ihRefresh() { const b = $('#ih-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ihBodyHTML(); $('#sheet').scrollTop = sc; const u = $('#ih-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('ih.inUse') : t('ih.use'); } ihPaint(); }
   // ---- colour picker: circle + brightness, colours taken from the banner, tap-the-header eyedropper, recent colours ----
@@ -1889,42 +1905,53 @@
     lmPaint();
   }
 
-  // ---- Title maker: builds the "B-RUIZ / ONLINE STORE" name picture from text (name, thin line, small line under it) ----
-  let tm = null;
-  const tmFonts = { bold: '800 {s}px Inter, Arial, sans-serif', serif: 'italic 700 {s}px Georgia, Caladea, serif', round: '700 {s}px "Trebuchet MS", Inter, sans-serif', slim: '300 {s}px Inter, Arial, sans-serif' };
-  function tmCanvas(maxW) {
-    const g0 = document.createElement('canvas').getContext('2d'), NS = 200, SS = 54;
-    const spaced = (g, txt, sp) => { let w = 0; for (const ch of txt) w += g.measureText(ch).width + sp; return w - sp; };
-    const draw = (g, txt, cx, y, sp) => { const w = spaced(g, txt, sp); let x = cx - w / 2; g.textAlign = 'left'; for (const ch of txt) { g.fillText(ch, x, y); x += g.measureText(ch).width + sp; } };
-    const name = (tm.name || ' ').trim() || ' ', sub = (tm.sub || '').trim();
-    g0.font = tmFonts[tm.style].replace('{s}', NS); const nsp = NS * 0.03, nw = spaced(g0, name, nsp);
-    g0.font = tmFonts.bold.replace('{s}', SS).replace('800', '600'); const ssp = SS * 0.3, sw = sub ? spaced(g0, sub, ssp) : 0;
-    const W = Math.ceil(Math.max(nw, sw) + 40), pad = 20, lineGap = 22, subGap = 24;
-    const H = Math.ceil(NS * 0.8 + (tm.line === 'on' ? lineGap + 6 : 0) + (sub ? subGap + SS * 0.8 : 0) + pad * 2);
-    const c = document.createElement('canvas'); c.width = W; c.height = H; const g = c.getContext('2d'); g.textBaseline = 'alphabetic';
-    let y = pad + NS * 0.78; g.fillStyle = tm.nameCol; g.font = tmFonts[tm.style].replace('{s}', NS); draw(g, name, W / 2, y, nsp);
-    if (tm.line === 'on') { y += lineGap; g.fillStyle = tm.lineCol; g.fillRect(W / 2 - Math.max(nw, sw) / 2, y, Math.max(nw, sw), 6); y += 6; }
-    if (sub) { y += subGap + SS * 0.72; g.fillStyle = tm.subCol; g.font = tmFonts.bold.replace('{s}', SS).replace('800', '600'); draw(g, sub, W / 2, y, ssp); }
-    if (W <= maxW) return c;
-    const o = document.createElement('canvas'); o.width = maxW; o.height = Math.round(H * maxW / W); o.getContext('2d').drawImage(c, 0, 0, o.width, o.height); return o;
+  // ---- Title creator: builds the "B-RUIZ / ONLINE STORE" name picture (name, a line, a small line under it). Sections stay open when you tap inside them;
+  // sliders have the same undo button as the other creators. The drawing and the settings checks live in js/titlemaker.js. ----
+  let ttOn = false, ttRaf = 0;
+  const TM = window.TitleMaker;
+  const ttCfg = () => TM.norm(state.settings.titleCfg, bizName(), Theme.brand());
+  const ttSave = (c) => { state.settings.titleCfg = TM.norm(c, bizName(), Theme.brand()); save(); };
+  const ttSet = (path, v) => { const c = ttCfg(); TM.setPath(c, path, v); ttSave(c); ttPaintSoon(); };
+  const ttScaled = (cv, maxW) => { if (!cv || cv.width <= maxW) return cv; const o = document.createElement('canvas'); o.width = maxW; o.height = Math.max(1, Math.round(cv.height * maxW / cv.width)); const g = o.getContext('2d'); g.imageSmoothingQuality = 'high'; g.drawImage(cv, 0, 0, o.width, o.height); return o; };
+  function ttPaint() {
+    const cv = $('#tt-pv'); if (cv) { const src = ttScaled(TM.draw(ttCfg()), 900); if (src) { cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0); } }
+    document.querySelectorAll('canvas[data-ttsv]').forEach((c) => { const d = (state.settings.titleSaved || []).find((x) => x.slot === Number(c.dataset.ttsv)); const src = d && ttScaled(TM.draw(TM.norm(d.cfg, bizName(), Theme.brand())), 460); if (src) { c.width = src.width; c.height = src.height; c.getContext('2d').drawImage(src, 0, 0); } });
   }
-  function tmPaint() { const cv = $('#tm-cv'); if (!cv || !tm) return; const src = tmCanvas(640); cv.width = src.width; cv.height = src.height; cv.getContext('2d').drawImage(src, 0, 0); }
-  function sheetTitleMaker(keep) {
-    const brand = Theme.brand();
-    tm = keep || { name: String(bizName()).toUpperCase(), sub: 'ONLINE STORE', style: 'bold', nameCol: '#333333', subCol: brand, lineCol: brand, line: 'on' };
-    const chips = (k, opts) => `<div class="chiprow">${opts.map(([v, l]) => `<button type="button" class="chip ${tm[k] === v ? 'on' : ''}" data-act="tm-set" data-id="${k}=${v}">${l}</button>`).join('')}</div>`;
-    const sw = (k, label) => `<div class="ihr col"><label>${label}</label><button type="button" class="ihsw" data-act="tm-colpick" data-id="${k}" style="background:${tm[k]}" aria-label="${t('ih.pickColor')}"></button></div>`;
-    openSmall(`<h3>${t('tm.title')}</h3><p class="muted small">${t('tm.sub')}</p><div class="tmpv"><canvas id="tm-cv"></canvas></div>
-      <div class="ihr"><label>${t('tm.name')}</label><input type="text" id="tm-name" value="${esc(tm.name)}" maxlength="24" autocomplete="off"></div>
-      <div class="ihr"><label>${t('tm.line2')}</label><input type="text" id="tm-sub" value="${esc(tm.sub)}" maxlength="30" autocomplete="off" placeholder="${t('tm.line2ph')}"></div>
-      <div class="ihr"><label>${t('lm.style')}</label>${chips('style', [['bold', t('lm.st.bold')], ['serif', t('lm.st.serif')], ['round', t('lm.st.round')], ['slim', t('lm.st.slim')]])}</div>
-      <div class="ihr"><label>${t('tm.rule')}</label>${chips('line', [['on', t('tm.on')], ['off', t('tm.off')]])}</div>
-      ${sw('nameCol', t('tm.nameCol'))}${sw('subCol', t('tm.subCol'))}${sw('lineCol', t('tm.lineCol'))}
-      <div class="btns"><button class="btn primary" data-act="tm-use">${t('tm.use')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet', () => { tm = null; });
-    tmPaint();
+  function ttPaintSoon() { if (!ttOn) return; cancelAnimationFrame(ttRaf); ttRaf = requestAnimationFrame(ttPaint); }
+  const ttRng = (path, label, key, step) => { const v = TM.getPath(ttCfg(), path), [min, max] = TM.LIMITS[key || path]; return `<div class="ihr"><label>${label}<b class="v">${Math.round(v * 100) / 100}</b></label><input type="range" min="${min}" max="${max}" step="${step || 1}" value="${v}" data-tt="${path}"></div>`; };
+  const ttChips = (path, label, opts) => { const cur = TM.getPath(ttCfg(), path); return `<div class="ihr"><label>${label}</label><div class="chiprow">${opts.map(([k, l]) => `<button type="button" class="chip ${String(cur) === String(k) ? 'on' : ''}" data-act="tt-set" data-id="${path}=${k}">${l}</button>`).join('')}</div></div>`; };
+  const ttTog = (path, label) => `<div class="ihr tgl"><span>${label}</span>${swt('tt-tog', path, !!TM.getPath(ttCfg(), path))}</div>`;
+  const ttCol = (path, label) => `<div class="ihr col"><label>${label}</label><button type="button" class="ihsw" data-act="tt-colpick" data-id="${path}" style="background:${TM.getPath(ttCfg(), path)}" aria-label="${t('ih.pickColor')}"></button></div>`;
+  const ttTxt = (path, label, ph) => `<div class="ihr"><label>${label}</label><input type="text" data-tt="${path}" value="${esc(TM.getPath(ttCfg(), path) || '')}" placeholder="${esc(ph || '')}" autocomplete="off" maxlength="30"></div>`;
+  const ttFonts = (path, label) => ttChips(path, label, TM.FONT_KEYS.map((k) => [k, t('tt.f.' + k)]));
+  const ttSec = (k, title, body) => ihSec('tt:' + k, title, body);
+  const ttSavedHTML = () => [0, 1, 2].map((n) => { const d = (state.settings.titleSaved || []).find((x) => x.slot === n); return `<div class="card svslot"><div class="svh"><input type="text" class="svname" data-ttname="${n}" value="${esc(d ? d.name : '')}" placeholder="${t('tt.savedN', { n: n + 1 })}" maxlength="30" autocomplete="off" aria-label="${t('ih.nameDesign')}"></div>${d ? `<canvas class="svc ttsv" data-ttsv="${n}"></canvas>` : '<div class="svempty">＋</div>'}
+      <div class="btns">${d ? `<button type="button" class="btn primary" data-act="tt-load" data-id="${n}">${t('mb.edit')}</button>` : ''}<button type="button" class="btn" data-act="tt-save" data-id="${n}">${d ? t('mb.over') : t('mb.saveHere')}</button>${d ? `<button type="button" class="btn" data-act="tt-del" data-id="${n}" aria-label="${t('ih.delete')}">✕</button>` : ''}</div></div>`; }).join('') + `<p class="muted small">${t('tt.limit')}</p>`;
+  function ttBodyHTML() {
+    const c = ttCfg();
+    const name = ttSec('name', t('tt.sec.name'), `${ttTxt('name.text', t('tm.name'), bizName())}${ttFonts('name.font', t('lm.style'))}${ttRng('name.size', t('ih.size'))}${ttRng('name.spacing', t('tt.spacing'))}${ttChips('name.case', t('tt.case'), [['upper', t('tt.upper')], ['asis', t('tt.asis')]])}${ttCol('name.col', t('ih.color'))}`);
+    const line = `<details class="ihsub" data-ihk="tt:line" ${ihOpenSecs['tt:line'] ? 'open' : ''}><summary><span>${t('tt.sec.line')}</span>${swt('tt-tog', 'line.on', c.line.on)}</summary><div class="ihb">${c.line.on ? `${ttChips('line.style', t('tt.lstyle'), TM.LINES.map((k) => [k, t('tt.ls.' + k)]))}${ttRng('line.width', t('tt.thick'))}${ttRng('line.len', t('tt.len'))}${ttRng('line.gap', t('tt.gapAbove'))}${ttChips('line.deco', t('tt.deco'), TM.DECOS.map((k) => [k, t('tt.d.' + k)]))}${ttCol('line.col', t('ih.color'))}` : ''}</div></details>`;
+    const sub = `<details class="ihsub" data-ihk="tt:sub" ${ihOpenSecs['tt:sub'] ? 'open' : ''}><summary><span>${t('tt.sec.sub')}</span>${swt('tt-tog', 'sub.on', c.sub.on)}</summary><div class="ihb">${c.sub.on ? `${ttTxt('sub.text', t('ih.text'), 'ONLINE STORE')}${ttFonts('sub.font', t('lm.style'))}${ttRng('sub.size', t('ih.size'))}${ttRng('sub.spacing', t('tt.spacing'))}${ttRng('sub.gap', t('tt.gapAbove'))}${ttChips('sub.case', t('tt.case'), [['upper', t('tt.upper')], ['asis', t('tt.asis')]])}${ttCol('sub.col', t('ih.color'))}` : ''}</div></details>`;
+    const text = ttSec('text', t('tt.sec.text'), line + sub);
+    const lay = ttSec('lay', t('tt.sec.lay'), `${ttChips('align', t('ih.align'), [['left', t('ih.al.left')], ['center', t('ih.al.center')], ['right', t('ih.al.right')]])}${ttRng('pad', t('ih.pad'))}${ttTog('bg.on', t('tt.bg'))}${c.bg.on ? ttCol('bg.col', t('tt.bgCol')) : ''}`);
+    const saved = ttSec('saved', t('ih.sec.saved'), ttSavedHTML());
+    return `${name}${text}${lay}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="tt-reset">${t('tt.reset')}</button></div>`;
   }
-  function tmUse() {
-    if (!tm) return; const src = tmCanvas(720).toDataURL('image/png'); ihAssign('title', { src }); toast(t('tm.done')); closeSheet(); ihRefresh();
+  function ttRefresh() { const b = $('#tt-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ttBodyHTML(); $('#sheet').scrollTop = sc; ttPaint(); }
+  function sheetTitle() {
+    enterPage('title', '', () => sheetTitle());
+    ttOn = true; if (ihOpenSecs['tt:name'] === undefined) ihOpenSecs['tt:name'] = true;
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('tt.title')}</b><small>${t('tt.sub')}</small></div></div>
+      <div class="ihtop"><div class="tmpv"><canvas id="tt-pv" aria-label="${t('tt.title')}"></canvas></div><button type="button" class="btn primary" data-act="tt-use">${t('tt.use')}</button></div>
+      <div class="pd" id="tt-body">${ttBodyHTML()}</div>`, () => { ttOn = false; render(); }, true);
+    ttPaint();
+  }
+  function ttUse() {
+    const src = ttScaled(TM.draw(ttCfg()), 720); if (!src) return; ihAssign('title', { src: src.toDataURL('image/png') }); toast(t('tm.done')); ihRefresh();
+  }
+  function ttSaveSlot(n) {
+    const old = (state.settings.titleSaved || []).find((d) => d.slot === n), nm = ((old && old.name) || t('tt.savedN', { n: n + 1 })).slice(0, 30);
+    state.settings.titleSaved = (state.settings.titleSaved || []).filter((d) => d.slot !== n).concat({ slot: n, id: old ? old.id : Math.random().toString(36).slice(2, 9), name: nm, cfg: JSON.parse(JSON.stringify(ttCfg())) }).sort((a, b) => a.slot - b.slot); save(); toast(t('ih.savedOk')); ttRefresh();
   }
   function lmUse() {
     if (!lm) return; const cv = lmCanvas(256); state.settings.bizLogo = cv.toDataURL('image/png'); state.settings.bizLogoShape = lm.shape === 'circle' ? 'circle' : lm.shape === 'rounded' ? 'rounded' : 'square'; state.settings.bizLogoPick = 'auto';
@@ -2145,7 +2172,7 @@
     mbPage('mybiz', t('mb.title'), t('mb.sub'), `${mbHero(true)}<h3>${t('mb.title')}</h3><div class="list grp">${mbRow('🧾', t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'mb-inv')}${mbRow('💳', t('mb.card'), t('mb.cardSub', { n: nCard() }), 'mb-card')}${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo')}</div><div class="list grp" style="margin-top:12px">${mbRow('📇', t('mb.contact'), t('mb.contactSub'), 'bp-open')}</div>`);
   }
   function sheetMyInvoice() {
-    mbPage('myinvoice', t('mb.invoice'), t('mb.invLimit'), `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}</div><h3>${t('mb.savedInv')}</h3>${svSlotsHTML('inv', true)}`);
+    mbPage('myinvoice', t('mb.invoice'), t('mb.invLimit'), `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}${mbRow('🔤', t('tt.row'), t('tt.rowSub'), 'tt-open')}</div><h3>${t('mb.savedInv')}</h3>${svSlotsHTML('inv', true)}`);
   }
   function sheetMyCard() {
     mbPage('mycard', t('mb.card'), t('mb.cardLimit'), `<div class="list grp">${mbRow('✏️', t('mb.cardEdit'), t('mb.cardEditSub'), 'bc-open')}</div><h3>${t('mb.savedCards')}</h3>${svSlotsHTML('card', true)}<div class="btns"><button type="button" class="btn" data-act="bp-cardpdf">⬇ ${t('bz.cardDl')}</button></div>`);
@@ -3049,7 +3076,7 @@
     const withPhoto = state.items.filter((x) => x.invoice === v.no && x.photo);
     const thumbs = withPhoto.length ? `<div class="thumbs"><h4>${t('inv.itemsOn')}</h4><div class="trow">${withPhoto.map((x) => { const d = L.photoDaysLeft(state, x, Date.now()); return `<button class="tb" data-act="edit-item" data-back="inv" data-inv="${v.no}" data-id="${x.id}" aria-label="${esc(dn(x) || x.id)}"><span class="im"><img data-ph="${x.photo.id}" data-kind="thumb" alt="">${offStrip(x)}${d != null && d > 0 ? `<span class="bd">${tn('inv.daysLeft', d)}</span>` : ''}</span><span class="nm">${esc(dn(x) || x.id)}</span></button>`; }).join('')}</div></div>` : '';
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${v.no}</b><small>${esc(clabel(v.client))}</small></div></div>${voidBanner(v0)}${v0.returnNote ? `<div class="voidbar soft">↩ ${tn('inv.returnedFrom', v0.returnNote.items.length, { no: v0.returnNote.from })}${v0.returnNote.fee > 0 ? ' · ' + t('inv.feeIn', { amount: money(v0.returnNote.fee) }) : ''}</div>` : ''}${isLatest ? '' : `<div class="earlier"><span>${t('inv.earlier')}</span><button class="chip" data-act="inv-swap" data-id="${latest.no}">${t('inv.backLatest')}</button></div>`}<div class="seg three small" role="radiogroup" aria-label="${t('invUI.lang')}" style="margin-bottom:10px"><button class="${autoActive() ? 'on' : ''}" role="radio" aria-checked="${autoActive()}" data-act="inv-lang" data-id="auto" data-no="${v.no}">${t('inv.auto')}</button>${Object.keys(I.LANGS).map((l) => `<button class="${lg === l && !autoActive() ? 'on' : ''}" role="radio" aria-checked="${lg === l && !autoActive()}" data-act="inv-lang" data-id="${l}" data-no="${v.no}">${I.LANGS[l]['lang.name']}</button>`).join('')}</div>
-      <div class="printable"><button class="fsbtn" data-act="inv-full" data-id="${v.no}" aria-label="${t('invd.full')}">⤢</button><div class="inv" style="--ih:${invDesign().head};--it:${invDesign().tint || 'transparent'};--ib:${invDesign().band}"><img class="inv-banner" src="${invDesignId() === 'classic' ? bannerSrc() : headerURL(invDesignId())}" alt="${ti('doc.bannerAlt')}">
+      <div class="printable"><button class="fsbtn" data-act="inv-full" data-id="${v.no}" aria-label="${t('invd.full')}">⤢</button><div class="inv" style="${invSquare() ? 'border-radius:0;' : ''}--ih:${invDesign().head};--it:${invDesign().tint || 'transparent'};--ib:${invDesign().band}"><img class="inv-banner" src="${invDesignId() === 'classic' ? bannerSrc() : headerURL(invDesignId())}" alt="${ti('doc.bannerAlt')}">
       <div class="inv-body">
         <div class="inv-top"><div><div class="lbl">${ti('doc.billTo')}</div><div class="client">${esc(cdisp(v.client))}</div></div>
           <div class="inv-meta"><div><span class="lbl">${ti('doc.invoiceNo')}</span><span>${v.no}</span></div><div><span class="lbl">${ti('doc.date')}</span><span>${invDate(v.date)}</span></div><div><span class="lbl">${ti('doc.due')}</span><span>${dueOnDelivery(v) ? ti('doc.dueDelivery') : invDate(v.due)}</span></div></div></div>
@@ -3067,14 +3094,22 @@
 
   // Draws the same invoice onto a canvas (800 x N, 2x) so it can be shared or saved as a PNG for WhatsApp etc.
   // The picture people receive: the invoice as a sheet of paper on a background, so it stands out from the chat. 'tint' = soft colour, 'shadow' = white with a shadow under the sheet, 'none' = the page alone.
-  const invFrame = () => ['tint', 'shadow', 'none'].includes(state.settings.invoiceFrame) ? state.settings.invoiceFrame : 'tint';
+  const invFrame = () => ['tint', 'soft', 'shadow', 'custom', 'none'].includes(state.settings.invoiceFrame) ? state.settings.invoiceFrame : 'soft';   // soft tint + shadow unless the owner picked another
+  const invBg = () => Object.assign({ c1: '#ffffff', c2: '#f4e6ec', grad: false, angle: 135 }, state.settings.invoiceBg || {});
+  const invShadow = () => { const n = Number(state.settings.invoiceShadow); return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50; };   // 0 = no shadow, 50 = the normal one, 100 = twice as strong
+  const invBgCss = (b) => (b.grad ? `linear-gradient(${b.angle}deg, ${b.c1}, ${b.c2})` : b.c1);
+  const invSquare = () => state.settings.invoiceCorners === 'square';   // 90 degree corners instead of rounded ones
   function framedCanvas(card, mode, S, brand) {
-    const M = 56 * S, R = 26 * S, w = card.width + 2 * M, h = card.height + 2 * M, o = document.createElement('canvas'); o.width = w; o.height = h;
+    const M = 56 * S, R = invSquare() ? 0 : 26 * S, w = card.width + 2 * M, h = card.height + 2 * M, o = document.createElement('canvas'); o.width = w; o.height = h;
     const g = o.getContext('2d'), path = () => { g.beginPath(); g.moveTo(M + R, M); g.arcTo(M + card.width, M, M + card.width, M + card.height, R); g.arcTo(M + card.width, M + card.height, M, M + card.height, R); g.arcTo(M, M + card.height, M, M, R); g.arcTo(M, M, M + card.width, M, R); g.closePath(); };
-    g.fillStyle = mode === 'tint' ? InvDesign.mix(brand || '#7a1f33', '#ffffff', 0.9) : '#ffffff'; g.fillRect(0, 0, w, h);
-    if (mode === 'shadow') {
-      g.save(); g.shadowColor = 'rgba(0,0,0,.32)'; g.shadowBlur = 48 * S; g.shadowOffsetY = 18 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
-      g.save(); g.shadowColor = 'rgba(0,0,0,.18)'; g.shadowBlur = 10 * S; g.shadowOffsetY = 3 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
+    const bg = invBg(), k = invShadow() / 50;
+    if (mode === 'custom') { if (bg.grad) { const a = (bg.angle - 90) * Math.PI / 180, cx = w / 2, cy = h / 2, r = Math.abs(w * Math.cos(a)) / 2 + Math.abs(h * Math.sin(a)) / 2, gr = g.createLinearGradient(cx - Math.cos(a) * r, cy - Math.sin(a) * r, cx + Math.cos(a) * r, cy + Math.sin(a) * r); gr.addColorStop(0, bg.c1); gr.addColorStop(1, bg.c2); g.fillStyle = gr; } else g.fillStyle = bg.c1; }
+    else g.fillStyle = mode === 'tint' ? InvDesign.mix(brand || '#7a1f33', '#ffffff', 0.9) : mode === 'soft' ? InvDesign.mix(brand || '#7a1f33', '#ffffff', 0.955) : '#ffffff';
+    g.fillRect(0, 0, w, h);
+    if ((mode === 'shadow' || mode === 'soft' || mode === 'custom') && k > 0) {
+      const al = (a) => Math.min(0.85, a * k).toFixed(3);
+      g.save(); g.shadowColor = mode === 'soft' ? `rgba(60,20,40,${al(0.2)})` : `rgba(0,0,0,${al(mode === 'custom' ? 0.26 : 0.32)})`; g.shadowBlur = 40 * S * Math.min(1.6, 0.6 + k * 0.4); g.shadowOffsetY = 12 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
+      g.save(); g.shadowColor = `rgba(0,0,0,${al(mode === 'soft' ? 0.1 : 0.18)})`; g.shadowBlur = 10 * S; g.shadowOffsetY = 3 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
     }
     g.save(); path(); g.clip(); g.drawImage(card, M, M); g.restore();
     return o;
@@ -4803,10 +4838,15 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-add': { const [w, m] = id.split(':'), r = (planAdm.rows || []).find((x) => x.id === w); if (!r) return; const cur = r.plan === 'trial' ? Plan.ms(r.trialEnds) : Plan.ms(r.paidUntil), ends = Plan.extend(cur, Date.now(), Number(m)); return planAdmWrite(w, { plan: r.plan === 'trial' ? 'starter' : r.plan, paidUntil: Cloud.ts(ends), locked: false }); }
       case 'pl-test': { const [w, d] = id.split(':'); return planAdmWrite(w, { plan: 'trial', trialEnds: Cloud.ts(Date.now() - Number(d) * 864e5), locked: false }); }
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
-      case 'tm-open': return sheetTitleMaker();
-      case 'tm-set': { if (!tm) return; const i = id.indexOf('='); const nm = $('#tm-name'), sb = $('#tm-sub'); if (nm) tm.name = nm.value; if (sb) tm.sub = sb.value; tm[id.slice(0, i)] = id.slice(i + 1); document.querySelectorAll('[data-act=tm-set]').forEach((b) => { const j = b.dataset.id.indexOf('='); b.classList.toggle('on', tm[b.dataset.id.slice(0, j)] === b.dataset.id.slice(j + 1)); }); return tmPaint(); }
-      case 'tm-colpick': { if (!tm) return; const keep = tm, k = id, nm = $('#tm-name'), sb = $('#tm-sub'); if (nm) keep.name = nm.value; if (sb) keep.sub = sb.value; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetTitleMaker(keep), 0)); }
-      case 'tm-use': return tmUse();
+      case 'tm-open': case 'tt-open': return sheetTitle();
+      case 'tt-set': { const i = id.indexOf('='); const p = id.slice(0, i); let v = id.slice(i + 1); if (/^\d+(\.\d+)?$/.test(v) && !/(font|style|deco|align|case)$/.test(p)) v = Number(v); ttSet(p, v); return ttRefresh(); }
+      case 'tt-tog': { ttSet(id, !TM.getPath(ttCfg(), id)); return ttRefresh(); }
+      case 'tt-colpick': return openColorPick({ get: () => TM.getPath(ttCfg(), id), set: (v) => ttSet(id, v) }, () => setTimeout(ttRefresh, 0));
+      case 'tt-use': return ttUse();
+      case 'tt-save': return ttSaveSlot(Number(id));
+      case 'tt-load': { const d = (state.settings.titleSaved || []).find((x) => x.slot === Number(id)); if (!d) return; ttSave(JSON.parse(JSON.stringify(d.cfg))); toast(t('tt.loaded')); return ttRefresh(); }
+      case 'tt-del': return askCard(t('tt.delAsk'), { danger: true, ok: t('ih.delete') }).then((y) => { if (!y) return; state.settings.titleSaved = (state.settings.titleSaved || []).filter((d) => d.slot !== Number(id)); save(); ttRefresh(); });
+      case 'tt-reset': return askCard(t('tt.resetAsk'), { danger: true, ok: t('tt.reset') }).then((y) => { if (!y) return; state.settings.titleCfg = undefined; delete state.settings.titleCfg; save(); ttRefresh(); });
       case 'ih-saveas': return ihSaveAs();
       case 'ihsa-pick': { ihsaSlot = Number(id); document.querySelectorAll('[data-act=ihsa-pick]').forEach((b) => b.classList.toggle('on', Number(b.dataset.id) === ihsaSlot)); return; }
       case 'ihsa-go': { const el = $('#ihsa-name'), nm = (el && el.value.trim()) || ''; if (!nm) return toast(t('ih.needName')); svSave('inv', ihsaSlot, nm); toast(t('ih.savedOk')); return closeSheet(); }
@@ -5122,7 +5162,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
         designOverride = t_.dataset.act === 'inv-design-view' ? id : null; toast(t('doc.preparing'));
         return invoiceCanvas(inv, 'image/png', true).then((blob) => PUI.openViewer(URL.createObjectURL(blob))).catch((e) => toast('⚠️ ' + errMsg(e))).finally(() => { designOverride = null; });
       }
-      case 'inv-frame': state.settings.invoiceFrame = id; save(); return render();
+      case 'inv-bgcol': return openColorPick({ get: () => invBg()[id], set: (v) => { state.settings.invoiceBg = Object.assign({}, invBg(), { [id]: v }); save(); } }, () => setTimeout(() => (ihOn ? ihRefresh() : render()), 0));
+      case 'inv-bggrad': state.settings.invoiceBg = Object.assign({}, invBg(), { grad: !invBg().grad }); save(); return ihOn ? ihRefresh() : render();
+      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); return ihOn ? ihRefresh() : render();
+      case 'inv-frame': state.settings.invoiceFrame = id; save(); return ihOn ? ihRefresh() : render();
       case 'invfs-open': return openInvEditor();
       case 'invfs-close': return closeInvEditor();
       case 'invfs-pick': state.settings.invoiceDesign = id; save(); invFsChips(); invFsControls(); invFsPreview(); return;
@@ -5248,7 +5291,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (el.closest && el.closest('#tsearch')) { const pi = $(pageSearchSel()); if (pi) { pi.value = el.value; pi.dispatchEvent(new Event('input', { bubbles: true })); } return; }
     if (el.id === 'cr-sharp' && ihCr) { ihCr.sharp = Number(el.value); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; ihCrPrevSoon(); return; }
     if (el.id === 'cr-zoom' && ihCr) { const ar = InvHeader.W / InvHeader.H, maxW = Math.min(ihCr.iw, ihCr.ih * ar), cx = ihCr.fx + ihCr.fw / 2, cy = ihCr.fy + ihCr.fw / ar / 2; ihCr.fw = maxW * Number(el.value) / 100; ihCr.fx = cx - ihCr.fw / 2; ihCr.fy = cy - ihCr.fw / ar / 2; ihCrClamp(); ihCrDraw(); return; }
-    if (tm && (el.id === 'tm-name' || el.id === 'tm-sub')) { tm[el.id === 'tm-name' ? 'name' : 'sub'] = el.value; tmPaint(); return; }
+    if (el.dataset.invsh) { state.settings.invoiceShadow = Number(el.value); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; const pv = document.querySelector('.frprev i'); if (pv) pv.style.boxShadow = frShadowCss(); save(); return; }
+    if (el.dataset.invbg) { state.settings.invoiceBg = Object.assign({}, invBg(), { angle: Number(el.value) }); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; const pv = document.querySelector('.frprev'); if (pv) pv.style.background = invBgCss(invBg()); save(); return; }
+    if (el.dataset.tt) { const p = el.dataset.tt; let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = Math.round(v * 100) / 100; } ttSet(p, v); return; }
+    if (el.dataset.ttname !== undefined) { const d = (state.settings.titleSaved || []).find((x) => x.slot === Number(el.dataset.ttname)); if (d) { d.name = el.value.slice(0, 30); save(); } return; }
     if (lm && el.id === 'lm-text') { lm.text = el.value.toUpperCase().replace(/\s/g, '').slice(0, 3) || 'B'; lmPaint(); return; }
     if (lm && (el.id === 'lm-bg' || el.id === 'lm-fg')) { lm[el.id === 'lm-bg' ? 'bg' : 'fg'] = el.value; lmPaint(); return; }
     if (el.dataset.svname) { const [k, n] = el.dataset.svname.split(':'), d = svSlot(k, Number(n)); if (d) { d.name = el.value.slice(0, 30); save(); } return; }
