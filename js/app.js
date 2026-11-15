@@ -377,6 +377,7 @@
   }
   function render() {
     if ($('#tsearch') && tsKey !== tab + '|' + moreView) closeTopSearch(true);
+    if (ordSel && !(tab === 'more' && moreView === 'orders')) ordSel = null; ordSelSync();
     closeTopMenu();
     cleanSelected();
     const moreTitles = { deliveries: 'more.deliveries', orders: 'more.orders', batches: 'more.batches', invoices: 'title.invoices', items: 'title.items', summary: 'title.summary', settings: 'title.settings' };
@@ -3637,11 +3638,44 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     const pay = L.orderPay(state, orderInvoice(o)); if (!pay) return '';
     return pay.owing > 0 ? opl('owing', withAmt ? t('ord.pl.owingAmt', { amount: money(pay.owing) }) : t('ord.pl.owing')) : opl('paid', '✓ ' + t('ord.pl.paid'));
   }
-  function ordRow(o, match) {
+  function ordRow0(o, match) {
     const n = tn('notif.items', (o.items || []).length), when = o.status === 'done' && tsAt(o.doneAt) ? t(o.option === 'delivery' ? 'ord.delivered' : 'ord.collected') + ' ' + ago(tsAt(o.doneAt)) : (o.option === 'delivery' ? t('store.delivery') : t('store.pickup')) + ' · ' + ago(Store.when(o));
     const hotO = o.status === 'new' && pinHot(o).length > 0;
     return `<button class="ord${hotO ? ' hot' : ''}" data-act="order-open" data-id="${o.id}"><span class="ic">${hotO ? '⚠️' : '🛍️'}</span><div class="mid"><b>${esc(o.code || SCore.orderCode(o.id))} · ${esc(o.name)}${o.option === 'delivery' && SCore.geo(o.lat, o.lng) ? ' <span class="pinm" title="' + t('spot.h') + '">📍</span>' : ''}${hotO ? ' <span class="hotm">' + t('hot.tag') + '</span>' : ''}${o.option === 'delivery' && o.status === 'new' && !SCore.geo(o.lat, o.lng) ? ' <span class="rtag np">' + t('ord.noPin') + '</span>' : ''}</b><small>${n} · ${when}</small>${match ? `<small class="omatch">${esc(t('ord.m.' + match.kind, { text: match.text }))}</small>` : ''}</div><div class="end"><b>${money(o.total)}</b>${orderPill(o, stageOf(o) === 'handed')}</div></button>`;
   }
+
+  /* ---------- Order Log: press and hold to select finished orders, then delete several at once ---------- */
+  let ordSel = null, ordLP = 0;   // ordSel: the Set of selected order ids while selecting (null = not selecting)
+  const orderDeletable = (o) => { if (o.status !== 'done' && o.status !== 'declined') return false; const inv = orderInvoice(o); return !(inv && (L.purchaseOf(state, inv) || { items: [] }).items.length); };   // the same rule as the Delete button on the order page
+  const ordSelOn = () => !!ordSel && tab === 'more' && moreView === 'orders';
+  function ordRow(o, m) {
+    const h = ordRow0(o, m); if (!ordSelOn()) return h;
+    const ok = orderDeletable(o), on = ordSel.has(o.id);
+    return h.replace('<button class="ord', `<button class="ord sm${on ? ' sel' : ''}${ok ? '' : ' nosel'}`).replace('data-act="order-open"', `data-act="${ok ? 'ord-pick' : 'ord-nopick'}"`).replace('<span class="ic">', `<span class="ordck" aria-hidden="true">${on ? '✓' : ''}</span><span class="ic">`);
+  }
+  const ordCandidates = () => { const q = ordQ.trim(), all = Store.orders().filter((o) => (q ? L.orderMatch(state, o, q, orderInvoice(o)) : stageOf(o) === ordFilter)); return all.filter(orderDeletable); };
+  function ordSelSync() {
+    let top = $('#ordselbar'), bot = $('#ordseldel');
+    if (!ordSelOn()) { if (top) top.remove(); if (bot) bot.remove(); document.body.classList.remove('ordselecting'); return; }
+    if (!top) { top = document.createElement('div'); top.id = 'ordselbar'; document.body.appendChild(top); }
+    if (!bot) { bot = document.createElement('div'); bot.id = 'ordseldel'; document.body.appendChild(bot); }
+    const n = ordSel.size, cand = ordCandidates(), all = cand.length > 0 && cand.every((o) => ordSel.has(o.id));
+    document.body.classList.add('ordselecting');
+    top.innerHTML = `<button type="button" class="x" data-act="ord-selx" aria-label="${t('btn.close')}">✕</button><b>${n === 1 ? t('ord.sel1') : t('ord.selN', { n })}</b><button type="button" class="all" data-act="ord-selall">${all ? t('ord.selNone') : t('ord.selAll')}</button>`;
+    bot.innerHTML = `<button type="button" class="btn dsolid" data-act="ord-seldel" ${n ? '' : 'disabled'}>🗑 ${n === 1 ? t('ord.delSel1') : t('ord.delSelN', { n })}</button><small>${t('ord.selOnly')}</small>`;
+  }
+  const ordSelRedraw = () => { refreshOrders(); ordSelSync(); };
+  function ordSelEnter(id) { ordSel = new Set(id ? [id] : []); try { if (navigator.vibrate) navigator.vibrate(18); } catch (e) { /* no buzz */ } ordSelRedraw(); }
+  let ordLpTimer = 0, ordLpAt = null;
+  document.addEventListener('pointerdown', (e) => {
+    const r = e.target.closest && e.target.closest('.ordp .ord'); if (!r || tab !== 'more' || moreView !== 'orders' || ordSel) return; ordLpAt = [e.clientX, e.clientY];
+    clearTimeout(ordLpTimer); ordLpTimer = setTimeout(() => { const o = Store.orders().find((x) => x.id === r.dataset.id); if (!o) return; ordLP = Date.now(); if (!orderDeletable(o)) return toast(t('ord.selNo')); ordSelEnter(o.id); }, 480);
+  }, true);
+  document.addEventListener('pointermove', (e) => { if (ordLpAt && Math.hypot(e.clientX - ordLpAt[0], e.clientY - ordLpAt[1]) > 10) { clearTimeout(ordLpTimer); ordLpAt = null; } }, true);
+  ['pointerup', 'pointercancel'].forEach((ev) => document.addEventListener(ev, () => { clearTimeout(ordLpTimer); ordLpAt = null; }, true));
+  document.addEventListener('click', (e) => { if (ordLP && Date.now() - ordLP < 900 && e.target.closest && e.target.closest('.ordp .ord')) { e.preventDefault(); e.stopPropagation(); ordLP = 0; } }, true);   // the tap that ends a long press must not open the order
+  document.addEventListener('contextmenu', (e) => { if (e.target.closest && e.target.closest('.ordp .ord')) e.preventDefault(); });
+
   let ordLimit = 20, ordQ = '';
   const ORD_TABS = ['new', 'confirmed', 'handed', 'done'], HUB_TABS = ['new', 'confirmed', 'handed'];   // the Store page lists orders still in progress; completed ones live in the Order Log
   const stageOf = (o) => L.orderStage(o, L.orderPay(state, orderInvoice(o)));
@@ -3684,7 +3718,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     const arrTxt = arr ? tn('ov.arriving', arr) : '', oldTxt = oldest < 0 ? '' : oldest < 1 ? t('ov.oldestToday') : tn('ov.oldest', oldest);
     return `<div class="ovc"><div class="ovr"><button type="button" class="tp" data-act="ov-go" data-id="deliveries"><small>${t('ov.toDeliver')}</small><b>${del}</b></button><button type="button" class="tp" data-act="ov-go" data-id="pickups"><small>${t('ov.toCollect')}</small><b>${col}</b></button><div class="${owed > 0 ? 'ow' : ''}"><small>${t('ov.owed')}</small><b>${money(owed)}</b></div></div>${arrTxt || oldTxt ? `<div class="ovf"><span>${arrTxt ? '⏳ ' + arrTxt : ''}</span><span>${oldTxt}</span></div>` : ''}</div>`;
   }
-  function OrderLog() { return `<div class="sth"><div class="ordov">${ordOverview()}</div>${ordHead()}<div class="ordp" data-lim="${ordLimit}">${ordPanel(ordLimit)}</div></div>`; }
+  function OrderLog() { return `<div class="sth"><div class="ordov">${ordOverview()}</div>${ordHead()}${!ordSel && Store.orders().some(orderDeletable) ? `<p class="muted small ordtip">${t('ord.selTip')}</p>` : ''}<div class="ordp" data-lim="${ordLimit}">${ordPanel(ordLimit)}</div></div>`; }
   // The invoice an order was turned into (saved on the order; older orders: the invoice their sold items are on).
   // An order's saved invoice number only counts when that invoice was made after the order arrived. After a reset or an import the
   // numbers start again, and an old number could otherwise point at someone else's invoice.
@@ -4298,6 +4332,11 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'order-open': return sheetOrder(id);
       case 'order-confirm': { const o = Store.orders().find((x) => x.id === id); return o && confirmOrder(o); }
       case 'order-cancel': return orderCancel(id);
+      case 'ord-pick': { if (!ordSel) return; if (ordSel.has(id)) ordSel.delete(id); else ordSel.add(id); return ordSelRedraw(); }
+      case 'ord-nopick': return toast(t('ord.selNo'));
+      case 'ord-selx': ordSel = null; return ordSelRedraw();
+      case 'ord-selall': { if (!ordSel) return; const c = ordCandidates(); if (c.length && c.every((o) => ordSel.has(o.id))) c.forEach((o) => ordSel.delete(o.id)); else c.forEach((o) => ordSel.add(o.id)); return ordSelRedraw(); }
+      case 'ord-seldel': { if (!ordSel || !ordSel.size) return; const ids = [...ordSel], n = ids.length; return askCard(n === 1 ? t('ord.delSelAsk1') : t('ord.delSelAskN', { n }), { danger: true, ok: n === 1 ? t('ord.delSel1') : t('ord.delSelN', { n }), title: n === 1 ? t('ord.delSelT1') : t('ord.delSelTN', { n }) }).then((y) => { if (!y) return; Promise.all(ids.map((x) => Store.remove(x).then(() => 1, () => 0))).then((r) => { const k = r.reduce((a, b) => a + b, 0); ordSel = null; toast(k === n ? (k === 1 ? t('ord.deleted') : t('ord.delSelDone', { n: k })) : t('store.pubError')); ordLimit = 20; render(); }); }); }
       case 'order-delete': { const od = Store.orders().find((x) => x.id === id); if (!od) return; return askCard(t('ord.deleteAsk', { code: od.code || SCore.orderCode(od.id) }), { danger: true, ok: t('ord.deleteOk') }).then((y) => { if (y) Store.remove(id).then(() => { toast(t('ord.deleted')); dropPages('order|' + id); closeSheet(); render(); }).catch(() => toast(t('store.pubError'))); }); }
       case 'order-decline': return declineOrder(id);
       case 'loc-yes': { closeSheet(); const o = Store.orders().find((x) => x.id === id); return o && doConfirmOrder(o); }
