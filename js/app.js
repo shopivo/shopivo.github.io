@@ -63,8 +63,13 @@
   }
   function placeBack() {
     if (places.length < 2) return false;
-    places.pop(); const p = places[places.length - 1]; tab = p.tab; moreView = p.moreView; restoreY = p.y || 0; return true;
+    const left = places[places.length - 1], ret = left.ret;   // a screen reached from a full-screen page: Back reopens that page
+    places.pop(); const p = places[places.length - 1]; tab = p.tab; moreView = p.moreView; restoreY = p.y || 0;
+    if (ret && ret.length) setTimeout(() => { pageStack = ret.slice(); reopening = true; try { ret[ret.length - 1].open(); } finally { reopening = false; } restoreSheetY(ret[ret.length - 1].y); }, 80);
+    return true;
   }
+  // Leave a full-screen page for a screen (tab or Settings page), remembering the page so Back returns to it
+  function goFromPage(next) { const keep = pageStack.slice(); closeSheet(); go(next); places[places.length - 1].ret = keep.length ? keep : null; window.scrollTo(0, 0); render(); }
   // Coming back to a page opens it again from the top, so each page remembers how far it was scrolled when you left it.
   function updStrip() { const sh = $('#sheet'), bar = sh && sh.querySelector('.stk'), tr = sh && sh.querySelector('.fstep'), fb = sh && sh.querySelector('.fullbar'); if (!bar || !tr || !fb) return; const gone = tr.getBoundingClientRect().bottom < fb.getBoundingClientRect().bottom + 4; if (bar.hidden === gone) { bar.hidden = !gone; bar.setAttribute('aria-hidden', String(!gone)); } }
   document.addEventListener('DOMContentLoaded', () => { const sh = $('#sheet'); if (sh) sh.addEventListener('scroll', updStrip, { passive: true }); });
@@ -1415,7 +1420,7 @@
     const cur = invDesignId();
     return InvDesign.DESIGNS.map((d) => {
       const c = invDesign(d.id), top = d.id === 'classic' ? bannerSrc() : headerURL(d.id), on = cur === d.id;
-      return `<div class="dwrap"><button class="dzoom" data-act="inv-design-view" data-id="${d.id}" aria-label="${t('invd.full')}">⤢</button><button class="dsg ${on ? 'on' : ''}" role="radio" aria-checked="${on}" data-act="inv-design" data-id="${d.id}" style="--ih:${c.head};--it:${c.tint || '#f6edf2'}">
+      return `<div class="dwrap"><button class="dzoom" data-act="inv-design-view" data-id="${d.id}" aria-label="${t('invd.full')}">⤢</button>${d.id === 'custom' ? '' : `<button class="dedit" data-act="inv-design-edit" data-id="${d.id}" aria-label="${t('invd.editThis')}">✏️ ${t('invd.editThis')}</button>`}<button class="dsg ${on ? 'on' : ''}" role="radio" aria-checked="${on}" data-act="inv-design" data-id="${d.id}" style="--ih:${c.head};--it:${c.tint || '#f6edf2'}">
         <span class="pg"><img src="${top}" alt=""><i class="th"></i><i class="r1"></i><i class="r2"></i><i class="r3"></i><i class="bd"></i></span><b>${d.id === 'custom' ? t('invd.myhdr') : t('invd.' + d.id)}</b>${d.themed ? `<small>${t('invd.themed')}</small>` : ''}</button></div>`;
     }).join('');
   };
@@ -1473,12 +1478,12 @@
     const pic = `<div class="ihpic"><span class="ihth ${src ? '' : 'none'}">${src ? `<img src="${src}" alt="">` : '＋'}</span><div class="ihpb"><button type="button" class="btn" data-act="ih-slot" data-id="${s}">${src ? t('ih.replace') : t('ih.upload1')}</button>${cfg.slots[s] ? `<button type="button" class="btn" data-act="ih-clear" data-id="${s}">${t('ih.remove')}</button>` : ''}</div>${s === 'logo' && !cfg.slots.logo && state.settings.bizLogo ? `<small>${t('ih.useStore')}</small>` : ''}</div>`;
     const shape = ihChips(`items.${s}.shape`, t('ih.shape'), InvHeader.SHAPES.map((k) => [k, t('ih.sh.' + k)]));
     const adj = it.on ? `${shape}${ihRng(`items.${s}.size`, t('ih.size'), 20, 300)}${ihRng(`items.${s}.x`, t('ih.x'), -40, 760)}${ihRng(`items.${s}.y`, t('ih.y'), -40, 190)}${it.shape !== 'none' ? ihRng(`items.${s}.pad`, t('ih.pad'), 0, 30) + ihTog(`items.${s}.ring`, t('ih.ring')) + (it.ring ? ihCol(`items.${s}.ringColor`, t('ih.ringColor')) : '') : ''}${ihTog(`items.${s}.shadow`, t('ih.shadow'))}` : '';
-    return `<details class="ihsub"><summary><span>${t('ih.slot.' + s)}</span>${swt('ih-tog', `items.${s}.on`, it.on)}</summary><div class="ihb">${pic}${adj}</div></details>`;
+    return `<details class="ihsub" data-ihk="p:${s}" ${ihOpenSecs['p:' + s] ? 'open' : ''}><summary><span>${t('ih.slot.' + s)}</span>${swt('ih-tog', `items.${s}.on`, it.on)}</summary><div class="ihb">${pic}${adj}</div></details>`;
   }
-  function ihTextHTML(k, title, body) { const on = ihCfg().items[k].on; return `<details class="ihsub"><summary><span>${title}</span>${swt('ih-tog', `items.${k}.on`, on)}</summary><div class="ihb">${on ? body : ''}</div></details>`; }
+  function ihTextHTML(k, title, body) { const on = ihCfg().items[k].on; return `<details class="ihsub" data-ihk="t:${k}" ${ihOpenSecs['t:' + k] ? 'open' : ''}><summary><span>${title}</span>${swt('ih-tog', `items.${k}.on`, on)}</summary><div class="ihb">${on ? body : ''}</div></details>`; }
   function ihBannerHTML(cfg) {
     const b = cfg.bg, g = b.grad;
-    const type = ihChips('bg.type', t('ih.type'), [['gradient', t('ih.type.gradient')], ['solid', t('ih.type.solid')], ['image', t('ih.type.image')]]);
+    const type = ihChips('bg.type', t('ih.type'), [['gradient', t('ih.type.gradient')], ['solid', t('ih.type.solid')], ['image', t('ih.type.image')], ['none', t('ih.type.none')]]);
     const gradUI = `${ihChips('bg.grad.mode', t('ih.gmode'), [['linear', t('ih.gmode.linear')], ['radial', t('ih.gmode.radial')]])}
       ${g.mode === 'linear' ? ihRng('bg.grad.angle', t('ih.angle'), 0, 360) : ihRng('bg.grad.cx', t('ih.cx'), 0, 1, 0.01) + ihRng('bg.grad.cy', t('ih.cy'), 0, 1, 0.01) + ihRng('bg.grad.r', t('ih.reach'), 0.2, 1.6, 0.01)}
       ${ihChips('bg.grad.blend', t('ih.blend'), [['smooth', t('ih.bl.smooth')], ['soft', t('ih.bl.soft')], ['sharp', t('ih.bl.sharp')]])}
@@ -1487,7 +1492,7 @@
     const imgUI = `<div class="ihpic"><span class="ihth ${b.image.src ? '' : 'none'}">${b.image.src ? `<img src="${b.image.src}" alt="">` : '＋'}</span><div class="ihpb"><button type="button" class="btn" data-act="ih-bgpick">${t('ih.pickBg')}</button>${b.image.src ? `<button type="button" class="btn" data-act="ih-bgclear">${t('ih.remove')}</button>` : ''}</div></div>${ihTog('bg.image.tint', t('ih.tint'))}${b.image.tint ? ihRng('bg.image.alpha', t('ih.tintAmt'), 0, 1, 0.01) + gradUI : ''}`;
     const pat = `${ihTog('bg.pattern.on', t('ih.pattern'))}${b.pattern.on ? ihRng('bg.pattern.opacity', t('ih.patOp'), 0.02, 0.4, 0.01) + ihRng('bg.pattern.size', t('ih.patSize'), 30, 140) : ''}`;
     const presets = `<div class="ihr"><label>${t('ih.presets')}</label><div class="chiprow">${Object.keys(InvHeader.PRESETS).map((k) => `<button type="button" class="chip" data-act="ih-preset" data-id="${k}">${t('ih.pr.' + k)}</button>`).join('')}</div></div>`;
-    return `${presets}${type}${b.type === 'gradient' ? gradUI : b.type === 'solid' ? solidUI : imgUI}${pat}`;
+    return `${presets}${type}${b.type === 'gradient' ? gradUI : b.type === 'solid' ? solidUI : b.type === 'none' ? '' : imgUI}${pat}`;
   }
   function ihSavedHTML() { return svSlotsHTML('inv', false); }
   function ihBodyHTML() {
@@ -1496,7 +1501,7 @@
     const layout = ihSec('layout', t('ih.sec.layout'), `<div class="chiprow ihlay">${InvHeader.LAYOUTS.map((k) => `<button type="button" class="chip ${cfg.layout === k ? 'on' : ''}" data-act="ih-layout" data-id="${k}">${t('ih.layout.' + k)}</button>`).join('')}</div>`);
     const text = ihSec('text', t('ih.sec.text'),
       ihTextHTML('name', t('ih.name'), `${ihTxt('items.name.text', t('ih.nameText'), ihInfo().name)}${ihRng('items.name.size', t('ih.size'), 10, 60)}${ihRng('items.name.x', t('ih.x'), -40, 760)}${ihRng('items.name.y', t('ih.y'), 10, 190)}${ihCol('items.name.color', t('ih.color'))}${ihChips('items.name.weight', t('ih.weight'), [[400, '400'], [600, '600'], [700, '700'], [900, '900']])}`)
-      + `<details class="ihsub"><summary><span>${t('ih.lines')}</span>${swt('ih-tog', 'items.lines.on', L.on)}</summary><div class="ihb">${L.on ? `${ihChips('items.lines.mode', t('ih.mode'), [['stack', t('ih.mode.stack')], ['two', t('ih.mode.two')]])}${ihTog('items.lines.city', t('ih.city'))}${ihTog('items.lines.phone', t('ih.phone'))}${ihTog('items.lines.email', t('ih.email'))}${ihRng('items.lines.size', t('ih.size'), 8, 30)}${ihRng('items.lines.gap', t('ih.gap'), 10, 40)}${ihRng('items.lines.x', t('ih.x'), -40, 760)}${ihRng('items.lines.y', t('ih.y'), 10, 190)}${ihCol('items.lines.color', t('ih.color'))}` : ''}</div></details>`
+      + `<details class="ihsub" data-ihk="lines" ${ihOpenSecs.lines ? 'open' : ''}><summary><span>${t('ih.lines')}</span>${swt('ih-tog', 'items.lines.on', L.on)}</summary><div class="ihb">${L.on ? `${ihChips('items.lines.mode', t('ih.mode'), [['stack', t('ih.mode.stack')], ['two', t('ih.mode.two')]])}${ihTog('items.lines.city', t('ih.city'))}${ihTog('items.lines.phone', t('ih.phone'))}${ihTog('items.lines.email', t('ih.email'))}${ihRng('items.lines.size', t('ih.size'), 8, 30)}${ihRng('items.lines.gap', t('ih.gap'), 10, 40)}${ihRng('items.lines.x', t('ih.x'), -40, 760)}${ihRng('items.lines.y', t('ih.y'), 10, 190)}${ihCol('items.lines.color', t('ih.color'))}` : ''}</div></details>`
       + ihTextHTML('invoice', t('ih.invoiceWord'), `${ihTxt('items.invoice.text', t('ih.text'), ihInfo().title)}${ihRng('items.invoice.size', t('ih.size'), 16, 90)}${ihRng('items.invoice.x', t('ih.x'), 0, 800)}${ihRng('items.invoice.y', t('ih.y'), 20, 190)}${ihCol('items.invoice.color', t('ih.color'))}${ihChips('items.invoice.align', t('ih.align'), [['left', t('ih.al.left')], ['center', t('ih.al.center')], ['right', t('ih.al.right')]])}`)
       + ihTextHTML('tagline', t('ih.tagline'), `${ihTxt('items.tagline.text', t('ih.text'), 'STYLE · QUALITY · TRUST')}${ihRng('items.tagline.size', t('ih.size'), 8, 30)}${ihRng('items.tagline.x', t('ih.x'), -40, 760)}${ihRng('items.tagline.y', t('ih.y'), 10, 190)}${ihCol('items.tagline.color', t('ih.color'))}`));
     const banner = ihSec('banner', t('ih.sec.banner'), ihBannerHTML(cfg));
@@ -1535,7 +1540,7 @@
     const P = ihPend; if (!P) return; const multi = P.plan.groups.length > 1, g = P.plan.groups[P.gi];
     const slots = [['logo', t('ih.slot.logo')], ['title', t('ih.slot.title')], ['extra1', t('ih.slot.extra1')], ['extra2', t('ih.slot.extra2')], ['skip', t('ih.pick.skip')]];
     const rows = g.items.map((it) => P.mode === 'store'
-      ? `<button type="button" class="ihpk ${P.store === it.name ? 'on' : ''}" data-act="ihp-store" data-id="${esc(it.name)}"><img src="${it.url}" alt=""><span>${esc(it.name)}</span></button>`
+      ? `<button type="button" class="ihpk ${(P.storeSel || (P.store ? [P.store] : [])).includes(it.name) ? 'on' : ''}" data-act="ihp-store" data-id="${esc(it.name)}"><img src="${it.url}" alt=""><span>${esc(it.name)}</span></button>`
       : `<div class="ihpk"><img src="${it.url}" alt=""><span>${esc(it.name)}</span><select data-ihp="${esc(it.name)}" aria-label="${esc(it.name)}">${slots.map(([k, l]) => `<option value="${k}" ${P.sel[it.name] === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`).join('');
     openSmall(`<h3>${t(P.mode === 'store' ? 'ih.pick.store' : 'ih.pick.title')}</h3><p class="muted small">${t('ih.pick.sub')}</p>
       ${multi ? `<p class="small"><b>${t('ih.pick.scheme')}</b></p><div class="chiprow">${P.plan.groups.map((x, i) => `<button type="button" class="chip ${i === P.gi ? 'on' : ''}" data-act="ihp-group" data-id="${i}">${esc(x.label)}</button>`).join('')}</div>` : ''}
@@ -1545,11 +1550,13 @@
     const P = ihPend; if (!P) return; const g = P.plan.groups[P.gi];
     try {
       if (P.mode === 'store') {
-        const pick = g.items.find((i) => i.name === P.store) || g.items.find((i) => P.sel[i.name] === 'logo') || g.items[0]; const r = await LogoFit.fit(pick.entry.file);
-        state.settings.bizLogo = r.src; state.settings.bizLogoShape = r.shape; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); closeSheet(); render(); return refreshLogoUI();
+        const names = (P.storeSel && P.storeSel.length ? P.storeSel : [(g.items.find((i) => i.name === P.store) || g.items.find((i) => P.sel[i.name] === 'logo') || g.items[0]).name]).slice(0, 3), list = [];
+        for (const nm of names) { const it = g.items.find((i) => i.name === nm); if (it) list.push(await LogoFit.fit(it.entry.file)); }
+        logoSetSave(list); save(); Store.publish && Store.publish(true); toast(t('logo.saved')); closeSheet(); render(); return refreshLogoUI();
       }
-      const used = {}; let n = 0;
-      for (const it of g.items) { const s = P.sel[it.name]; if (!s || s === 'skip' || used[s]) continue; used[s] = 1; ihAssign(s, await ihFitFile(it.entry.file)); n++; }
+      const used = {}; let n = 0; const logos = [];
+      for (const it of g.items) { const s = P.sel[it.name]; if (!s || s === 'skip') continue; if (s === 'logo') { if (logos.length < 3) { logos.push(await LogoFit.fit(it.entry.file, { long: 384, cap: 120000 })); n++; } continue; } if (used[s]) continue; used[s] = 1; ihAssign(s, await ihFitFile(it.entry.file)); n++; }
+      if (logos.length) { logoSetSave(logos); const c = ihCfg(); c.slots.logo = ''; ihSave(InvHeader.norm(c)); save(); Store.publish && Store.publish(true); }   // the header's logo follows the saved logo set
       closeSheet(); toast(n ? t('logo.saved') : t('ih.pick.none')); ihRefresh();
     } catch (e) { toast(t('logo.err')); }
   }
@@ -1748,6 +1755,14 @@
   }
 
   /* ---------- business profile: everything about the business in one place (logo, card, QR, contact, invoice banner) ---------- */
+  // Take a ready design (Classic, Soft fade ...) into the header builder, so its pieces stay and the background can be changed or removed
+  async function ihFromDesign(id) {
+    const c = InvHeader.applyLayout(ihCfg(), 'A'), d = invDesign(id);
+    c.bg.pattern.on = false; c.accent = '';
+    if (id === 'classic') { try { c.bg.type = 'image'; c.bg.image = { src: await fileData(BRAND.banner), tint: false, alpha: 0.55 }; } catch (e) { c.bg.type = 'solid'; c.bg.solid = '#f3e3ea'; } c.items.name.color = c.items.lines.color = c.items.invoice.color = '#111111'; }
+    else { const hd = d.head || '#c79db5'; c.bg.type = 'solid'; c.bg.solid = hd; const rgb = /^#[0-9a-f]{6}$/i.test(hd) ? [1, 3, 5].map((i) => parseInt(hd.slice(i, i + 2), 16)) : [120, 90, 110], dark = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] < 150; c.items.name.color = c.items.lines.color = c.items.invoice.color = dark ? '#ffffff' : '#111111'; }
+    state.settings.invoiceDesign = 'custom'; ihSave(InvHeader.norm(c)); toast(t('invd.editOpened')); sheetHeader();
+  }
   const BRAND = { mark: 'icons/brand/mark.png', circle: 'icons/brand/circle.png', title: 'icons/brand/title.png', banner: 'icons/brand/banner.jpg' };
   const isBruiz = () => /ruiz/i.test(state.settings.businessName || '');
   const fileData = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error('brand'); return r.blob(); }).then((b) => new Promise((ok, no) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = no; f.readAsDataURL(b); }));
@@ -4362,8 +4377,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'store-link': { const c = storeCfg(); if (!c.id) return sheetStore(); return copyText(Store.link(c)).then((ok) => toast(ok ? t('store.copied') : Store.link(c))); }
       case 'store-open': return sheetStore();
       case 'store-settings': closeSheet(); return sheetStoreSettings();
-      case 'ss-biz': closeSheet(); go({ tab: 'more', moreView: 'set-business' }); window.scrollTo(0, 0); return render();
-      case 'ss-all': closeSheet(); go({ tab: 'more', moreView: 'settings' }); window.scrollTo(0, 0); return render();
+      case 'ss-biz': return goFromPage({ tab: 'more', moreView: 'set-business' });
+      case 'ss-all': return goFromPage({ tab: 'more', moreView: 'settings' });
       case 'pickup-open': return sheetPickup();
       case 'contact-open': return sheetContact();
       case 'store-create': storeSet({}); seedDefaultPlaces(); Store.publish(true).then(async () => { const c = storeCfg(), want = SCore.slugify(c.name || bizName()); if (c.slug || SCore.slugError(want) || !Store.claim) return; if (!(await Store.claim(want))) { storeSet({ slug: want }); Store.publish(true); if (!$('#sheet').hidden) sheetStore(); } }); return sheetStore();
@@ -4405,14 +4420,14 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mb-inv': return sheetMyInvoice();
       case 'mb-card': return sheetMyCard();
       case 'mb-logo': return sheetMyLogo();
-      case 'mb-style': closeSheet(); go({ tab: 'more', moreView: 'set-invdesign' }); window.scrollTo(0, 0); return render();
+      case 'mb-style': return goFromPage({ tab: 'more', moreView: 'set-invdesign' });
       case 'ih-banner': ihOpenSecs = { banner: true }; return sheetHeader();
       case 'sv-edit': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); return k === 'inv' ? sheetHeader() : sheetCard(); }
       case 'sv-use': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); state.settings.invoiceDesign = 'custom'; save(); toast(t('ih.toast')); return svRedraw(); }
       case 'sv-save': { const [k, n] = id.split(':'), el = document.querySelector('[data-svname="' + id + '"]'); svSave(k, Number(n), el && el.value.trim()); toast(t('ih.savedOk')); return svRedraw(); }
       case 'sv-del': { const [k, n] = id.split(':'); return askCard(t('mb.delAsk'), { danger: true, ok: t('ih.delete') }).then((y) => { if (!y) return; state.settings[SVKEY[k]] = svList(k).filter((d) => d.slot !== Number(n)); ihPrune(); save(); svRedraw(); }); }
       case 'sv-new': { const [k] = id.split(':'); if (k === 'inv') { ihSave(InvHeader.defaults()); return sheetHeader(); } bcSave(CardMaker.defaults()); return sheetCard(); }
-      case 'bp-edit': closeSheet(); go({ tab: 'more', moreView: 'set-business' }); window.scrollTo(0, 0); return render();
+      case 'bp-edit': return goFromPage({ tab: 'more', moreView: 'set-business' });
       case 'bp-copy': return copyText(id).then((ok) => toast(ok ? t('bz.copied') : id));
       case 'bp-dl': return bpDownload(id);
       case 'bp-brand': return brandApply().then(() => { toast(t('bz.brandDone')); sheetBizProfile(); render(); }).catch(() => toast(t('bz.brandFail')));
@@ -4441,12 +4456,13 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-apply': { const d = (state.settings.invHeaderSaved || []).find((x) => x.id === id); if (d) { ihSave(InvHeader.norm(d.cfg)); ihRefresh(); } return; }
       case 'ih-del': state.settings.invHeaderSaved = (state.settings.invHeaderSaved || []).filter((x) => x.id !== id); ihPrune(); save(); return ihRefresh();
       case 'ihp-group': if (ihPend) { ihPend.gi = Number(id); ihChooseDraw(); } return;
-      case 'ihp-store': if (ihPend) { ihPend.store = id; ihChooseDraw(); } return;
+      case 'ihp-store': if (ihPend) { const a = ihPend.storeSel = ihPend.storeSel || [], i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else if (a.length < 3) a.push(id); ihPend.store = id; ihChooseDraw(); } return;
       case 'ihp-go': return ihChooseGo();
       case 'ihcr-go': { if (!ihCr) return; const d = ihCropOut(), c = ihCfg(); c.bg.image.src = d; c.bg.type = 'image'; ihSave(InvHeader.norm(c)); closeSheet(); toast(t('ih.crop.done')); return ihRefresh(); }
       case 'logo-pick': { const f = $('#logo-file'); if (f) f.click(); return; }
-      case 'logo-remove': state.settings.bizLogo = ''; state.settings.bizLogoShape = ''; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
-      case 'logo-shape': state.settings.bizLogoPick = id === 'auto' ? 'auto' : id; save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
+      case 'logo-vdel': { const st = state.settings, set = (st.bizLogoSet || []).filter((x) => x.id !== id); if (!set.length) { st.bizLogo = ''; st.bizLogoShape = ''; st.bizLogoSet = []; } else { st.bizLogoSet = set; logoSync(); } save(); Store.publish && Store.publish(true); render(); return refreshLogoUI(); }
+      case 'logo-remove': state.settings.bizLogo = ''; state.settings.bizLogoShape = ''; state.settings.bizLogoPick = 'auto'; state.settings.bizLogoSet = []; save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
+      case 'logo-shape': state.settings.bizLogoPick = id === 'auto' ? 'auto' : id; logoSync(); save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
       case 'pr-format': prFormat = id; prIdx = 0; return prRefresh();
       case 'pr-prev': case 'pr-next': { const n = prFiles.urls.length; if (n > 1) { prIdx = (prIdx + (t_.dataset.act === 'pr-next' ? 1 : n - 1)) % n; const im = $('#prprev .prpimg'), ct = $('#prprev .muted'); if (im) im.src = prFiles.urls[prIdx]; if (ct) ct.textContent = (prIdx + 1) + ' / ' + n; } return; }
       case 'pr-prices': prPrices = !prShowPrices(); prCaption = null; return prRefresh();
@@ -4732,6 +4748,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'invfs-theme': setInvStyle({ color: null, light: 0 }); invFsControls(); invFsPreview(); return;
       case 'inv-color': setInvStyle({ color: id || null }); return render();
       case 'inv-reset': { const m = Object.assign({}, state.settings.invoiceStyle); delete m[invDesignId()]; state.settings.invoiceStyle = m; save(); if (invFsOn) { invFsControls(); invFsPreview(); } return render(); }
+      case 'inv-design-edit': return ihFromDesign(id);
       case 'inv-design': state.settings.invoiceDesign = id; if (id === 'custom' && !state.settings.invHeader) ihSave(ihCfg()); save(); toast(t('invd.saved')); return render();
       case 'more': if (id === 'orders') { ordLimit = 20; ordQ = ''; } go({ tab: 'more', moreView: id }); window.scrollTo(0, 0); return render();
       case 'import-xlsx': return pickFile('.xlsx,.xls', importXlsx);
@@ -4779,6 +4796,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   // Business logo: shrink the chosen picture to a small square (white behind it) and keep it in the settings.
   // A picked picture -> trimmed, see-through-background logo; the shape found is kept in lastFit.
   let lastFit = null;
+  // The saved logo set (up to 3). The logo the app shows follows the shape you pick: Round uses the round one, the rest the plain one.
+  function logoSync() { const s = state.settings, c = LogoFit.setPick(s); if (c) { s.bizLogo = c.src; s.bizLogoShape = c.shape; } }
+  function logoSetSave(list) { const s = state.settings; s.bizLogoSet = list.filter((x) => x && x.src).slice(0, 3).map((x) => ({ id: x.id || Math.random().toString(36).slice(2, 8), src: x.src, shape: x.shape || 'square' })); s.bizLogoPick = 'auto'; logoSync(); }
   function logoFromFile(file) { return LogoFit.fit(file).then((r) => { lastFit = r; return r.src; }); }
   // A logo saved before shapes existed: find its shape once and publish it.
   let shapeBusy = '';
@@ -4792,7 +4812,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   function logoCardHTML() {
     const s = state.settings, sh = logoShape(), found = LogoFit.SHAPES.includes(s.bizLogoShape) ? s.bizLogoShape : 'square', pick = s.bizLogoPick && s.bizLogoPick !== 'auto' ? s.bizLogoPick : 'auto';
     const chip = (k, label) => `<button type="button" class="chip ${pick === k ? 'on' : ''}" data-act="logo-shape" data-id="${k}">${label}</button>`;
-    return `<div class="lgcard"><span class="lgpv fit ${sh}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span><div class="t"><b>${t('logo.title')}</b><small>${t('logo.sub')}</small>${s.bizLogo ? `<div class="lgsh"><small>${t('logo.shape')}</small><div class="chips">${chip('auto', t('logo.auto') + ': ' + t('logo.sh.' + found))}${['circle', 'rounded', 'square'].map((k) => chip(k, t('logo.sh.' + k))).join('')}</div></div>` : ''}<div class="lgbt"><button type="button" class="btn" data-act="logo-pick">${t(s.bizLogo ? 'logo.change' : 'logo.add')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="logo-remove">${t('logo.remove')}</button>` : ''}</div></div><input type="file" id="logo-file" accept="image/*,.zip,application/zip" multiple hidden></div>`;
+    return `<div class="lgcard"><span class="lgpv fit ${sh}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span><div class="t"><b>${t('logo.title')}</b><small>${t('logo.sub')}</small>${s.bizLogo ? `<div class="lgsh"><small>${t('logo.shape')}</small><div class="chips">${chip('auto', t('logo.auto') + ': ' + t('logo.sh.' + found))}${['circle', 'rounded', 'square'].map((k) => chip(k, t('logo.sh.' + k))).join('')}</div></div>` : ''}${(s.bizLogoSet || []).length > 1 ? `<div class="lgset"><small>${t('logo.setT')}</small><div class="lgvs">${s.bizLogoSet.map((v) => `<span class="lgv"><img src="${v.src}" alt=""><b>${t(v.shape === 'circle' ? 'logo.v.circle' : 'logo.v.plain')}</b><button type="button" data-act="logo-vdel" data-id="${v.id}" aria-label="${t('logo.remove')}">✕</button></span>`).join('')}</div><small class="muted">${t('logo.setNote')}</small></div>` : ''}<div class="lgbt"><button type="button" class="btn" data-act="logo-pick">${t(s.bizLogo ? 'logo.change' : 'logo.add')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="logo-remove">${t('logo.remove')}</button>` : ''}</div></div><input type="file" id="logo-file" accept="image/*,.zip,application/zip" multiple hidden></div>`;
   }
   // After the logo or its shape changes: redraw the card(s) and the preview wherever they are open.
   function refreshLogoUI() {
@@ -4814,8 +4834,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (el.id === 'ih-file1') { const slot = ihSlotPick; ihIntake(el.files, slot); return; }
     if (el.id === 'ih-bgfile') { const f = el.files && el.files[0]; if (f) ihCropStart(f); return; }
     if (el.dataset && el.dataset.ihp) { if (ihPend) ihPend.sel[el.dataset.ihp] = el.value; return; }
-    if (el.id === 'logo-file' && el.files && (el.files.length > 1 || (el.files[0] && Assets.isZipName(el.files[0].name)))) { Assets.expand(el.files).then((en) => { if (!en.length) return toast(t('ih.pick.none')); if (en.length === 1) { return logoFromFile(en[0].file).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }); } ihChoose(en, 'store'); }).catch(() => toast(t('ih.zipErr'))); return; }
-    if (el.id === 'logo-file') { const f = el.files && el.files[0]; if (!f) return; logoFromFile(f).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }).catch(() => toast(t('logo.err'))); return; }
+    if (el.id === 'logo-file' && el.files && (el.files.length > 1 || (el.files[0] && Assets.isZipName(el.files[0].name)))) { Assets.expand(el.files).then((en) => { if (!en.length) return toast(t('ih.pick.none')); if (en.length === 1) { return logoFromFile(en[0].file).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; state.settings.bizLogoSet = [{ id: 'a', src: d, shape: state.settings.bizLogoShape }]; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }); } ihChoose(en, 'store'); }).catch(() => toast(t('ih.zipErr'))); return; }
+    if (el.id === 'logo-file') { const f = el.files && el.files[0]; if (!f) return; logoFromFile(f).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; state.settings.bizLogoSet = [{ id: 'a', src: d, shape: state.settings.bizLogoShape }]; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }).catch(() => toast(t('logo.err'))); return; }
     if (el.dataset.selgrp) { state.items.filter((x) => x.grp === el.dataset.selgrp && !L.isLocked(x)).forEach((x) => { el.checked ? selected.add(x.id) : selected.delete(x.id); }); render(); return; }
     if (el.hasAttribute('data-sel')) {
       const id = el.closest('.item').dataset.id;
