@@ -1593,9 +1593,10 @@
       <div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="invfs-open">🎨 ${t('invd.wheel')} · ${t('invd.fullEditor')}</button><button type="button" class="btn" data-act="inv-reset">${t('invd.reset')}</button></div></div>`;
   }
   function InvDesignPage() {
-    const fr = invFrame(), frames = [['tint', t('invd.frameTint')], ['shadow', t('invd.frameShadow')], ['none', t('invd.frameNone')]];
+    const fr = invFrame(), frames = [['tint', t('invd.frameTint')], ['soft', t('invd.frameSoft')], ['shadow', t('invd.frameShadow')], ['none', t('invd.frameNone')]];
     return `<p class="muted small" style="margin:0 2px 10px">${t('invd.note')}</p>
       <div class="invset"><h3>${t('invd.frame')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.frame')}" style="margin:0">${frames.map(([k, l]) => `<button type="button" class="chip ${fr === k ? 'on' : ''}" role="radio" aria-checked="${fr === k}" data-act="inv-frame" data-id="${k}">${l}</button>`).join('')}</div><p class="muted small" style="margin:8px 0 0">${t('invd.frameNote')}</p></div>
+      <div class="invset"><h3>${t('invd.corners')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.corners')}" style="margin:0">${[['round', t('invd.cRound')], ['square', t('invd.cSquare')]].map(([k, l]) => `<button type="button" class="chip ${(invSquare() ? 'square' : 'round') === k ? 'on' : ''}" role="radio" aria-checked="${(invSquare() ? 'square' : 'round') === k}" data-act="inv-corners" data-id="${k}">${l}</button>`).join('')}</div></div>
       <button type="button" class="row tap ihentry" data-act="ih-open"><span style="font-size:22px">🎨</span><div class="grow"><b>${t('ih.open')}</b><small>${t('ih.openSub')}</small></div><span class="chev">›</span></button>
       <div id="invpanel">${invColourPanel()}</div><div class="dsgrid" id="dsgrid" role="radiogroup" aria-label="${t('set.invDesign')}">${invCards()}</div>`;
   }
@@ -3049,7 +3050,7 @@
     const withPhoto = state.items.filter((x) => x.invoice === v.no && x.photo);
     const thumbs = withPhoto.length ? `<div class="thumbs"><h4>${t('inv.itemsOn')}</h4><div class="trow">${withPhoto.map((x) => { const d = L.photoDaysLeft(state, x, Date.now()); return `<button class="tb" data-act="edit-item" data-back="inv" data-inv="${v.no}" data-id="${x.id}" aria-label="${esc(dn(x) || x.id)}"><span class="im"><img data-ph="${x.photo.id}" data-kind="thumb" alt="">${offStrip(x)}${d != null && d > 0 ? `<span class="bd">${tn('inv.daysLeft', d)}</span>` : ''}</span><span class="nm">${esc(dn(x) || x.id)}</span></button>`; }).join('')}</div></div>` : '';
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${v.no}</b><small>${esc(clabel(v.client))}</small></div></div>${voidBanner(v0)}${v0.returnNote ? `<div class="voidbar soft">↩ ${tn('inv.returnedFrom', v0.returnNote.items.length, { no: v0.returnNote.from })}${v0.returnNote.fee > 0 ? ' · ' + t('inv.feeIn', { amount: money(v0.returnNote.fee) }) : ''}</div>` : ''}${isLatest ? '' : `<div class="earlier"><span>${t('inv.earlier')}</span><button class="chip" data-act="inv-swap" data-id="${latest.no}">${t('inv.backLatest')}</button></div>`}<div class="seg three small" role="radiogroup" aria-label="${t('invUI.lang')}" style="margin-bottom:10px"><button class="${autoActive() ? 'on' : ''}" role="radio" aria-checked="${autoActive()}" data-act="inv-lang" data-id="auto" data-no="${v.no}">${t('inv.auto')}</button>${Object.keys(I.LANGS).map((l) => `<button class="${lg === l && !autoActive() ? 'on' : ''}" role="radio" aria-checked="${lg === l && !autoActive()}" data-act="inv-lang" data-id="${l}" data-no="${v.no}">${I.LANGS[l]['lang.name']}</button>`).join('')}</div>
-      <div class="printable"><button class="fsbtn" data-act="inv-full" data-id="${v.no}" aria-label="${t('invd.full')}">⤢</button><div class="inv" style="--ih:${invDesign().head};--it:${invDesign().tint || 'transparent'};--ib:${invDesign().band}"><img class="inv-banner" src="${invDesignId() === 'classic' ? bannerSrc() : headerURL(invDesignId())}" alt="${ti('doc.bannerAlt')}">
+      <div class="printable"><button class="fsbtn" data-act="inv-full" data-id="${v.no}" aria-label="${t('invd.full')}">⤢</button><div class="inv" style="${invSquare() ? 'border-radius:0;' : ''}--ih:${invDesign().head};--it:${invDesign().tint || 'transparent'};--ib:${invDesign().band}"><img class="inv-banner" src="${invDesignId() === 'classic' ? bannerSrc() : headerURL(invDesignId())}" alt="${ti('doc.bannerAlt')}">
       <div class="inv-body">
         <div class="inv-top"><div><div class="lbl">${ti('doc.billTo')}</div><div class="client">${esc(cdisp(v.client))}</div></div>
           <div class="inv-meta"><div><span class="lbl">${ti('doc.invoiceNo')}</span><span>${v.no}</span></div><div><span class="lbl">${ti('doc.date')}</span><span>${invDate(v.date)}</span></div><div><span class="lbl">${ti('doc.due')}</span><span>${dueOnDelivery(v) ? ti('doc.dueDelivery') : invDate(v.due)}</span></div></div></div>
@@ -3067,14 +3068,15 @@
 
   // Draws the same invoice onto a canvas (800 x N, 2x) so it can be shared or saved as a PNG for WhatsApp etc.
   // The picture people receive: the invoice as a sheet of paper on a background, so it stands out from the chat. 'tint' = soft colour, 'shadow' = white with a shadow under the sheet, 'none' = the page alone.
-  const invFrame = () => ['tint', 'shadow', 'none'].includes(state.settings.invoiceFrame) ? state.settings.invoiceFrame : 'tint';
+  const invFrame = () => ['tint', 'soft', 'shadow', 'none'].includes(state.settings.invoiceFrame) ? state.settings.invoiceFrame : 'soft';   // soft tint + shadow unless the owner picked another
+  const invSquare = () => state.settings.invoiceCorners === 'square';   // 90 degree corners instead of rounded ones
   function framedCanvas(card, mode, S, brand) {
-    const M = 56 * S, R = 26 * S, w = card.width + 2 * M, h = card.height + 2 * M, o = document.createElement('canvas'); o.width = w; o.height = h;
+    const M = 56 * S, R = invSquare() ? 0 : 26 * S, w = card.width + 2 * M, h = card.height + 2 * M, o = document.createElement('canvas'); o.width = w; o.height = h;
     const g = o.getContext('2d'), path = () => { g.beginPath(); g.moveTo(M + R, M); g.arcTo(M + card.width, M, M + card.width, M + card.height, R); g.arcTo(M + card.width, M + card.height, M, M + card.height, R); g.arcTo(M, M + card.height, M, M, R); g.arcTo(M, M, M + card.width, M, R); g.closePath(); };
-    g.fillStyle = mode === 'tint' ? InvDesign.mix(brand || '#7a1f33', '#ffffff', 0.9) : '#ffffff'; g.fillRect(0, 0, w, h);
-    if (mode === 'shadow') {
-      g.save(); g.shadowColor = 'rgba(0,0,0,.32)'; g.shadowBlur = 48 * S; g.shadowOffsetY = 18 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
-      g.save(); g.shadowColor = 'rgba(0,0,0,.18)'; g.shadowBlur = 10 * S; g.shadowOffsetY = 3 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
+    g.fillStyle = mode === 'tint' ? InvDesign.mix(brand || '#7a1f33', '#ffffff', 0.9) : mode === 'soft' ? InvDesign.mix(brand || '#7a1f33', '#ffffff', 0.955) : '#ffffff'; g.fillRect(0, 0, w, h);
+    if (mode === 'shadow' || mode === 'soft') {
+      g.save(); g.shadowColor = mode === 'soft' ? 'rgba(60,20,40,.2)' : 'rgba(0,0,0,.32)'; g.shadowBlur = 40 * S; g.shadowOffsetY = 12 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
+      g.save(); g.shadowColor = mode === 'soft' ? 'rgba(0,0,0,.1)' : 'rgba(0,0,0,.18)'; g.shadowBlur = 10 * S; g.shadowOffsetY = 3 * S; g.fillStyle = '#fff'; path(); g.fill(); g.restore();
     }
     g.save(); path(); g.clip(); g.drawImage(card, M, M); g.restore();
     return o;
@@ -5122,6 +5124,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
         designOverride = t_.dataset.act === 'inv-design-view' ? id : null; toast(t('doc.preparing'));
         return invoiceCanvas(inv, 'image/png', true).then((blob) => PUI.openViewer(URL.createObjectURL(blob))).catch((e) => toast('⚠️ ' + errMsg(e))).finally(() => { designOverride = null; });
       }
+      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); return render();
       case 'inv-frame': state.settings.invoiceFrame = id; save(); return render();
       case 'invfs-open': return openInvEditor();
       case 'invfs-close': return closeInvEditor();
