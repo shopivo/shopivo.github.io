@@ -63,8 +63,13 @@
   }
   function placeBack() {
     if (places.length < 2) return false;
-    places.pop(); const p = places[places.length - 1]; tab = p.tab; moreView = p.moreView; restoreY = p.y || 0; return true;
+    const left = places[places.length - 1], ret = left.ret;   // a screen reached from a full-screen page: Back reopens that page
+    places.pop(); const p = places[places.length - 1]; tab = p.tab; moreView = p.moreView; restoreY = p.y || 0;
+    if (ret && ret.length) setTimeout(() => { pageStack = ret.slice(); reopening = true; try { ret[ret.length - 1].open(); } finally { reopening = false; } restoreSheetY(ret[ret.length - 1].y); }, 80);
+    return true;
   }
+  // Leave a full-screen page for a screen (tab or Settings page), remembering the page so Back returns to it
+  function goFromPage(next) { const keep = pageStack.slice(); closeSheet(); go(next); places[places.length - 1].ret = keep.length ? keep : null; window.scrollTo(0, 0); render(); }
   // Coming back to a page opens it again from the top, so each page remembers how far it was scrolled when you left it.
   function updStrip() { const sh = $('#sheet'), bar = sh && sh.querySelector('.stk'), tr = sh && sh.querySelector('.fstep'), fb = sh && sh.querySelector('.fullbar'); if (!bar || !tr || !fb) return; const gone = tr.getBoundingClientRect().bottom < fb.getBoundingClientRect().bottom + 4; if (bar.hidden === gone) { bar.hidden = !gone; bar.setAttribute('aria-hidden', String(!gone)); } }
   document.addEventListener('DOMContentLoaded', () => { const sh = $('#sheet'); if (sh) sh.addEventListener('scroll', updStrip, { passive: true }); });
@@ -1415,7 +1420,7 @@
     const cur = invDesignId();
     return InvDesign.DESIGNS.map((d) => {
       const c = invDesign(d.id), top = d.id === 'classic' ? bannerSrc() : headerURL(d.id), on = cur === d.id;
-      return `<div class="dwrap"><button class="dzoom" data-act="inv-design-view" data-id="${d.id}" aria-label="${t('invd.full')}">⤢</button><button class="dsg ${on ? 'on' : ''}" role="radio" aria-checked="${on}" data-act="inv-design" data-id="${d.id}" style="--ih:${c.head};--it:${c.tint || '#f6edf2'}">
+      return `<div class="dwrap"><button class="dzoom" data-act="inv-design-view" data-id="${d.id}" aria-label="${t('invd.full')}">⤢</button>${d.id === 'custom' ? '' : `<button class="dedit" data-act="inv-design-edit" data-id="${d.id}" aria-label="${t('invd.editThis')}">✏️ ${t('invd.editThis')}</button>`}<button class="dsg ${on ? 'on' : ''}" role="radio" aria-checked="${on}" data-act="inv-design" data-id="${d.id}" style="--ih:${c.head};--it:${c.tint || '#f6edf2'}">
         <span class="pg"><img src="${top}" alt=""><i class="th"></i><i class="r1"></i><i class="r2"></i><i class="r3"></i><i class="bd"></i></span><b>${d.id === 'custom' ? t('invd.myhdr') : t('invd.' + d.id)}</b>${d.themed ? `<small>${t('invd.themed')}</small>` : ''}</button></div>`;
     }).join('');
   };
@@ -1478,7 +1483,7 @@
   function ihTextHTML(k, title, body) { const on = ihCfg().items[k].on; return `<details class="ihsub"><summary><span>${title}</span>${swt('ih-tog', `items.${k}.on`, on)}</summary><div class="ihb">${on ? body : ''}</div></details>`; }
   function ihBannerHTML(cfg) {
     const b = cfg.bg, g = b.grad;
-    const type = ihChips('bg.type', t('ih.type'), [['gradient', t('ih.type.gradient')], ['solid', t('ih.type.solid')], ['image', t('ih.type.image')]]);
+    const type = ihChips('bg.type', t('ih.type'), [['gradient', t('ih.type.gradient')], ['solid', t('ih.type.solid')], ['image', t('ih.type.image')], ['none', t('ih.type.none')]]);
     const gradUI = `${ihChips('bg.grad.mode', t('ih.gmode'), [['linear', t('ih.gmode.linear')], ['radial', t('ih.gmode.radial')]])}
       ${g.mode === 'linear' ? ihRng('bg.grad.angle', t('ih.angle'), 0, 360) : ihRng('bg.grad.cx', t('ih.cx'), 0, 1, 0.01) + ihRng('bg.grad.cy', t('ih.cy'), 0, 1, 0.01) + ihRng('bg.grad.r', t('ih.reach'), 0.2, 1.6, 0.01)}
       ${ihChips('bg.grad.blend', t('ih.blend'), [['smooth', t('ih.bl.smooth')], ['soft', t('ih.bl.soft')], ['sharp', t('ih.bl.sharp')]])}
@@ -1487,7 +1492,7 @@
     const imgUI = `<div class="ihpic"><span class="ihth ${b.image.src ? '' : 'none'}">${b.image.src ? `<img src="${b.image.src}" alt="">` : '＋'}</span><div class="ihpb"><button type="button" class="btn" data-act="ih-bgpick">${t('ih.pickBg')}</button>${b.image.src ? `<button type="button" class="btn" data-act="ih-bgclear">${t('ih.remove')}</button>` : ''}</div></div>${ihTog('bg.image.tint', t('ih.tint'))}${b.image.tint ? ihRng('bg.image.alpha', t('ih.tintAmt'), 0, 1, 0.01) + gradUI : ''}`;
     const pat = `${ihTog('bg.pattern.on', t('ih.pattern'))}${b.pattern.on ? ihRng('bg.pattern.opacity', t('ih.patOp'), 0.02, 0.4, 0.01) + ihRng('bg.pattern.size', t('ih.patSize'), 30, 140) : ''}`;
     const presets = `<div class="ihr"><label>${t('ih.presets')}</label><div class="chiprow">${Object.keys(InvHeader.PRESETS).map((k) => `<button type="button" class="chip" data-act="ih-preset" data-id="${k}">${t('ih.pr.' + k)}</button>`).join('')}</div></div>`;
-    return `${presets}${type}${b.type === 'gradient' ? gradUI : b.type === 'solid' ? solidUI : imgUI}${pat}`;
+    return `${presets}${type}${b.type === 'gradient' ? gradUI : b.type === 'solid' ? solidUI : b.type === 'none' ? '' : imgUI}${pat}`;
   }
   function ihSavedHTML() { return svSlotsHTML('inv', false); }
   function ihBodyHTML() {
@@ -1748,6 +1753,14 @@
   }
 
   /* ---------- business profile: everything about the business in one place (logo, card, QR, contact, invoice banner) ---------- */
+  // Take a ready design (Classic, Soft fade ...) into the header builder, so its pieces stay and the background can be changed or removed
+  async function ihFromDesign(id) {
+    const c = InvHeader.applyLayout(ihCfg(), 'A'), d = invDesign(id);
+    c.bg.pattern.on = false; c.accent = '';
+    if (id === 'classic') { try { c.bg.type = 'image'; c.bg.image = { src: await fileData(BRAND.banner), tint: false, alpha: 0.55 }; } catch (e) { c.bg.type = 'solid'; c.bg.solid = '#f3e3ea'; } c.items.name.color = c.items.lines.color = c.items.invoice.color = '#111111'; }
+    else { const hd = d.head || '#c79db5'; c.bg.type = 'solid'; c.bg.solid = hd; const rgb = /^#[0-9a-f]{6}$/i.test(hd) ? [1, 3, 5].map((i) => parseInt(hd.slice(i, i + 2), 16)) : [120, 90, 110], dark = 0.299 * rgb[0] + 0.587 * rgb[1] + 0.114 * rgb[2] < 150; c.items.name.color = c.items.lines.color = c.items.invoice.color = dark ? '#ffffff' : '#111111'; }
+    state.settings.invoiceDesign = 'custom'; ihSave(InvHeader.norm(c)); toast(t('invd.editOpened')); sheetHeader();
+  }
   const BRAND = { mark: 'icons/brand/mark.png', circle: 'icons/brand/circle.png', title: 'icons/brand/title.png', banner: 'icons/brand/banner.jpg' };
   const isBruiz = () => /ruiz/i.test(state.settings.businessName || '');
   const fileData = (u) => fetch(u).then((r) => { if (!r.ok) throw new Error('brand'); return r.blob(); }).then((b) => new Promise((ok, no) => { const f = new FileReader(); f.onload = () => ok(f.result); f.onerror = no; f.readAsDataURL(b); }));
@@ -4362,8 +4375,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'store-link': { const c = storeCfg(); if (!c.id) return sheetStore(); return copyText(Store.link(c)).then((ok) => toast(ok ? t('store.copied') : Store.link(c))); }
       case 'store-open': return sheetStore();
       case 'store-settings': closeSheet(); return sheetStoreSettings();
-      case 'ss-biz': closeSheet(); go({ tab: 'more', moreView: 'set-business' }); window.scrollTo(0, 0); return render();
-      case 'ss-all': closeSheet(); go({ tab: 'more', moreView: 'settings' }); window.scrollTo(0, 0); return render();
+      case 'ss-biz': return goFromPage({ tab: 'more', moreView: 'set-business' });
+      case 'ss-all': return goFromPage({ tab: 'more', moreView: 'settings' });
       case 'pickup-open': return sheetPickup();
       case 'contact-open': return sheetContact();
       case 'store-create': storeSet({}); seedDefaultPlaces(); Store.publish(true).then(async () => { const c = storeCfg(), want = SCore.slugify(c.name || bizName()); if (c.slug || SCore.slugError(want) || !Store.claim) return; if (!(await Store.claim(want))) { storeSet({ slug: want }); Store.publish(true); if (!$('#sheet').hidden) sheetStore(); } }); return sheetStore();
@@ -4405,14 +4418,14 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mb-inv': return sheetMyInvoice();
       case 'mb-card': return sheetMyCard();
       case 'mb-logo': return sheetMyLogo();
-      case 'mb-style': closeSheet(); go({ tab: 'more', moreView: 'set-invdesign' }); window.scrollTo(0, 0); return render();
+      case 'mb-style': return goFromPage({ tab: 'more', moreView: 'set-invdesign' });
       case 'ih-banner': ihOpenSecs = { banner: true }; return sheetHeader();
       case 'sv-edit': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); return k === 'inv' ? sheetHeader() : sheetCard(); }
       case 'sv-use': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); state.settings.invoiceDesign = 'custom'; save(); toast(t('ih.toast')); return svRedraw(); }
       case 'sv-save': { const [k, n] = id.split(':'), el = document.querySelector('[data-svname="' + id + '"]'); svSave(k, Number(n), el && el.value.trim()); toast(t('ih.savedOk')); return svRedraw(); }
       case 'sv-del': { const [k, n] = id.split(':'); return askCard(t('mb.delAsk'), { danger: true, ok: t('ih.delete') }).then((y) => { if (!y) return; state.settings[SVKEY[k]] = svList(k).filter((d) => d.slot !== Number(n)); ihPrune(); save(); svRedraw(); }); }
       case 'sv-new': { const [k] = id.split(':'); if (k === 'inv') { ihSave(InvHeader.defaults()); return sheetHeader(); } bcSave(CardMaker.defaults()); return sheetCard(); }
-      case 'bp-edit': closeSheet(); go({ tab: 'more', moreView: 'set-business' }); window.scrollTo(0, 0); return render();
+      case 'bp-edit': return goFromPage({ tab: 'more', moreView: 'set-business' });
       case 'bp-copy': return copyText(id).then((ok) => toast(ok ? t('bz.copied') : id));
       case 'bp-dl': return bpDownload(id);
       case 'bp-brand': return brandApply().then(() => { toast(t('bz.brandDone')); sheetBizProfile(); render(); }).catch(() => toast(t('bz.brandFail')));
@@ -4732,6 +4745,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'invfs-theme': setInvStyle({ color: null, light: 0 }); invFsControls(); invFsPreview(); return;
       case 'inv-color': setInvStyle({ color: id || null }); return render();
       case 'inv-reset': { const m = Object.assign({}, state.settings.invoiceStyle); delete m[invDesignId()]; state.settings.invoiceStyle = m; save(); if (invFsOn) { invFsControls(); invFsPreview(); } return render(); }
+      case 'inv-design-edit': return ihFromDesign(id);
       case 'inv-design': state.settings.invoiceDesign = id; if (id === 'custom' && !state.settings.invHeader) ihSave(ihCfg()); save(); toast(t('invd.saved')); return render();
       case 'more': if (id === 'orders') { ordLimit = 20; ordQ = ''; } go({ tab: 'more', moreView: id }); window.scrollTo(0, 0); return render();
       case 'import-xlsx': return pickFile('.xlsx,.xls', importXlsx);

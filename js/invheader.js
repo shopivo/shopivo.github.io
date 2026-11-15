@@ -65,7 +65,7 @@
     const out = {
       v: 1, layout: LAYOUTS.includes(c.layout) || c.layout === 'custom' ? c.layout : 'A', accent: isHex(c.accent) ? c.accent : '',
       bg: {
-        type: ['gradient', 'solid', 'image'].includes(c.bg && c.bg.type) ? c.bg.type : 'gradient', solid: isHex(c.bg && c.bg.solid) ? c.bg.solid : d.bg.solid,
+        type: ['gradient', 'solid', 'image', 'none'].includes(c.bg && c.bg.type) ? c.bg.type : 'gradient', solid: isHex(c.bg && c.bg.solid) ? c.bg.solid : d.bg.solid,
         grad: { mode: g.mode === 'linear' ? 'linear' : 'radial', angle: num(g.angle, 0, 360, dg.angle), cx: num(g.cx, 0, 1, dg.cx), cy: num(g.cy, 0, 1, dg.cy), r: num(g.r, 0.1, 2, dg.r), blend: ['smooth', 'soft', 'sharp'].includes(g.blend) ? g.blend : 'smooth', stops },
         image: { src: str(im.src, ''), tint: !!im.tint, alpha: num(im.alpha, 0, 1, d.bg.image.alpha) },
         pattern: { on: !!pt.on, opacity: num(pt.opacity, 0.02, 0.4, d.bg.pattern.opacity), size: num(pt.size, 30, 140, d.bg.pattern.size) },
@@ -120,7 +120,8 @@
 
   function drawBg(x, cfg, imgs, w, h) {
     const b = cfg.bg;
-    if (b.type === 'solid') { x.fillStyle = b.solid; x.fillRect(0, 0, w, h); }
+    if (b.type === 'none') { x.fillStyle = '#ffffff'; x.fillRect(0, 0, w, h); }   // no background: a plain white header
+    else if (b.type === 'solid') { x.fillStyle = b.solid; x.fillRect(0, 0, w, h); }
     else if (b.type === 'image' && ready(imgs.bg)) { cover(x, imgs.bg, w, h); if (b.image.tint) { x.save(); x.globalAlpha = b.image.alpha; paintGrad(x, b.grad, w, h); x.restore(); } }
     else paintGrad(x, b.grad, w, h);
     if (b.pattern.on && ready(imgs.logo)) {
