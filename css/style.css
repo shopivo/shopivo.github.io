@@ -1659,3 +1659,10 @@ body.ordselecting #view{padding-bottom:140px}
 .mck.on{background:var(--brand);border-color:var(--brand)}
 .moty{display:flex;gap:6px;margin-bottom:6px}.moty input:first-child{flex:1}.moty input:nth-child(2){width:96px}.moty .x{background:none;border:0;color:inherit;font-size:18px}
 .lpi .txt{display:block;min-width:0}.lpi .txt b,.lpi .txt small{display:block}
+.sellitem{display:flex;align-items:center;justify-content:center;gap:8px;width:100%;margin:18px 0 0;padding:14px;border-radius:16px;border:1px solid var(--line);background:var(--card);color:inherit;font-weight:800;font-size:16px}
+.sich{text-align:left;height:auto;padding:12px 14px}.sich b{display:block}.sich small{display:block;opacity:.85;font-weight:400;margin-top:2px}
+.wab{flex:none;width:40px;height:40px;border-radius:50%;display:grid;place-items:center;background:#25d366;color:#fff;font-size:18px}
+.mocr{display:flex;align-items:center;justify-content:space-between;gap:8px;margin:6px 0}
+.moloc{display:flex;gap:8px}.moloc input{flex:1;min-width:0}.moloc .btn{width:auto;white-space:nowrap}
+.mopin{display:block;margin:4px 0}.mopin.bad{color:var(--bad,#cf4b4b)}
+.bpg .rw{display:flex;align-items:center;gap:10px}.bpg .rw .t{flex:1;min-width:0}

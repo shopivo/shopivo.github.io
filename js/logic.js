@@ -388,14 +388,14 @@
       profit: r2(profit), loss: r2(loss), landed, ref, status: paying + prev >= total ? 'Paid' : 'Owing' };
   };
 
-  L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero, orderId }) => {
+  L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero, orderId, no }) => {
     const p = L.previewInvoice(s, { itemIds, client, paying, allowZero, orderId });
     if (p.errors.length) throw fail(p.errors[0]);
     client = L.canonicalName(s, client);
     const d = date || new Date();
     const due = new Date(d); due.setDate(due.getDate() + 7);
     const inv = {
-      no: L.nextInvoiceNo(s), client, desc: p.lines.map((l) => l.desc).join(', '), lines: p.lines,
+      no: no || L.nextInvoiceNo(s), client, desc: p.lines.map((l) => l.desc).join(', '), lines: p.lines,
       total: r2(p.total), amountPaid: r2(p.paying), previouslyPaid: r2(p.prev), balance: r2(p.balance),
       delivery: r2(p.delivery), date: d.toISOString(), due: due.toISOString(),
       qty: p.items.length, ref: p.ref, profit: p.profit, loss: p.loss, tip: r2(p.tip), updatedBy: '',

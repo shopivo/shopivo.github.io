@@ -29,7 +29,7 @@ fails(() => MO.handOver(s, o.id, { how: 'pickup' }), 'moHanded');
 L.recordPayment(s, inv.no, 290, new Date()); assert.strictEqual(MO.stage(s, o), 'done'); assert.strictEqual(MO.pay(s, o).owing, 0);
 // not arrived: cannot hand over. Cancel releases the items.
 s = state(); const [a2, b2] = s.items; const o2 = MO.create(s, { client: 'Keisha', phone: '5552', rows: [{ itemId: a2.id }, { itemId: b2.id }] });
-fails(() => MO.handOver(s, o2.id, { how: 'pickup' }), 'moNotArrived'); MO.cancel(s, o2.id); assert.strictEqual(a2.reservedFor, undefined); assert.strictEqual(MO.stage(s, o2), 'done'); assert.doesNotThrow(() => L.previewInvoice(s, { itemIds: [a2.id], client: 'Z', paying: 1 }));
+fails(() => MO.handOver(s, o2.id, { how: 'pickup' }), 'moNotArrived'); MO.cancel(s, o2.id, 'refund'); assert.strictEqual(a2.reservedFor, undefined); assert.strictEqual(MO.stage(s, o2), 'done'); assert.doesNotThrow(() => L.previewInvoice(s, { itemIds: [a2.id], client: 'Z', paying: 1 }));
 // remove a row (not the last), set a price, delete an order
 s = state(); const o3 = MO.create(s, { client: 'Oscarly', phone: '5553', rows: [{ itemId: s.items[0].id }, { itemId: s.items[1].id }] }); MO.removeRow(s, o3.id, 1); assert.strictEqual(s.items[1].reservedFor, undefined); fails(() => MO.removeRow(s, o3.id, 0), 'moLastRow'); MO.setPrice(s, o3.id, 0, 310); assert.strictEqual(MO.total(o3), 310);
 MO.remove(s, o3.id); assert.strictEqual(MO.list(s).length, 0); assert.strictEqual(s.items[0].reservedFor, undefined);
@@ -38,4 +38,26 @@ s = state(); const o4 = MO.create(s, { client: 'A', phone: '5554', rows: [{ item
 // sync: the orders travel as one small document and come back
 const Sync = require('../js/sync.js'); s = state(); MO.create(s, { client: 'Sync', phone: '5555', rows: [{ itemId: s.items[0].id }] }); const docs = Sync.docs(s); assert.ok(docs.meta.myorders); const t = L.defaultState(); Sync.apply(t, 'meta', 'myorders', docs.meta.myorders); assert.strictEqual(t.myOrders.length, 1); assert.strictEqual(t.myOrders[0].client, 'Sync');
 assert.deepStrictEqual(Sync.clearData(t).myOrders, []);
+
+// ---- step 2
+// delivery fee is part of the order total; pickup has none
+s = state(); let w = MO.create(s, { client: 'Wa', phone: '5556', option: 'delivery', fee: 30, rows: [{ itemId: s.items[0].id }] }); assert.strictEqual(MO.total(w), 350); w.option = 'pickup'; assert.strictEqual(MO.total(w), 320); w.option = 'delivery';
+// the order invoice: a real number, outside the invoice log, and the same number comes back at hand over
+const noBefore = L.nextInvoiceNo(s); const pre = MO.makePre(s, w.id); assert.strictEqual(pre.no, noBefore); assert.strictEqual(s.invoices.length, 0); assert.strictEqual(MO.makePre(s, w.id).no, noBefore, 'making it twice keeps the same number'); assert.notStrictEqual(L.nextInvoiceNo(s), noBefore, 'nobody else gets that number');
+let pv = MO.preInvoice(s, w); assert.ok(pv.pre && pv.dueOn === 'delivery' && pv.total === 350 && pv.balance === 350 && pv.lines.length === 1 && pv.delivery === 30);
+assert.strictEqual(MO.preState(s, w), 'unsent'); MO.preSent(s, w); assert.strictEqual(MO.preState(s, w), 'sent'); MO.setPrice(s, w.id, 0, 300); assert.strictEqual(MO.preState(s, w), 'changed', 'a changed order needs the invoice sent again');
+assert.strictEqual(MO.preByNo(s, noBefore).id, w.id);
+L.makeAvailable(s, s.batches[0].id); const inv2 = MO.handOver(s, w.id, { how: 'delivery', paidNow: 330 }); assert.strictEqual(inv2.no, noBefore); assert.strictEqual(inv2.delivery, 30); assert.strictEqual(inv2.total, 330); assert.strictEqual(inv2.balance, 0); assert.strictEqual(MO.preByNo(s, noBefore), null, 'once handed over it is a real invoice');
+// split: what is here becomes the order you hand over, the late items wait in a new order, a big deposit moves with them
+s = state(); const [x1, x2, x3] = s.items; x1.status = 'Available'; const sp = MO.create(s, { client: 'Sp', phone: '5557', rows: [{ itemId: x1.id }, { itemId: x2.id }, { itemId: x3.id }], deposit: 400 });
+assert.strictEqual(MO.stage(s, sp), 'ordered'); const late = MO.split(s, sp.id); assert.strictEqual(MO.stage(s, sp), 'arrived'); assert.strictEqual(sp.rows.length, 1); assert.strictEqual(late.rows.length, 2); assert.strictEqual(x2.reservedFor, late.id); assert.strictEqual(MO.deposits(sp), 320, 'only what the order costs stays'); assert.strictEqual(MO.deposits(late), 80); assert.strictEqual(late.splitFrom, sp.id); fails(() => MO.split(s, sp.id), 'moNothingToSplit');
+// cancel: refund, or keep as credit that the next order can use
+s = state(); const c1 = MO.create(s, { client: 'Cr', phone: '5558', rows: [{ itemId: s.items[0].id }], deposit: 100 }); MO.cancel(s, c1.id, 'credit'); assert.strictEqual(MO.credit(s, 'Cr'), 100); assert.strictEqual(c1.depositTo, 'credit');
+const c2 = MO.create(s, { client: 'Cr', phone: '5558', rows: [{ itemId: s.items[0].id }], useCredit: 70 }); assert.strictEqual(MO.deposits(c2), 70); assert.strictEqual(MO.credit(s, 'Cr'), 30); assert.strictEqual(c2.payments[0].credit, true);
+const c3 = MO.create(s, { client: 'Rf', phone: '5559', rows: [{ itemId: s.items[1].id }], deposit: 50 }); MO.cancel(s, c3.id, 'refund'); assert.strictEqual(MO.credit(s, 'Rf'), 0); assert.strictEqual(c3.depositTo, 'refund');
+// WhatsApp map links
+assert.deepStrictEqual(MO.parsePin('https://maps.google.com/?q=10.5167,-61.4112&z=17'), { lat: 10.5167, lng: -61.4112 }); assert.deepStrictEqual(MO.parsePin('https://www.google.com/maps/place/Chaguanas/@10.5167,-61.4112,15z'), { lat: 10.5167, lng: -61.4112 }); assert.deepStrictEqual(MO.parsePin('geo:10.28,-61.467'), { lat: 10.28, lng: -61.467 }); assert.deepStrictEqual(MO.parsePin('10.28, -61.467'), { lat: 10.28, lng: -61.467 });
+assert.deepStrictEqual(MO.parsePin('https://maps.app.goo.gl/AbCdEf123'), { short: true }); assert.strictEqual(MO.parsePin('hello'), null); assert.deepStrictEqual(MO.parsePin('https://x.com/?q=999.1,-61.4'), { short: true }, 'not a real place: ask for the map');
+// credits travel with the orders
+const Sy = require('../js/sync.js'); const cd = Sy.docs(s); const t2 = L.defaultState(); Sy.apply(t2, 'meta', 'myorders', cd.meta.myorders); assert.strictEqual(t2.myCredits.Cr, 30);
 console.log('myorders tests passed');
