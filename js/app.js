@@ -1481,7 +1481,8 @@
 
   const ihRng = (path, label, min, max, step) => { const v = InvHeader.getPath(ihCfg(), path); return `<div class="ihr"><label>${label}<b class="v">${Math.round(v * 100) / 100}</b></label><input type="range" min="${min}" max="${max}" step="${step || 1}" value="${v}" data-ih="${path}"></div>`; };
   const ihTog = (path, label) => `<div class="ihr tgl"><span>${label}</span>${swt('ih-tog', path, !!InvHeader.getPath(ihCfg(), path))}</div>`;
-  const ihSw = (path) => `<button type="button" class="ihsw" data-act="ih-colpick" data-id="${path}" style="background:${InvHeader.getPath(ihCfg(), path)}" aria-label="${t('ih.pickColor')}"></button>`;
+  const ihVal = (path) => InvHeader.getPath(ihCfg(), path) || (path === 'accent' ? InvHeader.colours(ihCfg()).head : '#000000');
+  const ihSw = (path) => `<button type="button" class="ihsw" data-act="ih-colpick" data-id="${path}" style="background:${ihVal(path)}" aria-label="${t('ih.pickColor')}"></button>`;
   const ihCol = (path, label) => `<div class="ihr col"><label>${label}</label>${ihSw(path)}</div>`;
   const ihChips = (path, label, opts) => { const cur = InvHeader.getPath(ihCfg(), path); return `<div class="ihr"><label>${label}</label><div class="chiprow">${opts.map(([k, l]) => `<button type="button" class="chip ${String(cur) === String(k) ? 'on' : ''}" data-act="ih-set" data-id="${path}=${k}">${l}</button>`).join('')}</div></div>`; };
   const ihTxt = (path, label, ph) => `<div class="ihr"><label>${label}</label><input type="text" data-ih="${path}" value="${esc(InvHeader.getPath(ihCfg(), path) || '')}" placeholder="${esc(ph || '')}" autocomplete="off" maxlength="60"></div>`;
@@ -1518,8 +1519,12 @@
       + ihTextHTML('invoice', t('ih.invoiceWord'), `${ihTxt('items.invoice.text', t('ih.text'), ihInfo().title)}${ihRng('items.invoice.size', t('ih.size'), 16, 90)}${ihRng('items.invoice.x', t('ih.x'), 0, 800)}${ihRng('items.invoice.y', t('ih.y'), 20, 190)}${ihCol('items.invoice.color', t('ih.color'))}${ihChips('items.invoice.align', t('ih.align'), [['left', t('ih.al.left')], ['center', t('ih.al.center')], ['right', t('ih.al.right')]])}`)
       + ihTextHTML('tagline', t('ih.tagline'), `${ihTxt('items.tagline.text', t('ih.text'), 'STYLE · QUALITY · TRUST')}${ihRng('items.tagline.size', t('ih.size'), 8, 30)}${ihRng('items.tagline.x', t('ih.x'), -40, 760)}${ihRng('items.tagline.y', t('ih.y'), 10, 190)}${ihCol('items.tagline.color', t('ih.color'))}`));
     const banner = ihSec('banner', t('ih.sec.banner'), ihBannerHTML(cfg));
+    const ic = InvHeader.colours(cfg), auto = !cfg.accent;
+    const invcol = ihSec('invcol', t('ih.sec.invcol'), `<p class="muted small" style="margin:0 0 6px">${t('ih.invcolSub')}</p>${ihCol('accent', t('ih.accent'))}
+      <div class="ihsamp" aria-hidden="true"><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.item')}</span><span>${t('ih.samp.price')}</span></div><div class="sr" style="background:${ic.tint}"><span>—</span><span>00.00</span></div><div class="sr" style="background:${ic.band}"><span>—</span><span>00.00</span></div><div class="sh" style="background:${ic.head};color:${ic.ink}"><span>${t('ih.samp.total')}</span><span>00.00</span></div></div>
+      <p class="muted small" style="margin:6px 0 8px">${auto ? t('ih.accentIsAuto') : ''}</p>${auto ? '' : `<button type="button" class="btn" data-act="ih-set" data-id="accent=">${t('ih.accentAuto')}</button>`}`);
     const saved = ihSec('saved', t('ih.sec.saved'), ihSavedHTML());
-    return `${layout}${imgs}${text}${banner}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div>`;
+    return `${layout}${imgs}${text}${banner}${invcol}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div>`;
   }
   function ihRefresh() { const b = $('#ih-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ihBodyHTML(); $('#sheet').scrollTop = sc; const u = $('#ih-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('ih.inUse') : t('ih.use'); } ihPaint(); }
   // ---- colour picker: circle + brightness, colours taken from the banner, tap-the-header eyedropper, recent colours ----
@@ -4518,7 +4523,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || !r._undo || !r._undo.length) return; r.value = r._undo.pop(); r.dispatchEvent(new Event('input', { bubbles: true })); if (!r._undo.length) t_.remove(); return; }
-      case 'ih-colpick': return openColorPick({ get: () => InvHeader.getPath(ihCfg(), id), set: (v) => ihSet(id, v), eye: id });
+      case 'ih-colpick': return openColorPick({ get: () => ihVal(id), set: (v) => ihSet(id, v), eye: id });
       case 'lm-colpick': { if (!lm) return; const keep = lm, k = id, tx = $('#lm-text'); if (tx) keep.text = tx.value.toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || keep.text; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetLogoMaker(keep), 0)); }
       case 'bc-colpick': return openColorPick({ get: () => bcPath(id), set: (v) => bcSet(id, v) });
       case 'inv-colpick': return openColorPick({ get: () => invStyle(invDesignId()).color || Theme.brand(), set: (v) => setInvStyle({ color: v }) });
