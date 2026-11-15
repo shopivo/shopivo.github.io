@@ -186,7 +186,7 @@ Rollout (do these in order):
 ### Taking payments (how to pay)
 
 Customers pay you directly; the app never sees card numbers. Set it up once in the app: Settings > *Plan and agreements* > **Payment details** (admin only).
-You can fill in your WhatsApp number, your bank transfer details, a secure card link (and a price and link per plan). Every customer then sees **How to pay**
+You can set the **fees** (monthly and optional yearly, for each plan, in your own currency), your WhatsApp number, your bank transfer details and a secure card link (and a card link per plan). Paying needs an account: a person who is not signed in sees *Create an account* instead of the pay details. Every customer then sees **How to pay**
 on their plan page, and on the lock screen: the prices, your bank details, a card button that opens the payment company's own secure page, their
 **payment reference** (six letters/numbers, also shown to you in Customer plans), and an **I have paid** button that sends you a WhatsApp message. Their plan
 is not changed by that message: you check the money arrived, then add time in Customer plans. These details live in Firestore `config/billing` (rules 1.10:

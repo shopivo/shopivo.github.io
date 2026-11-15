@@ -472,14 +472,19 @@
     Cloud.billingGet().then((c) => { if (c) { payCfg = c; try { localStorage.setItem('buy-sell-paycfg', JSON.stringify(c)); } catch (e) { /* ignore */ } } });
   }
   const payRef = () => Plan.ref(window.Cloud && Cloud.workspace && Cloud.workspace());
+  // a fee like "TT$ 80" (whole numbers stay whole)
+  const feeText = (cur, n) => (Number(n) > 0 ? String(cur || '') + ' ' + (Number.isInteger(Number(n)) ? Number(n) : Number(n).toFixed(2)) : '');
+  const feeLine = (c, k) => { const f = (c.fees || {})[k] || {}, cur = c.currency || 'TT$', m = feeText(cur, f.m), y = feeText(cur, f.y); return [m && m + ' / ' + t('pay.month'), y && y + ' / ' + t('pay.year')].filter(Boolean).join(' · '); };
   function payHTML() {
-    const c = payCfg || {}, ref = payRef(), cur = planDoc && planDoc.plan && planDoc.plan !== 'trial' ? planDoc.plan : '', prices = c.prices || {}, links = c.cardLinks || {};
-    const priceRows = Plan.PLANS.filter((k) => prices[k]).map((k) => `<div><span>${esc(t('pl.n.' + k))}${k === cur ? ' ✓' : ''}</span><b>${esc(prices[k])} / ${t('pay.month')}</b></div>`).join('');
+    // paying needs an account: it is what ties the payment to a business
+    if (!cloud.signedIn) return `<p>${t('pay.needAcct')}</p><button type="button" class="btn primary" data-act="acct-new" style="width:100%">${t('pay.makeAcct')}</button><button type="button" class="btn" data-act="acct-open" style="width:100%;margin-top:8px">${t('gate.have')}</button>`;
+    const c = payCfg || {}, ref = payRef(), cur = planDoc && planDoc.plan && planDoc.plan !== 'trial' ? planDoc.plan : '', links = c.cardLinks || {};
+    const priceRows = Plan.PLANS.filter((k) => feeLine(c, k)).map((k) => `<div><span>${esc(t('pl.n.' + k))}${k === cur ? ' ✓' : ''}</span><b>${esc(feeLine(c, k))}</b></div>`).join('');
     const bank = c.bankText ? `<div class="paybox"><b>🏦 ${t('pay.bank')}</b><pre>${esc(c.bankText)}</pre><button type="button" class="btn" data-act="pay-copy" data-id="bank">${t('pay.copyBank')}</button></div>` : '';
-    const cardBtns = Plan.PLANS.map((k) => { const u = Plan.safeLink(links[k] || c.cardLink); return u && (prices[k] || !c.cardLink || links[k]) ? `<a class="btn" style="display:block;text-align:center;text-decoration:none;margin-top:6px" href="${esc(u)}" target="_blank" rel="noopener noreferrer">💳 ${esc(t('pl.n.' + k))}${prices[k] ? ' · ' + esc(prices[k]) : ''}</a>` : ''; }).join('') || (Plan.safeLink(c.cardLink) ? `<a class="btn" style="display:block;text-align:center;text-decoration:none" href="${esc(Plan.safeLink(c.cardLink))}" target="_blank" rel="noopener noreferrer">💳 ${t('pay.cardBtn')}</a>` : '');
+    const cardBtns = Plan.PLANS.map((k) => { const u = Plan.safeLink(links[k] || c.cardLink); const fl = feeLine(c, k); return u && (fl || links[k]) ? `<a class="btn" style="margin-top:6px" href="${esc(u)}" target="_blank" rel="noopener noreferrer">💳 ${esc(t('pl.n.' + k))}${fl ? ' · ' + esc(fl.split(' · ')[0]) : ''}</a>` : ''; }).join('') || (Plan.safeLink(c.cardLink) ? `<a class="btn" href="${esc(Plan.safeLink(c.cardLink))}" target="_blank" rel="noopener noreferrer">💳 ${t('pay.cardBtn')}</a>` : '');
     const card = cardBtns ? `<div class="paybox"><b>💳 ${t('pay.card')}</b><p class="muted small" style="margin:4px 0 6px">${t('pay.cardNote')}</p>${cardBtns}</div>` : '';
     const msg = t('pay.waText', { name: bizName(), ref }) + (cur ? t('pay.waPlan', { plan: t('pl.n.' + cur) }) : ''), num = payWaNum();
-    const paid = num ? `<a class="btn primary" style="display:block;text-align:center;text-decoration:none" href="https://wa.me/${num}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">✅ ${t('pay.paid')}</a>` : `<button type="button" class="btn primary" data-act="pay-copy" data-id="msg">✅ ${t('pay.paidCopy')}</button>`;
+    const paid = num ? `<a class="btn primary" href="https://wa.me/${num}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">✅ ${t('pay.paid')}</a>` : `<button type="button" class="btn primary" data-act="pay-copy" data-id="msg">✅ ${t('pay.paidCopy')}</button>`;
     if (!bank && !card && !priceRows) return `<p class="muted small">${t('pay.none', { op: OPERATOR.name })}</p>${paid}`;
     return `${priceRows ? `<div class="sumbox" style="margin:6px 0 10px">${priceRows}</div>` : ''}${bank}${card}
       <div class="paybox"><b>🔖 ${t('pay.ref')}</b><p class="payref">${esc(ref) || '—'}</p><p class="muted small" style="margin:0">${t('pay.refUse')}</p><button type="button" class="btn" data-act="pay-copy" data-id="ref" style="margin-top:6px">${t('pay.copyRef')}</button></div>
@@ -489,21 +494,30 @@
   // admin: the payment details every customer sees
   function PayCfgPage() {
     if (!isAdmin) return `<p class="muted">${t('pl.admNo')}</p>`;
-    const c = payCfg || {}, pr = c.prices || {}, lk = c.cardLinks || {};
-    const inp = (k, label, val, ph) => `<label>${label}</label><input data-pc="${k}" value="${esc(val || '')}" placeholder="${esc(ph || '')}" autocomplete="off" autocapitalize="off">`;
-    return `<p class="muted small">${t('pay.cfgSub')}</p>
-      ${inp('whatsapp', t('pay.cfgWa'), c.whatsapp, '18685550100')}
+    const c = payCfg || {}, fe = c.fees || {}, lk = c.cardLinks || {};
+    const inp = (k, label, val, ph, mode) => `<label>${label}</label><input data-pc="${k}" value="${esc(val || '')}" placeholder="${esc(ph || '')}" autocomplete="off" autocapitalize="off"${mode ? ` inputmode="${mode}"` : ''}>`;
+    const num = (v) => (Number(v) > 0 ? String(v) : '');
+    return `<p class="muted small">${t('pay.feesSub')}</p>
+      <h3>${t('pay.fees')}</h3>
+      ${inp('currency', t('pay.currency'), c.currency || 'TT$', 'TT$')}
+      ${Plan.PLANS.map((k) => `<div class="feebox"><b>${esc(t('pl.n.' + k))}</b><div class="feerow"><div><small>${t('pay.perMonth')}</small><input data-pc="fee.${k}.m" value="${esc(num((fe[k] || {}).m))}" inputmode="decimal" placeholder="0" autocomplete="off"></div><div><small>${t('pay.perYear')}</small><input data-pc="fee.${k}.y" value="${esc(num((fe[k] || {}).y))}" inputmode="decimal" placeholder="${esc(t('pay.optional'))}" autocomplete="off"></div></div>
+        <small>${t('pay.planLink')}</small><input data-pc="link.${k}" value="${esc(lk[k] || '')}" placeholder="https://" autocomplete="off" autocapitalize="off"></div>`).join('')}
+      <p class="muted small">${t('pay.trialNote', { d: Plan.TRIAL_DAYS })}</p>
+      <h3>${t('pay.cfgContact')}</h3>
+      ${inp('whatsapp', t('pay.cfgWa'), c.whatsapp, '18685550100', 'tel')}
       <label>${t('pay.cfgBank')}</label><textarea data-pc="bankText" rows="5" style="width:100%;font-size:16px" placeholder="${esc(t('pay.cfgBankPh'))}">${esc(c.bankText || '')}</textarea>
       ${inp('cardLink', t('pay.cfgCard'), c.cardLink, 'https://')}
-      <h3>${t('pay.cfgPlans')}</h3>
-      ${Plan.PLANS.map((k) => `<div class="ihr"><label>${esc(t('pl.n.' + k))}</label><input data-pc="price.${k}" value="${esc(pr[k] || '')}" placeholder="${esc(t('pay.cfgPricePh'))}" autocomplete="off"><input data-pc="link.${k}" value="${esc(lk[k] || '')}" placeholder="${esc(t('pay.cfgLinkPh'))}" autocomplete="off" autocapitalize="off" style="margin-top:6px"></div>`).join('')}
       <div class="btns"><button type="button" class="btn primary" data-act="pc-save">${t('btn.save')}</button></div>`;
   }
   async function payCfgSave() {
     const g = (k) => { const el = document.querySelector('[data-pc="' + k + '"]'); return el ? el.value.trim() : ''; };
-    const out = { whatsapp: Plan.waDigits(g('whatsapp')), bankText: g('bankText').slice(0, 600), cardLink: '', prices: {}, cardLinks: {} };
+    const out = { whatsapp: Plan.waDigits(g('whatsapp')), bankText: g('bankText').slice(0, 600), cardLink: '', currency: (g('currency') || 'TT$').slice(0, 6), fees: {}, cardLinks: {} };
     const link = (v) => { if (!v) return ''; const u = Plan.safeLink(v); if (!u) throw new Error(t('pay.badLink')); return u; };
-    try { out.cardLink = link(g('cardLink')); Plan.PLANS.forEach((k) => { if (g('price.' + k)) out.prices[k] = g('price.' + k).slice(0, 30); const u = link(g('link.' + k)); if (u) out.cardLinks[k] = u; }); } catch (e) { return toast('⚠️ ' + e.message); }
+    const money = (v) => { if (!v) return 0; const n = parseFloat(String(v).replace(',', '.')); if (!(n >= 0) || n > 1e7) throw new Error(t('pay.badFee')); return Math.round(n * 100) / 100; };
+    try {
+      out.cardLink = link(g('cardLink'));
+      Plan.PLANS.forEach((k) => { const m = money(g('fee.' + k + '.m')), y = money(g('fee.' + k + '.y')); if (m || y) out.fees[k] = { m, y }; const u = link(g('link.' + k)); if (u) out.cardLinks[k] = u; });
+    } catch (e) { return toast('⚠️ ' + e.message); }
     try { await Cloud.billingSet(out); payCfg = out; try { localStorage.setItem('buy-sell-paycfg', JSON.stringify(out)); } catch (e) { /* ignore */ } toast(t('pl.saved')); render(); } catch (e) { toast('⚠️ ' + ((e && e.message) || t('pl.err'))); }
   }
   // A locked account sees only this: their data is safe, they can download a copy, contact, or sign out.
@@ -1470,7 +1484,7 @@
         ${trow('📥', t('more.import'), t('more.importSub'), 'data-act="import-xlsx"')}
         ${trow('📊', t('set.storageRow'), t('set.storageSub'), nav('set-about'))}</div>
       <h2>${t('pl.sec')}</h2><div class="list grp">
-        ${planDoc || isAdmin ? trow('🧾', t('pl.title'), isAdmin ? t('pl.free') : rentLabel(planSt), 'data-act="pl-info"') : ''}${isAdmin ? trow('👥', t('pl.admT'), t('pl.admRow'), nav('set-plans')) + trow('💳', t('pay.cfgT'), t('pay.cfgRow'), nav('set-paycfg')) : ''}${cloud.signedIn && window.Cloud && Cloud.uid() ? trow('🪪', t('pl.uid'), t('pl.uidSub'), 'data-act="copy-uid"') : ''}
+        ${trow('💳', t('pay.howT'), t('pay.rowSub'), 'data-act="pay-open"')}${planDoc || isAdmin ? trow('🧾', t('pl.title'), isAdmin ? t('pl.free') : rentLabel(planSt), 'data-act="pl-info"') : ''}${isAdmin ? trow('👥', t('pl.admT'), t('pl.admRow'), nav('set-plans')) + trow('💳', t('pay.cfgT'), t('pay.cfgRow'), nav('set-paycfg')) : ''}${cloud.signedIn && window.Cloud && Cloud.uid() ? trow('🪪', t('pl.uid'), t('pl.uidSub'), 'data-act="copy-uid"') : ''}
         ${trow('📄', t('tp.termsT'), t('tp.termsSub'), nav('set-terms'))}
         ${trow('🔏', t('tp.privT'), t('tp.privSub'), nav('set-privacy'))}</div>
       <h2>${t('set.sec.about')}</h2><div class="list grp">
@@ -4524,6 +4538,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'gate-forgot': case 'acct-forgot': { const em = ($('#f-gate [name=email]') || $('#f-acct [name=email]') || {}).value; if (em) rememberEmail(em.trim()); closeSheet(); gateForgot = true; gateView = null; updateGate(); return; }
       case 'gate-forgotback': gateForgot = false; gateMode = 'in'; gateView = 'auth'; $('#gate').innerHTML = gateHTML('auth'); return;
       case 'gate-color': gateDraft.palette = id; if (gdOn()) { const el = $('#gd-name'); const keep = el ? el.value : ''; state.settings.palette = id; Theme.apply(id); applyTheme(); gdDraw(false); const e2 = $('#gd-name'); if (e2) e2.value = keep; return; } regate(); return;
+      case 'acct-new': closeSheet(); gateForced = true; gateMode = 'create'; gateView = null; updateGate(); return;
       case 'acct-open': if (cloud.signedIn) return sheetAccount(); closeSheet(); gateForced = true; gateMode = hasData() ? 'in' : 'create'; gateView = null; updateGate(); return;
       case 'signin-dismiss': setPref('signinDismissed', Date.now()); return render();
       case 'acct-google': homeAfterSignIn = true; return acctDone(Cloud.signInGoogle());
