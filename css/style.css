@@ -1655,7 +1655,7 @@ body.ordselecting #view{padding-bottom:140px}
 .moit .txt small{display:block;color:var(--muted)}
 .moit .pr{white-space:nowrap}
 .moit .in{display:flex;align-items:center;gap:4px}.moit .in input{width:86px;min-height:38px;padding:6px 8px}
-.mck{width:26px;height:26px;flex:none;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;color:#fff;font-weight:900;font-size:15px}
+.mck{width:30px;height:30px;min-height:0;padding:0;background:transparent;flex:none;border-radius:50%;border:2px solid var(--line);display:grid;place-items:center;color:#fff;font-weight:900;font-size:16px;position:relative}.mck::after{content:'';position:absolute;inset:-12px}.moit .pr{cursor:pointer}
 .mck.on{background:var(--brand);border-color:var(--brand)}
 .moty{display:flex;gap:6px;margin-bottom:6px}.moty input:first-child{flex:1}.moty input:nth-child(2){width:96px}.moty .x{background:none;border:0;color:inherit;font-size:18px}
 .lpi .txt{display:block;min-width:0}.lpi .txt b,.lpi .txt small{display:block}
