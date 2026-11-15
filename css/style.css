@@ -120,7 +120,7 @@ h2{font-size:13px;letter-spacing:.06em;text-transform:uppercase;color:var(--mute
 .inv-body{padding:14px 16px 0;flex:1;display:flex;flex-direction:column}.inv-sum{flex:1}
 .inv .lbl{font-weight:700;font-size:11px;color:#767676;letter-spacing:.02em}
 .inv-top{display:flex;justify-content:space-between;gap:10px;align-items:flex-start;margin-bottom:12px}
-.inv .client{font-size:17px;margin-top:2px}
+.inv .client{font-size:15px;margin-top:2px}
 .inv-meta{display:grid;gap:3px;font-size:13px}.inv-meta div{display:flex;justify-content:flex-end;gap:12px}.inv-meta div span:last-child{min-width:78px;text-align:right}
 .inv-t{width:100%;border-collapse:collapse;font-size:13px}
 .inv-t th{background:var(--ih,#cea8bd);color:#fff;text-align:left;padding:8px 8px;font-size:12px}
@@ -1666,3 +1666,8 @@ body.ordselecting #view{padding-bottom:140px}
 .moloc{display:flex;gap:8px}.moloc input{flex:1;min-width:0}.moloc .btn{width:auto;white-space:nowrap}
 .mopin{display:block;margin:4px 0}.mopin.bad{color:var(--bad,#cf4b4b)}
 .bpg .rw{display:flex;align-items:center;gap:10px}.bpg .rw .t{flex:1;min-width:0}
+.mosw .seg{grid-template-columns:minmax(0,1fr) minmax(0,1fr)}.mosw .seg button{width:100%;min-width:0;padding-left:0;padding-right:0}
+.ovr .tp.ow b{color:var(--bad,#cf4b4b)}
+.sth .mosw .seg button,.sth .mosw .seg button.on{flex:1 1 0;width:auto}
+.sth .mosw .seg button.on{transform:none}
+.itbar .itsel{min-width:0;flex:1 1 0}.itbar .itgb{padding:0 12px;white-space:nowrap}.sheet.pick .bprow,.sheet.hdr .bprow{padding-left:22px!important;padding-right:22px!important}
