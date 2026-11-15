@@ -55,6 +55,8 @@
   LF.SHAPES = ['circle', 'rounded', 'square', 'wide'];
   // Class names for showing the logo: a picture that is not itself round, shown Round, is kept whole inside the circle (never zoomed and cropped)
   LF.cls = (settings) => { const e = LF.effective(settings); return e === 'circle' && !(settings && settings.bizLogoShape === 'circle') ? 'circle whole' : e; };
+  // A saved set of up to 3 logos (e.g. a plain see-through one and one already in a circle): Round uses the round one, the other shapes use the plain one
+  LF.setPick = (settings) => { const st = settings || {}, set = Array.isArray(st.bizLogoSet) ? st.bizLogoSet.filter((x) => x && x.src) : []; if (!set.length) return null; const circ = set.find((x) => x.shape === 'circle'), plain = set.find((x) => x.shape !== 'circle'), p = st.bizLogoPick; return p === 'circle' ? (circ || plain) : (plain || circ); };
   LF.effective = (settings) => { const s = settings || {}, p = s.bizLogoPick; return p && p !== 'auto' && LF.SHAPES.includes(p) ? p : (LF.SHAPES.includes(s.bizLogoShape) ? s.bizLogoShape : 'square'); };
 
   // Browser part: a File or a picture address -> {src, shape}

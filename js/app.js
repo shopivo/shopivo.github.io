@@ -1540,7 +1540,7 @@
     const P = ihPend; if (!P) return; const multi = P.plan.groups.length > 1, g = P.plan.groups[P.gi];
     const slots = [['logo', t('ih.slot.logo')], ['title', t('ih.slot.title')], ['extra1', t('ih.slot.extra1')], ['extra2', t('ih.slot.extra2')], ['skip', t('ih.pick.skip')]];
     const rows = g.items.map((it) => P.mode === 'store'
-      ? `<button type="button" class="ihpk ${P.store === it.name ? 'on' : ''}" data-act="ihp-store" data-id="${esc(it.name)}"><img src="${it.url}" alt=""><span>${esc(it.name)}</span></button>`
+      ? `<button type="button" class="ihpk ${(P.storeSel || (P.store ? [P.store] : [])).includes(it.name) ? 'on' : ''}" data-act="ihp-store" data-id="${esc(it.name)}"><img src="${it.url}" alt=""><span>${esc(it.name)}</span></button>`
       : `<div class="ihpk"><img src="${it.url}" alt=""><span>${esc(it.name)}</span><select data-ihp="${esc(it.name)}" aria-label="${esc(it.name)}">${slots.map(([k, l]) => `<option value="${k}" ${P.sel[it.name] === k ? 'selected' : ''}>${l}</option>`).join('')}</select></div>`).join('');
     openSmall(`<h3>${t(P.mode === 'store' ? 'ih.pick.store' : 'ih.pick.title')}</h3><p class="muted small">${t('ih.pick.sub')}</p>
       ${multi ? `<p class="small"><b>${t('ih.pick.scheme')}</b></p><div class="chiprow">${P.plan.groups.map((x, i) => `<button type="button" class="chip ${i === P.gi ? 'on' : ''}" data-act="ihp-group" data-id="${i}">${esc(x.label)}</button>`).join('')}</div>` : ''}
@@ -1550,11 +1550,13 @@
     const P = ihPend; if (!P) return; const g = P.plan.groups[P.gi];
     try {
       if (P.mode === 'store') {
-        const pick = g.items.find((i) => i.name === P.store) || g.items.find((i) => P.sel[i.name] === 'logo') || g.items[0]; const r = await LogoFit.fit(pick.entry.file);
-        state.settings.bizLogo = r.src; state.settings.bizLogoShape = r.shape; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); closeSheet(); render(); return refreshLogoUI();
+        const names = (P.storeSel && P.storeSel.length ? P.storeSel : [(g.items.find((i) => i.name === P.store) || g.items.find((i) => P.sel[i.name] === 'logo') || g.items[0]).name]).slice(0, 3), list = [];
+        for (const nm of names) { const it = g.items.find((i) => i.name === nm); if (it) list.push(await LogoFit.fit(it.entry.file)); }
+        logoSetSave(list); save(); Store.publish && Store.publish(true); toast(t('logo.saved')); closeSheet(); render(); return refreshLogoUI();
       }
-      const used = {}; let n = 0;
-      for (const it of g.items) { const s = P.sel[it.name]; if (!s || s === 'skip' || used[s]) continue; used[s] = 1; ihAssign(s, await ihFitFile(it.entry.file)); n++; }
+      const used = {}; let n = 0; const logos = [];
+      for (const it of g.items) { const s = P.sel[it.name]; if (!s || s === 'skip') continue; if (s === 'logo') { if (logos.length < 3) { logos.push(await LogoFit.fit(it.entry.file, { long: 384, cap: 120000 })); n++; } continue; } if (used[s]) continue; used[s] = 1; ihAssign(s, await ihFitFile(it.entry.file)); n++; }
+      if (logos.length) { logoSetSave(logos); const c = ihCfg(); c.slots.logo = ''; ihSave(InvHeader.norm(c)); save(); Store.publish && Store.publish(true); }   // the header's logo follows the saved logo set
       closeSheet(); toast(n ? t('logo.saved') : t('ih.pick.none')); ihRefresh();
     } catch (e) { toast(t('logo.err')); }
   }
@@ -4454,12 +4456,13 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-apply': { const d = (state.settings.invHeaderSaved || []).find((x) => x.id === id); if (d) { ihSave(InvHeader.norm(d.cfg)); ihRefresh(); } return; }
       case 'ih-del': state.settings.invHeaderSaved = (state.settings.invHeaderSaved || []).filter((x) => x.id !== id); ihPrune(); save(); return ihRefresh();
       case 'ihp-group': if (ihPend) { ihPend.gi = Number(id); ihChooseDraw(); } return;
-      case 'ihp-store': if (ihPend) { ihPend.store = id; ihChooseDraw(); } return;
+      case 'ihp-store': if (ihPend) { const a = ihPend.storeSel = ihPend.storeSel || [], i = a.indexOf(id); if (i >= 0) a.splice(i, 1); else if (a.length < 3) a.push(id); ihPend.store = id; ihChooseDraw(); } return;
       case 'ihp-go': return ihChooseGo();
       case 'ihcr-go': { if (!ihCr) return; const d = ihCropOut(), c = ihCfg(); c.bg.image.src = d; c.bg.type = 'image'; ihSave(InvHeader.norm(c)); closeSheet(); toast(t('ih.crop.done')); return ihRefresh(); }
       case 'logo-pick': { const f = $('#logo-file'); if (f) f.click(); return; }
-      case 'logo-remove': state.settings.bizLogo = ''; state.settings.bizLogoShape = ''; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
-      case 'logo-shape': state.settings.bizLogoPick = id === 'auto' ? 'auto' : id; save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
+      case 'logo-vdel': { const st = state.settings, set = (st.bizLogoSet || []).filter((x) => x.id !== id); if (!set.length) { st.bizLogo = ''; st.bizLogoShape = ''; st.bizLogoSet = []; } else { st.bizLogoSet = set; logoSync(); } save(); Store.publish && Store.publish(true); render(); return refreshLogoUI(); }
+      case 'logo-remove': state.settings.bizLogo = ''; state.settings.bizLogoShape = ''; state.settings.bizLogoPick = 'auto'; state.settings.bizLogoSet = []; save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
+      case 'logo-shape': state.settings.bizLogoPick = id === 'auto' ? 'auto' : id; logoSync(); save(); Store.publish && Store.publish(true); render(); return refreshLogoUI();
       case 'pr-format': prFormat = id; prIdx = 0; return prRefresh();
       case 'pr-prev': case 'pr-next': { const n = prFiles.urls.length; if (n > 1) { prIdx = (prIdx + (t_.dataset.act === 'pr-next' ? 1 : n - 1)) % n; const im = $('#prprev .prpimg'), ct = $('#prprev .muted'); if (im) im.src = prFiles.urls[prIdx]; if (ct) ct.textContent = (prIdx + 1) + ' / ' + n; } return; }
       case 'pr-prices': prPrices = !prShowPrices(); prCaption = null; return prRefresh();
@@ -4793,6 +4796,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   // Business logo: shrink the chosen picture to a small square (white behind it) and keep it in the settings.
   // A picked picture -> trimmed, see-through-background logo; the shape found is kept in lastFit.
   let lastFit = null;
+  // The saved logo set (up to 3). The logo the app shows follows the shape you pick: Round uses the round one, the rest the plain one.
+  function logoSync() { const s = state.settings, c = LogoFit.setPick(s); if (c) { s.bizLogo = c.src; s.bizLogoShape = c.shape; } }
+  function logoSetSave(list) { const s = state.settings; s.bizLogoSet = list.filter((x) => x && x.src).slice(0, 3).map((x) => ({ id: x.id || Math.random().toString(36).slice(2, 8), src: x.src, shape: x.shape || 'square' })); s.bizLogoPick = 'auto'; logoSync(); }
   function logoFromFile(file) { return LogoFit.fit(file).then((r) => { lastFit = r; return r.src; }); }
   // A logo saved before shapes existed: find its shape once and publish it.
   let shapeBusy = '';
@@ -4806,7 +4812,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   function logoCardHTML() {
     const s = state.settings, sh = logoShape(), found = LogoFit.SHAPES.includes(s.bizLogoShape) ? s.bizLogoShape : 'square', pick = s.bizLogoPick && s.bizLogoPick !== 'auto' ? s.bizLogoPick : 'auto';
     const chip = (k, label) => `<button type="button" class="chip ${pick === k ? 'on' : ''}" data-act="logo-shape" data-id="${k}">${label}</button>`;
-    return `<div class="lgcard"><span class="lgpv fit ${sh}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span><div class="t"><b>${t('logo.title')}</b><small>${t('logo.sub')}</small>${s.bizLogo ? `<div class="lgsh"><small>${t('logo.shape')}</small><div class="chips">${chip('auto', t('logo.auto') + ': ' + t('logo.sh.' + found))}${['circle', 'rounded', 'square'].map((k) => chip(k, t('logo.sh.' + k))).join('')}</div></div>` : ''}<div class="lgbt"><button type="button" class="btn" data-act="logo-pick">${t(s.bizLogo ? 'logo.change' : 'logo.add')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="logo-remove">${t('logo.remove')}</button>` : ''}</div></div><input type="file" id="logo-file" accept="image/*,.zip,application/zip" multiple hidden></div>`;
+    return `<div class="lgcard"><span class="lgpv fit ${sh}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span><div class="t"><b>${t('logo.title')}</b><small>${t('logo.sub')}</small>${s.bizLogo ? `<div class="lgsh"><small>${t('logo.shape')}</small><div class="chips">${chip('auto', t('logo.auto') + ': ' + t('logo.sh.' + found))}${['circle', 'rounded', 'square'].map((k) => chip(k, t('logo.sh.' + k))).join('')}</div></div>` : ''}${(s.bizLogoSet || []).length > 1 ? `<div class="lgset"><small>${t('logo.setT')}</small><div class="lgvs">${s.bizLogoSet.map((v) => `<span class="lgv"><img src="${v.src}" alt=""><b>${t(v.shape === 'circle' ? 'logo.v.circle' : 'logo.v.plain')}</b><button type="button" data-act="logo-vdel" data-id="${v.id}" aria-label="${t('logo.remove')}">✕</button></span>`).join('')}</div><small class="muted">${t('logo.setNote')}</small></div>` : ''}<div class="lgbt"><button type="button" class="btn" data-act="logo-pick">${t(s.bizLogo ? 'logo.change' : 'logo.add')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="logo-remove">${t('logo.remove')}</button>` : ''}</div></div><input type="file" id="logo-file" accept="image/*,.zip,application/zip" multiple hidden></div>`;
   }
   // After the logo or its shape changes: redraw the card(s) and the preview wherever they are open.
   function refreshLogoUI() {
@@ -4828,8 +4834,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (el.id === 'ih-file1') { const slot = ihSlotPick; ihIntake(el.files, slot); return; }
     if (el.id === 'ih-bgfile') { const f = el.files && el.files[0]; if (f) ihCropStart(f); return; }
     if (el.dataset && el.dataset.ihp) { if (ihPend) ihPend.sel[el.dataset.ihp] = el.value; return; }
-    if (el.id === 'logo-file' && el.files && (el.files.length > 1 || (el.files[0] && Assets.isZipName(el.files[0].name)))) { Assets.expand(el.files).then((en) => { if (!en.length) return toast(t('ih.pick.none')); if (en.length === 1) { return logoFromFile(en[0].file).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }); } ihChoose(en, 'store'); }).catch(() => toast(t('ih.zipErr'))); return; }
-    if (el.id === 'logo-file') { const f = el.files && el.files[0]; if (!f) return; logoFromFile(f).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }).catch(() => toast(t('logo.err'))); return; }
+    if (el.id === 'logo-file' && el.files && (el.files.length > 1 || (el.files[0] && Assets.isZipName(el.files[0].name)))) { Assets.expand(el.files).then((en) => { if (!en.length) return toast(t('ih.pick.none')); if (en.length === 1) { return logoFromFile(en[0].file).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; state.settings.bizLogoSet = [{ id: 'a', src: d, shape: state.settings.bizLogoShape }]; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }); } ihChoose(en, 'store'); }).catch(() => toast(t('ih.zipErr'))); return; }
+    if (el.id === 'logo-file') { const f = el.files && el.files[0]; if (!f) return; logoFromFile(f).then((d) => { state.settings.bizLogo = d; state.settings.bizLogoShape = lastFit ? lastFit.shape : 'square'; state.settings.bizLogoPick = 'auto'; state.settings.bizLogoSet = [{ id: 'a', src: d, shape: state.settings.bizLogoShape }]; save(); Store.publish && Store.publish(true); toast(t('logo.saved')); render(); refreshLogoUI(); }).catch(() => toast(t('logo.err'))); return; }
     if (el.dataset.selgrp) { state.items.filter((x) => x.grp === el.dataset.selgrp && !L.isLocked(x)).forEach((x) => { el.checked ? selected.add(x.id) : selected.delete(x.id); }); render(); return; }
     if (el.hasAttribute('data-sel')) {
       const id = el.closest('.item').dataset.id;
