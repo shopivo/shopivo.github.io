@@ -3585,13 +3585,13 @@
     const head = `<div class="oqbar"><span aria-hidden="true">🔍</span><input class="dq" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(t('dlv.search'))}" value="${esc(dlvQ)}" aria-label="${esc(t('dlv.search'))}"><button class="oqx" data-act="dlv-q-clear" ${dlvQ ? '' : 'hidden'}>✕</button></div>
       <div class="seg dseg dthree"><button class="${dlvTab === 'deliveries' ? 'on' : ''}" data-act="dlv-tab" data-id="deliveries">${t('dlv.t.deliver')} ${pd.length}</button><button class="${dlvTab === 'pickups' ? 'on' : ''}" data-act="dlv-tab" data-id="pickups">${t('dlv.t.collect')} ${pp.length}</button><button class="${dlvTab === 'done' ? 'on' : ''}" data-act="dlv-tab" data-id="done" aria-label="${esc(t('dlv.t.done'))} ${doneEntries.length}"><span class="tk" aria-hidden="true">✓</span> ${t('dlv.t.done')} ${doneEntries.length}</button></div>
       <div class="dvw"><button class="${dlvView === 'list' ? 'on' : ''}" data-act="dlv-view" data-id="list">📋 ${t('dlv.list')}</button><button class="${dlvView === 'cal' ? 'on' : ''}" data-act="dlv-view" data-id="cal">📅 ${t('dlv.cal')}</button></div>`;
-    const section = (title, list) => (list.length ? `<div class="dday"><span>${title}</span><span>${list.length}</span></div>${list.map((o) => (o.__mine ? mineDlvCard(o.__mine) : dlvRow(o))).join('')}` : '');
+    const section = (title, list, day) => (list.length ? `<div class="dday"><span>${title}</span><span>${day ? `<button type="button" class="dcalb" data-act="dlv-ics" data-id="${day}" aria-label="${esc(t('dlv.ics'))}">📲 ${t('dlv.icsShort')}</button> ` : ''}${list.length}</span></div>${list.map((o) => (o.__mine ? mineDlvCard(o.__mine) : dlvRow(o))).join('')}` : '');
     const pendingBlocks = () => {
       if (!pending.length) return '';
       if (dlvTab !== 'deliveries') return section(t('dlv.pending'), pending);
       const over = pending.filter((o) => o.planDay && o.planDay < today), td = pending.filter((o) => o.planDay === today), later = pending.filter((o) => o.planDay && o.planDay > today), none = pending.filter((o) => !o.planDay);
       const laterDays = [...new Set(later.map((o) => o.planDay))].sort();
-      return section(t('dlv.overdue'), over) + section(t('dlv.todayH'), td) + laterDays.map((k) => section(dlvDayLabel(new Date(k + 'T12:00:00')), later.filter((o) => o.planDay === k))).join('') + section(t('dlv.unplanned'), none);
+      return section(t('dlv.overdue'), over) + section(t('dlv.todayH'), td, today) + laterDays.map((k) => section(dlvDayLabel(new Date(k + 'T12:00:00')), later.filter((o) => o.planDay === k), k)).join('') + section(t('dlv.unplanned'), none);
     };
     let body = '';
     if (dlvView === 'cal') {
@@ -3603,7 +3603,7 @@
         <div class="gr calgrid">${cells.map((c) => { const n = (byDay.get(c.key) || []).length, pl = planned.get(c.key) || 0; return `<span class="${c.inMonth ? '' : 'o'} ${n ? 'h' : ''} ${pl ? 'pl' : ''} ${c.key === dlvDay ? 'sel' : ''} ${c.key === today ? 'td' : ''}" data-act="dlv-day" data-id="${c.key}">${c.day}${n || pl ? `<em>${n ? n : ''}${pl ? '<u>' + pl + '</u>' : ''}</em>` : ''}</span>`; }).join('')}</div></div>
         <p class="dhint">${t('dlv.swipe')}<br>${t('dlv.legend')}</p>
         <div class="dsum"><div><small>${t('dlv.month')}</small><b>${inMonth.length}</b></div>${dlvTab !== 'pickups' ? `<div><small>${t('dlv.dist')}</small><b>${kmM.toFixed(1)} km</b></div><div><small>${t('dlv.fees')}</small><b>${money(feeM)}</b></div>${d.costKm > 0 ? `<div><small>${t('dlv.profitWord')}</small><b class="${feeM - costM < 0 ? 'loss' : 'gain'}">${money(feeM - costM)}</b></div>` : ''}` : ''}</div>
-        ${dlvDay && planned.get(dlvDay) ? section(planLabel(dlvDay), pending.filter((o) => o.planDay === dlvDay)) : ''}${sel.filter((k) => byDay.get(k)).map((k) => dayHead(k, byDay.get(k)) + byDay.get(k).map(dlvRow).join('')).join('') || (dlvDay && planned.get(dlvDay) ? '' : `<div class="none">${t('dlv.none')}</div>`)}`;
+        ${dlvDay && planned.get(dlvDay) ? section(planLabel(dlvDay), pending.filter((o) => o.planDay === dlvDay), dlvDay) : ''}${sel.filter((k) => byDay.get(k)).map((k) => dayHead(k, byDay.get(k)) + byDay.get(k).map(dlvRow).join('')).join('') || (dlvDay && planned.get(dlvDay) ? '' : `<div class="none">${t('dlv.none')}</div>`)}`;
     } else {
       const days = [...byDay.keys()].sort().reverse();
       body = pendingBlocks() + (dlvTab === 'done' ? days.map((k) => dayHead(k, byDay.get(k)) + byDay.get(k).map(dlvRow).join('')).join('') : '');   // what is already handed over lives in the Done tab, never in To deliver / To collect
@@ -4533,6 +4533,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'store-loc-del': { const c = storeCfg(); if ((c.locations.find((l) => l.id === id) || {}).zone) return toast(t('pk.fromZone')); storeSet({ locations: c.locations.filter((l) => l.id !== id) }); return dropPages('storeloc|' + id); }
       case 'pin-open': return;   // the link itself opens Google Maps or Waze; this only stops the card behind it from reacting
       case 'goto-dlv': dlvTab = 'deliveries'; dlvView = 'list'; dlvQ = ''; dlvDay = ''; go({ tab: 'more', moreView: 'deliveries' }); window.scrollTo(0, 0); return render();
+      case 'dlv-ics': { const ics = icsForDay(id); if (!ics) return toast(t('dlv.icsNone')); download('shopivo-deliveries-' + id + '.ics', ics, 'text/calendar'); return toast(t('dlv.icsDone')); }
       case 'dlv-tab': dlvTab = id; dlvDay = ''; return render();
       case 'ov-go': dlvTab = id === 'pickups' ? 'pickups' : 'deliveries'; dlvView = 'list'; dlvQ = ''; dlvDay = ''; if (!$('#sheet').hidden) closeSheet(); go({ tab: 'more', moreView: 'deliveries' }); window.scrollTo(0, 0); return render();
       case 'dlv-view': dlvView = id; dlvDay = ''; return render();
@@ -4932,6 +4933,15 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   /* ---------- files ---------- */
 
   const coded = (code) => { const e = new Error(code); e.code = code; return e; };
+  // A planned delivery day as a phone-calendar event (.ics): 8am that day, with a reminder the evening before and at 8am
+  function icsForDay(day) {
+    const l = []; if (window.Store) Store.orders().filter((o) => o.status === 'confirmed' && o.planDay === day && toHand(o).length).forEach((o) => l.push({ name: o.name, place: o.spot || o.location || '', opt: o.option, phone: o.phone, owe: ((L.orderPay(state, orderInvoice(o)) || {}).owing) || 0 }));
+    (state.myOrders || []).filter((o) => !o.cancelledAt && !o.handedAt && o.planDay === day && MO.stage(state, o) === 'arrived').forEach((o) => l.push({ name: clabel(o.client), place: o.place || '', opt: o.option, phone: o.phone, owe: MO.pay(state, o).owing }));
+    if (!l.length) return '';
+    const d = day.replace(/-/g, ''), esc2 = (x) => String(x == null ? '' : x).replace(/\\/g, '\\\\').replace(/;/g, '\\;').replace(/,/g, '\\,').replace(/\n/g, '\\n');
+    const desc = l.map((x) => (x.opt === 'delivery' ? '🚚 ' : '🛍 ') + x.name + (x.place ? ' – ' + x.place : '') + (x.phone ? ' · ' + x.phone : '') + (x.owe > 0 ? ' · ' + plain(money(x.owe)) : '')).join('\n');
+    return ['BEGIN:VCALENDAR', 'VERSION:2.0', 'PRODID:-//Shopivo//Deliveries//EN', 'CALSCALE:GREGORIAN', 'BEGIN:VEVENT', 'UID:shopivo-' + d + '@shopivo', 'DTSTAMP:' + new Date().toISOString().replace(/[-:]|\.\d+/g, ''), 'DTSTART:' + d + 'T080000', 'DTEND:' + d + 'T090000', 'SUMMARY:' + esc2(tn('dlv.icsTitle', l.length)), 'DESCRIPTION:' + esc2(desc), 'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(tn('dlv.icsTitle', l.length)), 'TRIGGER:-PT0M', 'END:VALARM', 'BEGIN:VALARM', 'ACTION:DISPLAY', 'DESCRIPTION:' + esc2(tn('dlv.icsTitle', l.length)), 'TRIGGER:-PT14H', 'END:VALARM', 'END:VEVENT', 'END:VCALENDAR'].join('\r\n');
+  }
   function download(name, text, type) {
     const a = document.createElement('a'); a.href = URL.createObjectURL(new Blob([text], { type: type || 'application/json' })); a.download = name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1000);
   }
