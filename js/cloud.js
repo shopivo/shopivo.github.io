@@ -77,13 +77,22 @@
   async function createBusiness(name) {
     if (!user) throw coded('auth/none');
     const ref = db.collection('users').doc(user.uid);
-    for (let n = 0; n < 4; n++) {
+    // The business is created together with its trial record. Older rules (1.07) know nothing of plans or trials, so a refused write steps down:
+    // with the trial record and the one-trial-per-account note, then with the trial record only, then bare. Rules 1.09 refuse the last two, so they can never make a free business.
+    let mode = root.Plan ? 'full' : 'bare', tries = 0;
+    for (let n = 0; n < 7; n++) {
       const code = T.genCode(), ws = db.collection('workspaces').doc(), b = db.batch();
       b.set(ws, { name: name || 'My business', ownerUid: user.uid, members: { [user.uid]: 'owner' }, names: { [user.uid]: me().name || me().email }, perms: T.defaults(), code, createdAt: FV().serverTimestamp() });
       b.set(db.collection('codes').doc(code), { ws: ws.id });
       b.set(ref, { workspaceId: ws.id, email: user.email || '', termsAt: FV().serverTimestamp(), termsV: '1' });
-      try { await b.commit(); if (root.Plan) await db.collection('plans').doc(ws.id).set(newPlan(name)).catch(() => { /* rules not published yet: this business simply has no limits */ }); lsSet('buy-sell-cloud-ws:' + user.uid, ws.id); lsSet(joinKey(), null); teardown(); await start(); return; }
-      catch (e) { if (n === 3 || !(e && e.code === 'permission-denied')) throw e; }   // a code that already exists looks like a refused write: try another one
+      if (mode !== 'bare') b.set(db.collection('plans').doc(ws.id), newPlan(name));
+      if (mode === 'full') b.set(db.collection('trials').doc(user.uid), { at: FV().serverTimestamp() });
+      try { await b.commit(); lsSet('buy-sell-cloud-ws:' + user.uid, ws.id); lsSet(joinKey(), null); teardown(); await start(); return; }
+      catch (e) {
+        if (!(e && e.code === 'permission-denied')) throw e;
+        tries++; if (tries >= 6) throw e;
+        if (mode === 'full' && tries === 2) mode = 'plan'; else if (mode === 'plan' && tries === 4) mode = 'bare';   // a code that already exists also looks like a refused write, so each step gets a second try
+      }
     }
   }
   // Ask to join a business with its code; the Owner answers

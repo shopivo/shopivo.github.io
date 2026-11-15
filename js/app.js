@@ -16,7 +16,7 @@
   const bizName = () => state.settings.businessName || 'B-RUIZ';
   const initials = (n) => String(n).trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join('').toUpperCase() || '·';
   // Versions shown in Settings > About. APP_VERSION goes up by 0.01 with each release; RULES_VERSION must match the header of firestore.rules (a test checks).
-  const APP_VERSION = '1.00', RULES_VERSION = '1.08', CLOUD_LIMIT = 1073741824;
+  const APP_VERSION = '1.00', RULES_VERSION = '1.09', CLOUD_LIMIT = 1073741824;
   // Who runs the app. The name shows on the plan, terms and privacy pages; add a WhatsApp number (digits only, with country code) to show a contact button on them.
   const OPERATOR = { name: 'Shopivo', whatsapp: '' };
   let planDoc = null, planSt = { state: 'free' }, isAdmin = false, planAdm = { rows: null, err: '', busy: false }, planBlockAt = 0;
@@ -503,6 +503,7 @@
     const add = [[1, t('pl.add1')], [3, t('pl.add3')], [12, t('pl.add12')]].map(([m, l]) => `<button type="button" class="btn" data-act="pl-add" data-id="${esc(id)}:${m}">${l}</button>`).join('');
     openSmall(`<h3>${esc(r.name || id)}</h3><div class="sumbox" style="margin:6px 0 10px"><div><span>${t('pl.status')}</span><b>${esc(rentLabel(st))}</b></div><div><span>${t(r.plan === 'trial' ? 'pl.trialEnds' : 'pl.paidUntil')}</span><b>${planDate(st.until)}</b></div></div>
       <div class="ihr"><label>${t('pl.plan')}</label><div class="chiprow">${chips}</div></div><div class="ihr"><label>${t('pl.addTime')}</label><div class="btns" style="margin:0">${add}</div></div>
+      <div class="ihr"><label>${t('pl.testT')}</label><div class="btns" style="margin:0"><button type="button" class="btn" data-act="pl-test" data-id="${esc(id)}:3">${t('pl.test3')}</button><button type="button" class="btn" data-act="pl-test" data-id="${esc(id)}:20">${t('pl.test20')}</button><button type="button" class="btn" data-act="pl-test" data-id="${esc(id)}:-30">${t('pl.test30')}</button></div></div>
       <div class="btns"><button type="button" class="btn ${r.locked ? 'primary' : 'dsolid'}" data-act="pl-lock" data-id="${esc(id)}">${r.locked ? t('pl.unlock') : t('pl.lockNow')}</button><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'card');
   }
   async function planAdmWrite(id, patch) { try { await Cloud.adminSet(id, patch); toast(t('pl.saved')); planAdm.rows = null; await planAdmLoad(); closeSheet(); } catch (e) { toast('⚠️ ' + ((e && e.message) || t('pl.err'))); } }
@@ -4720,6 +4721,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-open': return planRowSheet(id);
       case 'pl-plan': { const [w, k] = id.split(':'); return planAdmWrite(w, { plan: k }); }
       case 'pl-add': { const [w, m] = id.split(':'), r = (planAdm.rows || []).find((x) => x.id === w); if (!r) return; const cur = r.plan === 'trial' ? Plan.ms(r.trialEnds) : Plan.ms(r.paidUntil), ends = Plan.extend(cur, Date.now(), Number(m)); return planAdmWrite(w, { plan: r.plan === 'trial' ? 'starter' : r.plan, paidUntil: Cloud.ts(ends), locked: false }); }
+      case 'pl-test': { const [w, d] = id.split(':'); return planAdmWrite(w, { plan: 'trial', trialEnds: Cloud.ts(Date.now() - Number(d) * 864e5), locked: false }); }
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
       case 'tm-open': return sheetTitleMaker();
       case 'tm-set': { if (!tm) return; const i = id.indexOf('='); const nm = $('#tm-name'), sb = $('#tm-sub'); if (nm) tm.name = nm.value; if (sb) tm.sub = sb.value; tm[id.slice(0, i)] = id.slice(i + 1); document.querySelectorAll('[data-act=tm-set]').forEach((b) => { const j = b.dataset.id.indexOf('='); b.classList.toggle('on', tm[b.dataset.id.slice(0, j)] === b.dataset.id.slice(j + 1)); }); return tmPaint(); }

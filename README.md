@@ -168,5 +168,21 @@ One-time setup (rules 1.08):
 *Customer plans* lists every business with its trial/paid-until date, size, item and invoice counts, and when it was last used. Tap one to add
 paid time (+1 month / +3 months / +1 year), change its plan, or lock/unlock it. Billing is by hand: the customer pays you, then you add the time.
 
-Limits to know about: the lock is enforced by the app on the customer's phone (it is not a hard server rule), so it stops everyday use but
-not a determined developer. Terms of use and the privacy note are plain-language drafts in `js/i18n.js` (`tp.*`); have them reviewed before relying on them.
+### Server lock (rules 1.09)
+
+Rules 1.09 make the lock real, on Google's servers: a business with a plan record cannot **write** after its trial/paid time ends (or when you lock it),
+cannot **read** its data 14 days after that, and its online store stops taking orders then. A new business must be created together with its trial record,
+and each account gets one trial (`trials/{uid}`). Businesses with no plan record, and admins, are never limited. The app's own lock screen still shows first.
+
+Rollout (do these in order):
+
+1. Publish rules **1.08**-or-later only after the app with plans is deployed. Create your `admins/{your account ID}` document first.
+2. Make a test customer: sign in with a different Google account and create a business (it gets a 30-day trial).
+3. In *Customer plans*, open that business and use **Rehearsal**: *Ended 3 days ago* (the test phone becomes read-only; try saving: it is refused),
+   *Ended 20 days ago* (locked: nothing loads), *30 days left* (everything works again). With rules 1.09 published, check the refusals are real by
+   looking in the Firebase console, Firestore, Usage/Rules for denied requests.
+4. Only then publish rules **1.09**. Keep the previous version: Firestore > Rules shows the history, and publishing an older one rolls back.
+
+Limits to know about: before rules 1.09 is published, the lock is enforced only by the app on the customer's phone, so it stops everyday use but
+not a determined developer. After 1.09 the server enforces it (pictures in Firebase Storage are covered by separate storage rules and are not locked yet).
+Terms of use and the privacy note are plain-language drafts in `js/i18n.js` (`tp.*`); have them reviewed before relying on them.
