@@ -1557,11 +1557,12 @@
       return out.map((c) => '#' + c.map((x) => x.toString(16).padStart(2, '0')).join(''));
     } catch (e) { return []; }
   }
+  // The circle is drawn at least half bright, so it always shows colours even when the colour loaded is black.
   function cpWheel() {
     const cv = $('#cp-wheel'); if (!cv) return; const x = cv.getContext('2d'), n = cv.width, R = n / 2, img = x.createImageData(n, n);
     for (let j = 0; j < n; j++) for (let i = 0; i < n; i++) {
       const dx = i - R + 0.5, dy = j - R + 0.5, r = Math.sqrt(dx * dx + dy * dy), o = (j * n + i) * 4; if (r > R) continue;
-      const hx = hsv2hex(((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360, r / R, cpV); img.data[o] = parseInt(hx.slice(1, 3), 16); img.data[o + 1] = parseInt(hx.slice(3, 5), 16); img.data[o + 2] = parseInt(hx.slice(5, 7), 16); img.data[o + 3] = 255;
+      const hx = hsv2hex(((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360, r / R, 0.45 + 0.55 * cpV); img.data[o] = parseInt(hx.slice(1, 3), 16); img.data[o + 1] = parseInt(hx.slice(3, 5), 16); img.data[o + 2] = parseInt(hx.slice(5, 7), 16); img.data[o + 3] = 255;
     }
     x.putImageData(img, 0, 0);
     const a = cpH * Math.PI / 180, mx = R + Math.cos(a) * cpS * R, my = R + Math.sin(a) * cpS * R;
@@ -1584,7 +1585,7 @@
       ${rec.length ? `<div class="cphd">${t('ih.recentCols')}</div><div class="cpsws">${sw(rec)}</div>` : ''}
       <div class="btns">${tg.eye ? `<button type="button" class="btn" data-act="cp-eye">💧 ${t('ih.eye')}</button>` : ''}<button type="button" class="btn primary" data-act="close">${t('btn.done')}</button></div>`, 'card', onBack);
     cpWheel(); const cv = $('#cp-wheel');
-    const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); if (cpS < 0.07) cpS = 0; cpWheel(); cpUpdate(false); };
+    const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); if (cpS < 0.07) cpS = 0; if (cpV < 0.2) { cpV = 1; const vr0 = $('#cp-val'); if (vr0) vr0.value = 100; } cpWheel(); cpUpdate(false); };
     cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); at(e); cv._d = true; });
     cv.addEventListener('pointermove', (e) => { if (cv._d) at(e); });
     const end = () => { if (cv._d) { cv._d = false; cpUpdate(true); } }; cv.addEventListener('pointerup', end); cv.addEventListener('pointercancel', end);
