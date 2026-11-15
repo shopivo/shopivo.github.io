@@ -60,4 +60,6 @@ assert.deepStrictEqual(MO.parsePin('https://maps.google.com/?q=10.5167,-61.4112&
 assert.deepStrictEqual(MO.parsePin('https://maps.app.goo.gl/AbCdEf123'), { short: true }); assert.strictEqual(MO.parsePin('hello'), null); assert.deepStrictEqual(MO.parsePin('https://x.com/?q=999.1,-61.4'), { short: true }, 'not a real place: ask for the map');
 // credits travel with the orders
 const Sy = require('../js/sync.js'); const cd = Sy.docs(s); const t2 = L.defaultState(); Sy.apply(t2, 'meta', 'myorders', cd.meta.myorders); assert.strictEqual(t2.myCredits.Cr, 30);
+// one due-days setting for every invoice (7 unless changed)
+{ const z = state(); assert.strictEqual(L.dueDays(z), 7); z.settings.dueDays = 14; const [x] = z.items; x.status = 'Available'; x.price = 50; const v = L.createInvoice(z, { itemIds: [x.id], client: 'Zed', paying: 0, allowZero: true, date: new Date('2026-01-01T12:00:00Z') }); assert.strictEqual(Math.round((new Date(v.due) - new Date(v.date)) / 864e5), 14); z.settings.dueDays = 0; assert.strictEqual(L.dueDays(z), 0); z.settings.dueDays = 'x'; assert.strictEqual(L.dueDays(z), 7); }
 console.log('myorders tests passed');
