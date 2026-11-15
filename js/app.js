@@ -1832,10 +1832,11 @@
   }
   function sheetMyLogo() {
     const s = state.settings, hc = ihCfg();
-    mbPage('mylogo', t('mb.logo'), t('mb.logoSub'), `<div class="card bplogo"><div class="bplg"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span>${hc.slots.title ? `<img class="bptt" src="${hc.slots.title}" alt="">` : ''}</div>
+    mbPage('mylogo', t('mb.logo'), t('mb.logoSub'), `<div class="lgsticky${hc.slots.title ? '' : ' solo'}"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span>${hc.slots.title ? `<img class="bptt" src="${hc.slots.title}" alt=""><span class="lgsp" aria-hidden="true"></span>` : ''}</div><div class="card bplogo">
       <div class="btns"><button type="button" class="btn primary" data-act="lm-open">✨ ${t('lm.open')}</button><button type="button" class="btn" data-act="logo-pick">🖼️ ${t('bz.logoChange')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="bp-dl" data-id="logo">⬇ ${t('bz.logoDl')}</button>` : ''}${hc.slots.title ? `<button type="button" class="btn" data-act="bp-dl" data-id="title">⬇ ${t('bz.titleDl')}</button>` : ''}<button type="button" class="btn" data-act="ih-open">📎 ${t('mb.pics')}</button></div></div>
       ${ihSec('logoset', t('logo.settings'), logoSettingsHTML())}
       ${isBruiz() ? `<div class="card bpbrand"><b>${t('bz.brand')}</b><p class="muted small">${t('bz.brandSub')}</p><button type="button" class="btn ${brandOn() ? '' : 'primary'}" data-act="bp-brand">${brandOn() ? '✓ ' + t('bz.brandDone') : t('bz.brandBtn')}</button></div>` : ''}`);
+    { const fb = $('#sheet .fullbar'), st = $('#sheet .lgsticky'); if (fb && st) st.style.top = fb.offsetHeight + 'px'; }   // the logo preview stays in view under the top bar while you scroll the settings
   }
   // First time the owner of B-RUIZ opens My business: the agreed look is built and saved as design 1 (invoice and card), so it can be edited later.
   async function mbOpen() { if (isBruiz() && !state.settings.brandSeeded) { try { await brandApply(); toast(t('mb.seeded')); } catch (e) { /* offline: the button on the logo page tries again */ } } sheetMyBiz(); }
