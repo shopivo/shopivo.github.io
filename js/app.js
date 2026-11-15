@@ -1552,7 +1552,7 @@
       if (P.mode === 'store') {
         const names = (P.storeSel && P.storeSel.length ? P.storeSel : [(g.items.find((i) => i.name === P.store) || g.items.find((i) => P.sel[i.name] === 'logo') || g.items[0]).name]).slice(0, 3), list = [];
         for (const nm of names) { const it = g.items.find((i) => i.name === nm); if (it) list.push(await LogoFit.fit(it.entry.file)); }
-        logoSetSave(list); save(); Store.publish && Store.publish(true); toast(t('logo.saved')); closeSheet(); render(); return refreshLogoUI();
+        logoSetSave(list); save(); Store.publish && Store.publish(true); toast(t('logo.saved')); const wasLogoPage = ((pageStack[pageStack.length - 1] || {}).key || '') === 'mylogo|'; closeSheet(); render(); if (wasLogoPage) return sheetMyLogo(); return refreshLogoUI();
       }
       const used = {}; let n = 0; const logos = [];
       for (const it of g.items) { const s = P.sel[it.name]; if (!s || s === 'skip') continue; if (s === 'logo') { if (logos.length < 3) { logos.push(await LogoFit.fit(it.entry.file, { long: 384, cap: 120000 })); n++; } continue; } if (used[s]) continue; used[s] = 1; ihAssign(s, await ihFitFile(it.entry.file)); n++; }
@@ -1831,7 +1831,7 @@
   function sheetMyLogo() {
     const s = state.settings, hc = ihCfg();
     mbPage('mylogo', t('mb.logo'), t('mb.logoSub'), `<div class="card bplogo"><div class="bplg"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span>${hc.slots.title ? `<img class="bptt" src="${hc.slots.title}" alt="">` : ''}</div>
-      <div class="btns"><button type="button" class="btn primary" data-act="lm-open">✨ ${t('lm.open')}</button><button type="button" class="btn" data-act="logo-go">🖼️ ${t('bz.logoChange')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="bp-dl" data-id="logo">⬇ ${t('bz.logoDl')}</button>` : ''}${hc.slots.title ? `<button type="button" class="btn" data-act="bp-dl" data-id="title">⬇ ${t('bz.titleDl')}</button>` : ''}<button type="button" class="btn" data-act="ih-open">📎 ${t('mb.pics')}</button></div></div>
+      <div class="btns"><button type="button" class="btn primary" data-act="lm-open">✨ ${t('lm.open')}</button><button type="button" class="btn" data-act="logo-pick">🖼️ ${t('bz.logoChange')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="bp-dl" data-id="logo">⬇ ${t('bz.logoDl')}</button>` : ''}${hc.slots.title ? `<button type="button" class="btn" data-act="bp-dl" data-id="title">⬇ ${t('bz.titleDl')}</button>` : ''}<button type="button" class="btn" data-act="ih-open">📎 ${t('mb.pics')}</button></div><input type="file" id="logo-file" accept="image/*,.zip,application/zip" multiple hidden></div>
       ${isBruiz() ? `<div class="card bpbrand"><b>${t('bz.brand')}</b><p class="muted small">${t('bz.brandSub')}</p><button type="button" class="btn ${brandOn() ? '' : 'primary'}" data-act="bp-brand">${brandOn() ? '✓ ' + t('bz.brandDone') : t('bz.brandBtn')}</button></div>` : ''}`);
   }
   // First time the owner of B-RUIZ opens My business: the agreed look is built and saved as design 1 (invoice and card), so it can be edited later.
@@ -4816,6 +4816,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   }
   // After the logo or its shape changes: redraw the card(s) and the preview wherever they are open.
   function refreshLogoUI() {
+    if (((pageStack[pageStack.length - 1] || {}).key || '') === 'mylogo|' && !$('#sheet').hidden && !$('#sheet').classList.contains('small')) sheetMyLogo();
     document.querySelectorAll('.lgcard').forEach((el) => { const w = document.createElement('div'); w.innerHTML = logoCardHTML(); el.replaceWith(w.firstElementChild); });
     const pl = $('#ct-pl'); if (pl) { const n = storeCfg().name || bizName(); pl.outerHTML = ctLogoHTML(n); const tp = document.querySelector('.pvw .top'); if (tp) tp.classList.toggle('wideLogo', !!state.settings.bizLogo && logoShape() === 'wide'); }
   }
