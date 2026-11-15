@@ -1432,7 +1432,7 @@
     const own = (st.color || '').toLowerCase(), blend = st.blend != null && st.blend !== '' ? st.blend : (InvDesign.BLEND[id] || 0), hasBlend = id in InvDesign.BLEND;
     return `<div class="invset"><h3>${t('invd.colours')} · ${t('invd.' + id)}</h3>
       <div class="swatches"><button type="button" class="chip ${own ? '' : 'on'}" data-act="inv-color" data-id="">${t('invd.theme')}</button>${Theme.PALETTES.map((p) => `<button type="button" class="swatch ${own === p.brand ? 'on' : ''}" style="background:${p.brand}" data-act="inv-color" data-id="${p.brand}" aria-label="${t('pal.' + p.id)}"></button>`).join('')}
-        <label class="swatch own" aria-label="${t('invd.custom')}"><input type="color" data-inv="color" value="${own || Theme.brand()}"><span>＋</span></label></div>
+        <button type="button" class="swatch own" data-act="inv-colpick" aria-label="${t('invd.custom')}" ${own ? `style="background:${own}"` : ''}><span>＋</span></button></div>
       <label for="inv-light">${t('invd.light')}</label><input id="inv-light" type="range" min="-20" max="20" step="1" value="${Number(st.light) || 0}" data-inv="light">
       ${hasBlend ? `<label for="inv-blend">${t('invd.blend')}</label><input id="inv-blend" type="range" min="-90" max="90" step="1" value="${blend}" data-inv="blend">` : ''}
       <div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="invfs-open">🎨 ${t('invd.wheel')} · ${t('invd.fullEditor')}</button><button type="button" class="btn" data-act="inv-reset">${t('invd.reset')}</button></div></div>`;
@@ -1513,7 +1513,7 @@
   }
   function ihRefresh() { const b = $('#ih-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ihBodyHTML(); $('#sheet').scrollTop = sc; const u = $('#ih-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('ih.inUse') : t('ih.use'); } ihPaint(); }
   // ---- colour picker: circle + brightness, colours taken from the banner, tap-the-header eyedropper, recent colours ----
-  let cpPath = '', cpH = 0, cpS = 0, cpV = 1, ihEye = '';
+  let cpT = null, cpH = 0, cpS = 0, cpV = 1, ihEye = '';
   const hsv2hex = (h, sa, v) => { const f = (n) => { const k = (n + h / 60) % 6; return v - v * sa * Math.max(0, Math.min(k, 4 - k, 1)); }; return '#' + [f(5), f(3), f(1)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join(''); };
   const hex2hsv = (hx) => { const r = parseInt(hx.slice(1, 3), 16) / 255, g = parseInt(hx.slice(3, 5), 16) / 255, b = parseInt(hx.slice(5, 7), 16) / 255, mx = Math.max(r, g, b), mn = Math.min(r, g, b), d = mx - mn; let h = 0; if (d) h = mx === r ? ((g - b) / d + 6) % 6 : mx === g ? (b - r) / d + 2 : (r - g) / d + 4; return [h * 60, mx ? d / mx : 0, mx]; };
   function bannerColors() {
@@ -1542,11 +1542,11 @@
   }
   function cpUpdate(commit, fromHex) {
     const hx = hsv2hex(cpH, cpS, cpV); const cur = $('#cp-cur'); if (cur) cur.style.background = hx; const hi = $('#cp-hex'); if (hi && !fromHex) hi.value = hx.toUpperCase();
-    ihSet(cpPath, hx);
+    cpT.set(hx);
     if (commit) { const r = (state.settings.ihRecent || []).filter((c) => c !== hx); r.unshift(hx); state.settings.ihRecent = r.slice(0, 8); save(); }
   }
-  function openColorPick(path) {
-    cpPath = path; const cur = InvHeader.getPath(ihCfg(), path); [cpH, cpS, cpV] = hex2hsv(/^#[0-9a-fA-F]{6}$/.test(cur) ? cur : '#000000');
+  function openColorPick(tg) {
+    cpT = tg; const cur = tg.get(); [cpH, cpS, cpV] = hex2hsv(/^#[0-9a-fA-F]{6}$/.test(cur) ? cur : '#000000');
     const ban = bannerColors(), rec = (state.settings.ihRecent || []).slice(0, 8), sw = (list) => list.map((c) => `<button type="button" class="cpsw" data-act="cp-set" data-id="${c}" style="background:${c}" aria-label="${c}"></button>`).join('');
     openSmall(`<h3>${t('ih.pickColor')}</h3>
       <div class="cprow"><span id="cp-cur" class="cpcur" style="background:${cur}"></span><input id="cp-hex" type="text" value="${esc(String(cur).toUpperCase())}" maxlength="7" autocapitalize="characters" autocomplete="off" spellcheck="false"></div>
@@ -1554,7 +1554,7 @@
       <div class="ihr"><label>${t('ih.bright')}</label><input id="cp-val" type="range" min="5" max="100" value="${Math.round(cpV * 100)}"></div>
       ${ban.length ? `<div class="cphd">${t('ih.fromBanner')}</div><div class="cpsws">${sw(ban)}</div>` : ''}
       ${rec.length ? `<div class="cphd">${t('ih.recentCols')}</div><div class="cpsws">${sw(rec)}</div>` : ''}
-      <div class="btns"><button type="button" class="btn" data-act="cp-eye">💧 ${t('ih.eye')}</button><button type="button" class="btn primary" data-act="close">${t('btn.done')}</button></div>`, 'card');
+      <div class="btns">${tg.eye ? `<button type="button" class="btn" data-act="cp-eye">💧 ${t('ih.eye')}</button>` : ''}<button type="button" class="btn primary" data-act="close">${t('btn.done')}</button></div>`, 'card');
     cpWheel(); const cv = $('#cp-wheel');
     const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); cpWheel(); cpUpdate(false); };
     cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); at(e); cv._d = true; });
@@ -1782,7 +1782,7 @@
   const bcPath = (p) => InvHeader.getPath(bcCfg(), p);
   const bcTog = (p, label) => `<div class="ihr tgl"><span>${label}</span>${swt('bc-tog', p, !!bcPath(p))}</div>`;
   const bcChips = (p, label, opts) => { const cur = bcPath(p); return `<div class="ihr"><label>${label}</label><div class="chiprow">${opts.map(([k, l]) => `<button type="button" class="chip ${String(cur) === String(k) ? 'on' : ''}" data-act="bc-set" data-id="${p}=${k}">${l}</button>`).join('')}</div></div>`; };
-  const bcCol = (p, label) => `<div class="ihr col"><label>${label}</label><input type="color" data-bc="${p}" value="${bcPath(p)}"></div>`;
+  const bcCol = (p, label) => `<div class="ihr col"><label>${label}</label><button type="button" class="ihsw" data-act="bc-colpick" data-id="${p}" style="background:${bcPath(p)}" aria-label="${t('ih.pickColor')}"></button></div>`;
   const bcTxt = (p, label, ph) => `<div class="ihr"><label>${label}</label><input type="text" data-bc="${p}" value="${esc(bcPath(p) || '')}" placeholder="${esc(ph || '')}" autocomplete="off" maxlength="80"></div>`;
   const bcRng = (p, label, min, max, step, pct) => { const v = bcPath(p); return `<div class="ihr"><label>${label}<b class="v">${pct ? Math.round(v * 100) + '%' : Math.round(v * 100) / 100}</b></label><input type="range" min="${min}" max="${max}" step="${step}" value="${v}" data-bc="${p}" ${pct ? 'data-pct="1"' : ''}></div>`; };
   function bcBodyHTML() {
@@ -4507,9 +4507,11 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-add': { const f = $('#ih-file'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
-      case 'ih-colpick': return openColorPick(id);
+      case 'ih-colpick': return openColorPick({ get: () => InvHeader.getPath(ihCfg(), id), set: (v) => ihSet(id, v), eye: id });
+      case 'bc-colpick': return openColorPick({ get: () => bcPath(id), set: (v) => bcSet(id, v) });
+      case 'inv-colpick': return openColorPick({ get: () => invStyle(invDesignId()).color || Theme.brand(), set: (v) => setInvStyle({ color: v }) });
       case 'cp-set': { const hx = id; [cpH, cpS, cpV] = hex2hsv(hx); const vr = $('#cp-val'); if (vr) vr.value = Math.round(cpV * 100); cpWheel(); cpUpdate(true); return; }
-      case 'cp-eye': { ihEye = cpPath; closeSheet(); setTimeout(() => toast(t('ih.eyeTip')), 250); return; }
+      case 'cp-eye': { ihEye = cpT.eye; closeSheet(); setTimeout(() => toast(t('ih.eyeTip')), 250); return; }
       case 'ih-tog': { ihSet(id, !InvHeader.getPath(ihCfg(), id)); return ihRefresh(); }
       case 'ih-set': { const i = id.indexOf('='), p = id.slice(0, i); let v = id.slice(i + 1); if (/^\d+$/.test(v) && /weight$/.test(p)) v = Number(v); ihSet(p, v); if (/^items\.(logo|title|extra1|extra2)\.shape$/.test(p) && (v === 'square' || v === 'rounded')) { const pp = p.replace('.shape', '.pad'), c0 = ihCfg(), key = p.split('.')[1]; if (c0.items[key].pad > 12) ihSet(pp, 7); } return ihRefresh(); }
       case 'ih-layout': ihSave(InvHeader.applyLayout(ihCfg(), id)); return ihRefresh();
