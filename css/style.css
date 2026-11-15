@@ -1714,3 +1714,5 @@ a.btn{display:flex!important;align-items:center;justify-content:center;text-alig
 .sheet.card .btns .btn.sich::after{content:"›";position:absolute;right:16px;top:50%;transform:translateY(-52%);font-size:26px;opacity:.5;font-weight:400}
 .sheet.card .btns .btn.sich b{font-size:16px;font-weight:700}
 .sheet.card .btns .btn.sich small{font-size:13.5px;line-height:1.35;margin-top:3px;opacity:.8;white-space:normal}
+.adcard{background:var(--card);border:1px solid var(--line);border-radius:16px;display:flex;flex-direction:column;gap:6px;padding:14px;margin:10px 0}.adcard small{color:var(--mute);font-size:13.5px}.adcard .btns{display:flex;gap:8px;margin-top:6px}.adcard .btns .btn{flex:1;min-height:44px}
+.adrs{background:var(--tint);border-radius:14px;padding:4px 14px;margin:6px 0 10px}.adr{display:flex;justify-content:space-between;padding:10px 0;border-bottom:1px solid var(--line)}.adr:last-child{border:0}

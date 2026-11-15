@@ -62,4 +62,35 @@ assert.deepStrictEqual(MO.parsePin('https://maps.app.goo.gl/AbCdEf123'), { short
 const Sy = require('../js/sync.js'); const cd = Sy.docs(s); const t2 = L.defaultState(); Sy.apply(t2, 'meta', 'myorders', cd.meta.myorders); assert.strictEqual(t2.myCredits.Cr, 30);
 // one due-days setting for every invoice (7 unless changed)
 { const z = state(); assert.strictEqual(L.dueDays(z), 7); z.settings.dueDays = 14; const [x] = z.items; x.status = 'Available'; x.price = 50; const v = L.createInvoice(z, { itemIds: [x.id], client: 'Zed', paying: 0, allowZero: true, date: new Date('2026-01-01T12:00:00Z') }); assert.strictEqual(Math.round((new Date(v.due) - new Date(v.date)) / 864e5), 14); z.settings.dueDays = 0; assert.strictEqual(L.dueDays(z), 0); z.settings.dueDays = 'x'; assert.strictEqual(L.dueDays(z), 7); }
+// bring in existing invoices: paid -> completed, owing -> handed over, from a batch still on its way -> ordered; nothing is sold twice
+{
+  const z = state(); const [i1, i2, i3, i4] = z.items; L.makeAvailable(z, z.batches[0].id);
+  [i1, i2, i3, i4].forEach((x, n) => { x.status = 'Available'; x.price = 100 + n * 10; });
+  const vPaid = L.createInvoice(z, { itemIds: [i1.id], client: 'Anna', paying: 100, date: new Date('2026-01-05') });
+  const vOwe = L.createInvoice(z, { itemIds: [i2.id], client: 'Ben', paying: 40, date: new Date('2026-01-06') });
+  const vPart = L.createInvoice(z, { itemIds: [i3.id], client: 'Cy', paying: 50, date: new Date('2026-01-07') }); L.recordPayment(z, vPart.no, 70, new Date('2026-01-08'));
+  L.createBatch(z, { store: 'TEMU', count: 1, currency: 'USD', totalCost: 10, margin: 100 }); const far = z.items[z.items.length - 1]; far.desc = 'Far hat'; far.status = 'Available'; far.price = 70; far.status = 'In Transit';
+  const vAway = L.createInvoice(z, { itemIds: [far.id], client: 'Di', paying: 70, date: new Date('2026-01-09') });
+  const before = JSON.stringify([z.invoices, z.items]);
+  const plan = MO.adoptPlan(z); assert.deepStrictEqual(plan.counts, { ordered: 1, arrived: 0, handed: 1, done: 2 }); assert.strictEqual(plan.count, 4);
+  assert.strictEqual(JSON.stringify([z.invoices, z.items]), before, 'preview changes nothing'); assert.strictEqual(MO.list(z).length, 0);
+  MO.adopt(z, { phoneOf: (n) => (n === 'Ben' ? '1 868 555 0101' : '') });
+  assert.strictEqual(JSON.stringify([z.invoices, z.items]), before, 'invoices and items are not touched');
+  assert.deepStrictEqual(MO.counts(z), { ordered: 1, arrived: 0, handed: 1, done: 2 });
+  const ben = MO.list(z).find((o) => o.client === 'Ben'); assert.strictEqual(ben.phone, '1 868 555 0101'); assert.strictEqual(MO.pay(z, ben).owing, 70); assert.strictEqual(ben.invoice, vOwe.no);
+  const cy = MO.list(z).find((o) => o.client === 'Cy'); assert.strictEqual(cy.invoice, vPart.no); assert.strictEqual(MO.stage(z, cy), 'done', 'later payments are counted with the first invoice');
+  assert.strictEqual(MO.list(z).length, 4, 'one order per purchase, not per invoice');
+  assert.deepStrictEqual(MO.adoptPlan(z).counts, { ordered: 0, arrived: 0, handed: 0, done: 0 }, 'run twice does not add twice');
+  // the order sold from a batch on its way arrives with its batch, and handing over adds no invoice
+  const di = MO.list(z).find((o) => o.client === 'Di'); assert.strictEqual(MO.stage(z, di), 'ordered'); fails(() => MO.cancel(z, di.id), 'moHanded'); fails(() => MO.setPrice(z, di.id, 0, 10), 'moHanded');
+  L.makeAvailable(z, z.batches[1].id); assert.strictEqual(MO.stage(z, di), 'arrived'); const n0 = z.invoices.length; MO.handOver(z, di.id, { how: 'delivery', paidNow: 0 });
+  assert.strictEqual(z.invoices.length, n0); assert.strictEqual(MO.stage(z, di), 'done'); assert.ok(di.handedAt);
+  // paying the rest while handing over goes on the invoice
+  const ben2 = MO.list(z).find((o) => o.client === 'Ben'); assert.strictEqual(MO.stage(z, ben2), 'handed'); L.recordPayment(z, ben2.invoice, 70, new Date()); assert.strictEqual(MO.stage(z, ben2), 'done');
+  // undo removes only these orders
+  assert.strictEqual(MO.undoAdopt(z), 4); assert.strictEqual(MO.list(z).length, 0);
+  // invoices of online orders, and voided ones, are left out
+  const y = state(); y.items.forEach((x) => { x.status = 'Available'; x.price = 50; }); const o1 = L.createInvoice(y, { itemIds: [y.items[0].id], client: 'W', paying: 50 }); L.createInvoice(y, { itemIds: [y.items[1].id], client: 'V', paying: 50 });
+  const p2 = MO.adoptPlan(y, { skip: [o1.no] }); assert.strictEqual(p2.count, 1); assert.strictEqual(p2.online, 1);
+}
 console.log('myorders tests passed');
