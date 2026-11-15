@@ -1671,4 +1671,5 @@ body.ordselecting #view{padding-bottom:140px}
 .sth .mosw .seg button,.sth .mosw .seg button.on{flex:1 1 0;width:auto}
 .sth .mosw .seg button.on{transform:none}
 .itbar .itsel{min-width:0;flex:1 1 0}.itbar .itgb{padding:0 12px;white-space:nowrap}.sheet.pick .bprow,.sheet.hdr .bprow{padding-left:22px!important;padding-right:22px!important}
-.lgpv.fit.circle.whole img{object-fit:contain;padding:18%}.brand.fit.circle.whole{object-fit:contain;padding:7px;background:#fff;box-sizing:border-box;width:38px;height:38px}.pd .pvw .lg.fit.circle.whole img{object-fit:contain;padding:18%;background:#fff}
+.lgpv.fit.circle.whole img{object-fit:contain;padding:24%}.brand.fit.circle.whole{object-fit:contain;padding:9px;background:#fff;box-sizing:border-box;width:38px;height:38px}.pd .pvw .lg.fit.circle.whole img{object-fit:contain;padding:24%;background:#fff}
+.pico{color:#1565c0;display:block}.ic2 .pico,.hic .pico{margin:auto}@media (prefers-color-scheme:dark){:root:not([data-theme=light]) .pico{color:#8fd3ff}}:root[data-theme=dark] .pico{color:#8fd3ff}
