@@ -444,7 +444,7 @@
     if (orders) rows.push(need('🛒', 'var(--warnbg)', t('hm.ordTitle'), t('hm.ordSub'), orders, 'orders-open', true));
     if (owingAll.length) rows.push(need('💰', 'var(--warnbg)', t('hm.oweTitle'), t('hm.oweSub', { amt: money(oweTotal) }), owingAll.length, 'goto-owing', true));
     if (!state.settings.bizLogo && state.settings.businessName && state.settings.setupDone && !pref('logoNudgeOff', false)) rows.push(need('🖼️', 'var(--infobg)', t('hm.logoTitle'), t('hm.logoSub'), '+', 'logo-go', false));   // goes away once a logo is added (or once the page has been opened)
-    if (peopleOn && PE.missingNumber(state).length) rows.push(need('📞', '#bbdefb', t('hm.phoneTitle'), t('hm.phoneSub'), PE.missingNumber(state).length, 'phones-open', false));
+    if (peopleOn && PE.missingNumber(state).length) rows.push(need(PHONE_ICO, 'var(--infobg)', t('hm.phoneTitle'), t('hm.phoneSub'), PE.missingNumber(state).length, 'phones-open', false));
     if (window.Store && Store.needsPublish && Store.needsPublish()) rows.unshift(need('📤', 'var(--warnbg)', t('hm.pubTitle'), t('hm.pubSub'), '!', 'goto-publish', true));
     if (noPrice) rows.push(need('🏷️', 'var(--okbg)', t('hm.noPriceTitle'), t('hm.noPriceSub'), noPrice, 'goto-nopr', false));
     const needs = `<div class="hsec"><h3>${t('hm.needs')}</h3></div><div class="hneeds">${rows.join('') || `<div class="hnr done"><span class="hic" style="background:var(--okbg)">✅</span><div class="t"><b>${t('hm.caught')}</b><small>${t('hm.caughtSub')}</small></div></div>`}</div>`;
@@ -3361,6 +3361,8 @@
   // Orders planned for a day (online and My orders): what the bell and Home remind you about
   const plannedList = () => { const on = window.Store ? Store.orders().filter((o) => o.status === 'confirmed' && o.planDay && toHand(o).length).map((o) => ({ day: o.planDay, name: o.name, opt: o.option })) : [], my = (state.myOrders || []).filter((o) => !o.cancelledAt && !o.handedAt && o.planDay && MO.stage(state, o) === 'arrived').map((o) => ({ day: o.planDay, name: clabel(o.client), opt: o.option })); return on.concat(my); };
   const planInfo = () => { const l = plannedList(), td = SCore.dayKey(new Date()), tm = SCore.dayKey(new Date(Date.now() + 864e5)), names = (a) => a.slice(0, 3).map((x) => String(x.name).split(' ')[0]).join(', ') + (a.length > 3 ? '…' : ''); const T = l.filter((x) => x.day === td), M = l.filter((x) => x.day === tm), O = l.filter((x) => x.day < td); return { today: T, tomorrow: M, over: O, names, td }; };
+  // The phone symbol drawn as a picture, so it is bright in dark mode (the 📞 emoji is a dark handset there)
+  const PHONE_ICO = '<svg class="pico" viewBox="0 0 24 24" width="26" height="26" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M22 16.9v3a2 2 0 0 1-2.2 2 19.8 19.8 0 0 1-8.6-3.1 19.5 19.5 0 0 1-6-6A19.8 19.8 0 0 1 2.1 4.2 2 2 0 0 1 4.1 2h3a2 2 0 0 1 2 1.7c.1 1 .4 1.9.7 2.8a2 2 0 0 1-.5 2.1L8.1 9.9a16 16 0 0 0 6 6l1.3-1.3a2 2 0 0 1 2.1-.4c.9.3 1.8.6 2.8.7a2 2 0 0 1 1.7 2z"/></svg>';
   function notifList() {
     const out = [], now = Date.now(), c = storeCfg();
     const add = (n) => out.push(n);
@@ -3392,7 +3394,7 @@
     { const pi = planInfo(); if (pi.over.length) add({ key: 'dlvover:' + pi.td + ':' + pi.over.length, grp: 'attn', ic: '⏰', always: true, title: tn('dlv.notifOver', pi.over.length), sub: pi.names(pi.over), go: ['ov-go', 'deliveries'] });
       if (pi.today.length) add({ key: 'dlvtoday:' + pi.td + ':' + pi.today.length, grp: 'attn', ic: '🚚', always: true, title: tn('dlv.notifToday', pi.today.length), sub: pi.names(pi.today), go: ['ov-go', 'deliveries'] });
       if (pi.tomorrow.length && new Date().getHours() >= 17) add({ key: 'dlvtom:' + pi.td + ':' + pi.tomorrow.length, grp: 'remind', ic: '📅', title: tn('dlv.notifTomorrow', pi.tomorrow.length), sub: pi.names(pi.tomorrow), go: ['ov-go', 'deliveries'] }); }
-    if (peopleOn && PE.missingNumber(state).length) add({ key: 'phones:' + PE.missingNumber(state).length, grp: 'attn', ic: '📞', title: t('hm.phoneTitle'), sub: t('hm.phoneSub'), go: ['phones-open', ''] });
+    if (peopleOn && PE.missingNumber(state).length) add({ key: 'phones:' + PE.missingNumber(state).length, grp: 'attn', ic: PHONE_ICO, title: t('hm.phoneTitle'), sub: t('hm.phoneSub'), go: ['phones-open', ''] });
     if (c.id && window.Store && Store.needsPublish && Store.needsPublish()) add({ key: 'needpub', grp: 'attn', ic: '📤', always: true, title: t('hm.pubTitle'), sub: t('hm.pubSub'), go: ['goto-publish', ''] });
     if (c.id && window.Store) { if (Store.info().error) add({ key: 'storeerr', grp: 'attn', ic: '⚠️', title: t('notif.storeErr'), sub: t('notif.storeErrSub'), go: ['store-open', ''] }); if (!c.open) add({ key: 'storeclosed', grp: 'attn', ic: '🔒', title: t('notif.storeClosed'), sub: t('notif.storeClosedSub'), go: ['store-open', ''] }); }
     // Only invoices that are still current count: an older invoice that was replaced by an updated one (or returned) is cleared by it.
