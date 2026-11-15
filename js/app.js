@@ -1444,6 +1444,16 @@
       <button type="button" class="row tap ihentry" data-act="ih-open"><span style="font-size:22px">🎨</span><div class="grow"><b>${t('ih.open')}</b><small>${t('ih.openSub')}</small></div><span class="chev">›</span></button>
       <div id="invpanel">${invColourPanel()}</div><div class="dsgrid" id="dsgrid" role="radiogroup" aria-label="${t('set.invDesign')}">${invCards()}</div>`;
   }
+  // Small undo next to each slider in the creators: goes back to where it was before the last drag (tap again to return).
+  const rngOk = (el) => el && el.tagName === 'INPUT' && el.type === 'range' && el.closest('.ihr') && el.id !== 'cr-zoom';
+  document.addEventListener('pointerdown', (e) => { if (rngOk(e.target)) e.target.dataset.pre = e.target.value; }, true);
+  document.addEventListener('change', (e) => {
+    const el = e.target; if (!rngOk(el) || el.dataset.pre === undefined || el.dataset.pre === el.value) return;
+    el.dataset.prev = el.dataset.pre; delete el.dataset.pre;
+    const lb = el.closest('.ihr').querySelector('label'); if (!lb || lb.querySelector('.rundo')) return;
+    const b = document.createElement('button'); b.type = 'button'; b.className = 'rundo'; b.dataset.act = 'rng-undo'; b.setAttribute('aria-label', t('ih.undo')); b.textContent = '↶';
+    lb.insertBefore(b, lb.querySelector('.v'));
+  }, true);
   document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.dataset && d.dataset.ihk) ihOpenSecs[d.dataset.ihk] = d.open; }, true);
   /* ---------- invoice header builder: pictures (files or a zip), layouts, pieces, banner, saved designs ---------- */
   const hdrImgs = new Map();
@@ -1545,7 +1555,7 @@
     cpT.set(hx);
     if (commit) { const r = (state.settings.ihRecent || []).filter((c) => c !== hx); r.unshift(hx); state.settings.ihRecent = r.slice(0, 8); save(); }
   }
-  function openColorPick(tg) {
+  function openColorPick(tg, onBack) {
     cpT = tg; const cur = tg.get(); [cpH, cpS, cpV] = hex2hsv(/^#[0-9a-fA-F]{6}$/.test(cur) ? cur : '#000000');
     const ban = bannerColors(), rec = (state.settings.ihRecent || []).slice(0, 8), sw = (list) => list.map((c) => `<button type="button" class="cpsw" data-act="cp-set" data-id="${c}" style="background:${c}" aria-label="${c}"></button>`).join('');
     openSmall(`<h3>${t('ih.pickColor')}</h3>
@@ -1554,7 +1564,7 @@
       <div class="ihr"><label>${t('ih.bright')}</label><input id="cp-val" type="range" min="5" max="100" value="${Math.round(cpV * 100)}"></div>
       ${ban.length ? `<div class="cphd">${t('ih.fromBanner')}</div><div class="cpsws">${sw(ban)}</div>` : ''}
       ${rec.length ? `<div class="cphd">${t('ih.recentCols')}</div><div class="cpsws">${sw(rec)}</div>` : ''}
-      <div class="btns">${tg.eye ? `<button type="button" class="btn" data-act="cp-eye">💧 ${t('ih.eye')}</button>` : ''}<button type="button" class="btn primary" data-act="close">${t('btn.done')}</button></div>`, 'card');
+      <div class="btns">${tg.eye ? `<button type="button" class="btn" data-act="cp-eye">💧 ${t('ih.eye')}</button>` : ''}<button type="button" class="btn primary" data-act="close">${t('btn.done')}</button></div>`, 'card', onBack);
     cpWheel(); const cv = $('#cp-wheel');
     const at = (e) => { const r = cv.getBoundingClientRect(), dx = (e.clientX - r.left) / r.width * 2 - 1, dy = (e.clientY - r.top) / r.height * 2 - 1; cpH = ((Math.atan2(dy, dx) * 180 / Math.PI) + 360) % 360; cpS = Math.min(1, Math.sqrt(dx * dx + dy * dy)); cpWheel(); cpUpdate(false); };
     cv.addEventListener('pointerdown', (e) => { cv.setPointerCapture(e.pointerId); at(e); cv._d = true; });
@@ -1673,14 +1683,14 @@
     g.fillText(lm.text, size / 2, size / 2 + fs * 0.04); return c;
   }
   function lmPaint() { const cv = $('#lm-cv'); if (!cv || !lm) return; cv.width = cv.height = 240; cv.getContext('2d').drawImage(lmCanvas(240), 0, 0); }
-  function sheetLogoMaker() {
-    const brand = Theme.brand(); lm = { text: initials(bizName()).replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || 'B', style: 'bold', shape: 'circle', bg: brand, fg: '#ffffff' };
+  function sheetLogoMaker(keep) {
+    const brand = Theme.brand(); lm = keep || { text: initials(bizName()).replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || 'B', style: 'bold', shape: 'circle', bg: brand, fg: '#ffffff' };
     const chips = (k, opts) => `<div class="chiprow">${opts.map(([v, l]) => `<button type="button" class="chip ${lm[k] === v ? 'on' : ''}" data-act="lm-set" data-id="${k}=${v}">${l}</button>`).join('')}</div>`;
     openSmall(`<h3>${t('lm.title')}</h3><p class="muted small">${t('lm.sub')}</p><canvas id="lm-cv" width="240" height="240" style="width:150px;height:150px;display:block;margin:6px auto 10px;border-radius:12px;background:repeating-conic-gradient(#e9e4e8 0 25%,#fff 0 50%) 0 0/14px 14px"></canvas>
       <div class="ihr"><label>${t('lm.letters')}</label><input type="text" id="lm-text" value="${esc(lm.text)}" maxlength="3" autocomplete="off" style="text-transform:uppercase"></div>
       <div class="ihr"><label>${t('lm.style')}</label>${chips('style', [['bold', t('lm.st.bold')], ['serif', t('lm.st.serif')], ['round', t('lm.st.round')], ['slim', t('lm.st.slim')]])}</div>
       <div class="ihr"><label>${t('lm.shape')}</label>${chips('shape', [['circle', t('ih.sh.circle')], ['rounded', t('ih.sh.rounded')], ['square', t('ih.sh.square')]])}</div>
-      <div class="ihr col"><label>${t('lm.bg')}</label><input type="color" id="lm-bg" value="${lm.bg}"></div><div class="ihr col"><label>${t('lm.fg')}</label><input type="color" id="lm-fg" value="${lm.fg}"></div>
+      <div class="ihr col"><label>${t('lm.bg')}</label><button type="button" class="ihsw" data-act="lm-colpick" data-id="bg" style="background:${lm.bg}" aria-label="${t('ih.pickColor')}"></button></div><div class="ihr col"><label>${t('lm.fg')}</label><button type="button" class="ihsw" data-act="lm-colpick" data-id="fg" style="background:${lm.fg}" aria-label="${t('ih.pickColor')}"></button></div>
       <div class="btns"><button class="btn primary" data-act="lm-use">${t('lm.use')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet', () => { lm = null; });
     lmPaint();
   }
@@ -4507,7 +4517,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-add': { const f = $('#ih-file'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
+      case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || r.dataset.prev === undefined) return; const cur = r.value; r.value = r.dataset.prev; r.dataset.prev = cur; r.dispatchEvent(new Event('input', { bubbles: true })); return; }
       case 'ih-colpick': return openColorPick({ get: () => InvHeader.getPath(ihCfg(), id), set: (v) => ihSet(id, v), eye: id });
+      case 'lm-colpick': { if (!lm) return; const keep = lm, k = id, tx = $('#lm-text'); if (tx) keep.text = tx.value.toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || keep.text; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetLogoMaker(keep), 0)); }
       case 'bc-colpick': return openColorPick({ get: () => bcPath(id), set: (v) => bcSet(id, v) });
       case 'inv-colpick': return openColorPick({ get: () => invStyle(invDesignId()).color || Theme.brand(), set: (v) => setInvStyle({ color: v }) });
       case 'cp-set': { const hx = id; [cpH, cpS, cpV] = hex2hsv(hx); const vr = $('#cp-val'); if (vr) vr.value = Math.round(cpV * 100); cpWheel(); cpUpdate(true); return; }
