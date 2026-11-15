@@ -1832,7 +1832,7 @@
   }
   function sheetMyLogo() {
     const s = state.settings, hc = ihCfg();
-    mbPage('mylogo', t('mb.logo'), t('mb.logoSub'), `<div class="lgsticky"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span>${hc.slots.title ? `<img class="bptt" src="${hc.slots.title}" alt="">` : ''}</div><div class="card bplogo">
+    mbPage('mylogo', t('mb.logo'), t('mb.logoSub'), `<div class="lgsticky${hc.slots.title ? '' : ' solo'}"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span>${hc.slots.title ? `<img class="bptt" src="${hc.slots.title}" alt=""><span class="lgsp" aria-hidden="true"></span>` : ''}</div><div class="card bplogo">
       <div class="btns"><button type="button" class="btn primary" data-act="lm-open">✨ ${t('lm.open')}</button><button type="button" class="btn" data-act="logo-pick">🖼️ ${t('bz.logoChange')}</button>${s.bizLogo ? `<button type="button" class="btn" data-act="bp-dl" data-id="logo">⬇ ${t('bz.logoDl')}</button>` : ''}${hc.slots.title ? `<button type="button" class="btn" data-act="bp-dl" data-id="title">⬇ ${t('bz.titleDl')}</button>` : ''}<button type="button" class="btn" data-act="ih-open">📎 ${t('mb.pics')}</button></div></div>
       ${ihSec('logoset', t('logo.settings'), logoSettingsHTML())}
       ${isBruiz() ? `<div class="card bpbrand"><b>${t('bz.brand')}</b><p class="muted small">${t('bz.brandSub')}</p><button type="button" class="btn ${brandOn() ? '' : 'primary'}" data-act="bp-brand">${brandOn() ? '✓ ' + t('bz.brandDone') : t('bz.brandBtn')}</button></div>` : ''}`);
