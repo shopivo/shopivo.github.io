@@ -1868,7 +1868,7 @@
     const P = cfg.pattern, pat = ihSec('bc5', t('bz.pat'), `${bcTog('pattern.on', t('bz.patOn'))}${P.on ? `${bcChips('pattern.sides', t('bz.patSides'), [['both', t('bz.both')], ['front', t('bc.front')], ['back', t('bc.back')]])}${bcChips('pattern.place', t('bz.patPlace'), ['corners', 'all', 'tl', 'tr', 'bl', 'br'].map((k) => [k, t('bz.pl.' + k)]))}${bcRng('pattern.opacity', t('bz.patOp'), 0.04, 0.5, 0.01, true)}${bcRng('pattern.size', t('bz.patSize'), 20, 110, 1)}${bcRng('pattern.tilt', t('bz.patTilt'), -45, 45, 1)}<p class="muted small">${t('bz.patNote')}</p>` : ''}`);
     const saved = ihSec('bc7', t('mb.savedCards'), svSlotsHTML('card', false));
     const print = ihSec('bc4', t('bc.print'), `${bcChips('sides', t('bc.sides'), [['both', t('bc.sides.both')], ['front', t('bc.sides.front')], ['frontblank', t('bc.sides.blank')]])}${bcTog('bleed', t('bc.bleed'))}<p class="muted small">${t('bc.bleedNote')}</p>
-      <div class="btns"><button type="button" class="btn primary" data-act="bc-pdf">⬇ ${t('bc.dlPdf')}</button><button type="button" class="btn" data-act="bc-png" data-id="front">⬇ ${t('bc.dlFront')}</button><button type="button" class="btn" data-act="bc-png" data-id="back">⬇ ${t('bc.dlBack')}</button></div><p class="muted small">${t('bc.printNote')}</p>`);
+      <div class="btns"><button type="button" class="btn primary" data-act="bc-share">📤 ${t('bc.share')}</button></div><div class="btns"><button type="button" class="btn" data-act="bc-pdf">⬇ ${t('bc.dlPdf')}</button><button type="button" class="btn" data-act="bc-png" data-id="front">⬇ ${t('bc.dlFront')}</button><button type="button" class="btn" data-act="bc-png" data-id="back">⬇ ${t('bc.dlBack')}</button></div><p class="muted small">${t('bc.printNote')}</p>`);
     return `${col}${what}${arrange}${pat}${qr}${saved}${print}`;
   }
   function bcRefresh() { const b = $('#bc-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = bcBodyHTML(); $('#sheet').scrollTop = sc; bcPaint(); }
@@ -1881,6 +1881,17 @@
     bcSide = 'front'; { const cv = $('#bc-pv'); cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } bcPaint();
   }
   const bcDownload = (blob, name) => { const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = name; document.body.appendChild(a); a.click(); a.remove(); setTimeout(() => URL.revokeObjectURL(a.href), 4000); };
+  // Share the card as one picture (front above back) through the phone's share sheet; saves the picture instead where sharing is not available.
+  async function cardShare(cfgIn) {
+    const cfg = CardMaker.norm(cfgIn || bcCfg()), sides = cfg.sides === 'front' ? ['front'] : [cfg.sides === 'both' ? 'back' : 'blank'];
+    const parts = [bcCanvas('front', cfg, 1.5)].concat(sides[0] === 'front' ? [] : [bcCanvas(sides[0], cfg, 1.5)]), gap = 48, pad = 48;
+    const W = Math.max(...parts.map((c) => c.width)) + pad * 2, H = parts.reduce((a, c) => a + c.height, 0) + gap * (parts.length - 1) + pad * 2;
+    const cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d'); g.fillStyle = '#f4eff2'; g.fillRect(0, 0, W, H);
+    let y = pad; parts.forEach((c) => { g.save(); g.shadowColor = 'rgba(0,0,0,.18)'; g.shadowBlur = 18; g.shadowOffsetY = 6; g.drawImage(c, (W - c.width) / 2, y); g.restore(); y += c.height + gap; });
+    const blob = await new Promise((ok) => cv.toBlob(ok, 'image/png')), file = new File([blob], `${bcFile()}-business-card.png`, { type: 'image/png' });
+    if (navigator.canShare && navigator.canShare({ files: [file] })) { try { await navigator.share({ files: [file], title: bizName(), text: bizName() }); } catch (e) { if (e && e.name !== 'AbortError') toast('⚠️ ' + t('bc.shareErr')); } return; }
+    bcDownload(blob, file.name); toast(t('bc.sharedDl'));
+  }
   const bcBlob = (cv, type, q) => new Promise((ok) => cv.toBlob(ok, type, q));
   const bcFile = () => (state.settings.businessName || 'business').toLowerCase().replace(/[^a-z0-9]+/g, '-').replace(/^-|-$/g, '') || 'business';
   async function bcMakePdf() {
@@ -1940,7 +1951,7 @@
     const d = svSlot(kind, i), use = d && svInUse(kind, d), b = (a, label, cls) => `<button type="button" class="btn ${cls || ''}" data-act="${a}" data-id="${kind}:${i}">${label}</button>`;
     const pic = !thumbs ? '' : d ? (kind === 'inv' ? `<canvas class="svc" data-svc="inv:${i}:h" width="800" height="190"></canvas>` : `<div class="svpair"><canvas class="svc" data-svc="card:${i}:front"></canvas><canvas class="svc" data-svc="card:${i}:back"></canvas></div>`) : '<div class="svempty">＋</div>';
     return `<div class="card svslot"><div class="svh"><input type="text" class="svname" data-svname="${kind}:${i}" value="${esc(d ? d.name : '')}" placeholder="${t(kind === 'inv' ? 'mb.invN' : 'mb.cardN', { n: i + 1 })}" maxlength="30" autocomplete="off" aria-label="${t('ih.nameDesign')}">${use ? `<span class="chip on">${t('mb.inUse')}</span>` : ''}</div>${pic}
-      <div class="btns">${d ? b('sv-edit', t('mb.edit'), 'primary') + (kind === 'inv' && !use ? b('sv-use', t('mb.use')) : '') + b('sv-save', t('mb.over')) + `<button type="button" class="btn" data-act="sv-del" data-id="${kind}:${i}" aria-label="${t('ih.delete')}">✕</button>` : b('sv-save', t('mb.saveHere'), 'primary') + b('sv-new', t('mb.makeNew'))}</div></div>`;
+      <div class="btns">${d ? b('sv-edit', t('mb.edit'), 'primary') + (kind === 'inv' && !use ? b('sv-use', t('mb.use')) : '') + (kind === 'card' ? b('sv-share', '📤 ' + t('mb.share')) : '') + b('sv-save', t('mb.over')) + `<button type="button" class="btn" data-act="sv-del" data-id="${kind}:${i}" aria-label="${t('ih.delete')}">✕</button>` : b('sv-save', t('mb.saveHere'), 'primary') + b('sv-new', t('mb.makeNew'))}</div></div>`;
   };
   const svSlotsHTML = (kind, thumbs) => `${svCard(kind, 0, thumbs)}${svCard(kind, 1, thumbs)}<p class="muted small">${t('mb.limit')}</p>`;
   function svRedraw() { if (typeof ihOn !== 'undefined' && ihOn && $('#ih-body')) return ihRefresh(); if (bcOn && $('#bc-body')) return bcRefresh(); const top = (pageStack[pageStack.length - 1] || {}).key || '', pg = { 'myinvoice|': sheetMyInvoice, 'mycard|': sheetMyCard }[top]; if (pg) return pg(); }
@@ -4575,6 +4586,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'bc-tog': bcSet(id, !bcPath(id)); return bcRefresh();
       case 'bc-set': { const i = id.indexOf('='), p = id.slice(0, i), v = id.slice(i + 1); if (p === 'scheme') { bcSave(CardMaker.applyScheme(bcCfg(), v, InvHeader.colours(ihCfg()).head)); } else bcSet(p, v); return bcRefresh(); }
       case 'bc-side': bcSide = id; document.querySelectorAll('.bcside .chip').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return bcPaint();
+      case 'bc-share': return cardShare();
+      case 'sv-share': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d || k !== 'card') return; return cardShare(d.cfg); }
       case 'bc-png': { const cfg = bcCfg(); return bcBlob(bcCanvas(id, cfg, 2), 'image/png').then((b) => bcDownload(b, `${bcFile()}-card-${id}-${cfg.bleed ? 'bleed-1125x675' : '1050x600'}.png`)); }
       case 'bc-pdf': return bcMakePdf().then((b) => bcDownload(b, `${bcFile()}-business-card-${bcCfg().bleed ? 'WITH-BLEED-3.75x2.25in' : '3.5x2in'}.pdf`));
       case 'ih-open': return sheetHeader();
