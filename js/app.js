@@ -1331,7 +1331,7 @@
         ${trow('🎨', t('set.theme'), t('pal.' + curPal()) + ' · ' + t('set.colors', { n: Theme.PALETTES.length }), nav('set-theme'))}
         ${trow('🗣️', t('set.custLang'), { auto: t('cust.auto'), ask: t('cust.ask'), app: t('cust.same'), en: I.LANGS.en['lang.name'], es: I.LANGS.es['lang.name'] }[custMode()], 'data-act="pick-custlang"')}
         ${cloud.signedIn && Cloud.hasPassword && Cloud.hasPassword() ? trow('🔑', t('acct.chPw'), t('set.pwSub'), nav('set-password')) : ''}</div>
-      <h2>${t('set.sec.business')}</h2><div class="list grp">${trow('🏪', t('set.businessRow'), t('set.businessSub'), nav('set-business'))}
+      <h2>${t('set.sec.business')}</h2><div class="list grp">${trow('🏪', t('set.businessRow'), t('set.businessSub'), nav('set-business'))}${trow('🛒', t('hub.settings'), t('sset.storeSub'), 'data-act="store-settings"')}
         ${gdSt() && !gdSt().finished ? trow('✨', t('gd.banner'), tn('gd.left', gdPending().length), 'data-act="gd-open"') : ''}
         <div class="row srow"><span class="tile">🛍️</span><div class="grow"><b>${t('store.left')}</b><small>${t('store.leftSub')}</small></div>${swt('store-left', 'showLeft', storeCfg().showLeft)}</div></div>
       <h2>${t('mb.title')}</h2><div class="list grp">${trow('🧾', t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'data-act="mb-inv"')}${trow('💳', t('mb.card'), t('mb.cardSub', { n: nCard() }), 'data-act="mb-card"')}${trow('🖼️', t('mb.logo'), t('mb.logoSub'), 'data-act="mb-logo"')}</div>
@@ -2995,6 +2995,7 @@
     const h = dset().home, st = guideSteps(c), gdone = st.filter((x) => x.done).length, riskN = c.zones.filter((z) => z.risk).length, grp = (title, rows) => `<div class="sgrp"><h4><span>${title}</span></h4><div class="box">${rows}</div></div>`;
     const offN = (c.freeRule.tiers.length || c.freeRule.spend.on ? 1 : 0) + (c.couponRule.on ? 1 : 0), d = dset();
     return `<div class="ssq"><input id="sset-q" type="search" placeholder="${esc(t('sset.search'))}" autocomplete="off" autocapitalize="none" spellcheck="false" enterkeyhint="search"></div><p class="muted small ssnone" id="sset-none" hidden>${t('sset.noMatch')}</p>
+      ${grp(t('mb.title'), setRow('ss-biz', '🏢 ' + t('set.businessRow'), t('set.businessSub'), 'business details name year margin exchange rates negocio detalles') + setRow('mb-inv', '🧾 ' + t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'my invoice invoice creator banner factura') + setRow('mb-card', '💳 ' + t('mb.card'), t('mb.cardSub', { n: nCard() }), 'my business card tarjeta') + setRow('mb-logo', '🖼️ ' + t('mb.logo'), t('mb.logoSub'), 'my logo brand pictures logotipo'))}
       ${grp(t('sset.yours'), setRow('dlv-home', '📍 ' + t('sset.loc'), h ? esc(h.name || t('ds.pinSet')) : `<span style="color:var(--bad,#cf4b4b)">${t('sset.locNone')}</span>`, 'store location pin home hub where driving starts ubicación tienda') + setRow('contact-open', t('hub.contact'), esc(c.name || bizName()) + ' · ' + (esc(c.whatsapp) || t('store.whatsappSub')), 'name whatsapp phone contact link slug short name nombre enlace') + setRow('words-open', t('hub.spanish'), t('words.openLibSub', { n: wordList().length }), 'spanish words español palabras'))}
       ${grp(t('sset.secGuide'), setRow('guide-open', '🧭 ' + t('guide.title'), t('sset.guideSub', { n: gdone, m: st.length }), 'setup guide start steps first time guía pasos empezar'))}
       ${grp(t('sset.delivery'), setRow('pricing-open', t('pr.title'), d.charge ? t('dc.rowOn', { rate: moneyText(d.perKm) + (d.count === 'both' ? ' ' + t('dc.bothShort') : '') }) : t('pr.row'), 'pricing price prices fee fees distance rate per km round trip region regions base map price check price helper try spot charge precio tarifa distancia región regiones')
@@ -3005,7 +3006,8 @@
         <div class="rw2" data-kw="items left quedan"><div class="t"><b>${t('store.left')}</b><small>${t('hub.leftSub')}</small></div>${swt('store-toggle', 'showLeft', c.showLeft)}</div>
         <div class="rw2" data-kw="transit tránsito"><div class="t"><b>${t('store.transit')}</b><small>${t('hub.transitSub')}</small></div>${swt('store-toggle', 'inTransit', c.inTransit)}</div>
         <div class="rw2" data-kw="batches automatically lotes"><div class="t"><b>${t('store.autoNew')}</b><small>${t('hub.autoSub')}</small></div>${swt('store-toggle', 'autoNew', c.autoNew)}</div>
-        <button class="rw2 tap" data-act="store-open" data-kw="publish share link create store publicar compartir"><div class="t"><b>${t('hub.all')}</b></div><span class="chev">›</span></button>`) : grp(t('sset.page'), setRow('store-open', t('hub.all'), t('hub.allSub'), 'publish share link create store publicar compartir') + `<p class="muted small" style="margin:8px 14px">${t('sset.switchesNote')}</p>`)}`;
+        <button class="rw2 tap" data-act="store-open" data-kw="publish share link create store publicar compartir"><div class="t"><b>${t('hub.all')}</b></div><span class="chev">›</span></button>`) : grp(t('sset.page'), setRow('store-open', t('hub.all'), t('hub.allSub'), 'publish share link create store publicar compartir') + `<p class="muted small" style="margin:8px 14px">${t('sset.switchesNote')}</p>`)}
+      ${grp(t('sset.allT'), setRow('ss-all', '⚙️ ' + t('sset.allRow'), t('sset.allSub'), 'all settings team people ranks data backup language theme appearance account ajustes equipo respaldo idioma tema'))}`;
   };
   // Typing in the settings search keeps only the rows that match every word (in English or Spanish).
   const fold2 = (v) => String(v || '').normalize('NFD').replace(/[\u0300-\u036f]/g, '').toLowerCase();
@@ -4351,6 +4353,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'store-link': { const c = storeCfg(); if (!c.id) return sheetStore(); return copyText(Store.link(c)).then((ok) => toast(ok ? t('store.copied') : Store.link(c))); }
       case 'store-open': return sheetStore();
       case 'store-settings': closeSheet(); return sheetStoreSettings();
+      case 'ss-biz': closeSheet(); go({ tab: 'more', moreView: 'set-business' }); window.scrollTo(0, 0); return render();
+      case 'ss-all': closeSheet(); go({ tab: 'more', moreView: 'settings' }); window.scrollTo(0, 0); return render();
       case 'pickup-open': return sheetPickup();
       case 'contact-open': return sheetContact();
       case 'store-create': storeSet({}); seedDefaultPlaces(); Store.publish(true).then(async () => { const c = storeCfg(), want = SCore.slugify(c.name || bizName()); if (c.slug || SCore.slugError(want) || !Store.claim) return; if (!(await Store.claim(want))) { storeSet({ slug: want }); Store.publish(true); if (!$('#sheet').hidden) sheetStore(); } }); return sheetStore();
