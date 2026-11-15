@@ -81,8 +81,8 @@
       const code = T.genCode(), ws = db.collection('workspaces').doc(), b = db.batch();
       b.set(ws, { name: name || 'My business', ownerUid: user.uid, members: { [user.uid]: 'owner' }, names: { [user.uid]: me().name || me().email }, perms: T.defaults(), code, createdAt: FV().serverTimestamp() });
       b.set(db.collection('codes').doc(code), { ws: ws.id });
-      b.set(ref, { workspaceId: ws.id, email: user.email || '' });
-      try { await b.commit(); lsSet('buy-sell-cloud-ws:' + user.uid, ws.id); lsSet(joinKey(), null); teardown(); await start(); return; }
+      b.set(ref, { workspaceId: ws.id, email: user.email || '', termsAt: FV().serverTimestamp(), termsV: '1' });
+      try { await b.commit(); if (root.Plan) await db.collection('plans').doc(ws.id).set(newPlan(name)).catch(() => { /* rules not published yet: this business simply has no limits */ }); lsSet('buy-sell-cloud-ws:' + user.uid, ws.id); lsSet(joinKey(), null); teardown(); await start(); return; }
       catch (e) { if (n === 3 || !(e && e.code === 'permission-denied')) throw e; }   // a code that already exists looks like a refused write: try another one
     }
   }
@@ -172,11 +172,23 @@
   const col = (c) => db.collection('workspaces').doc(wid).collection(c);
   const toMap = (snap) => { const m = {}; snap.forEach((d) => { const j = d.data().j; if (typeof j === 'string') m[d.id] = j; }); return m; };
 
+  // Plan of this business (set by the person who runs the app). No record, or rules not published yet: no limits.
+  function watchPlan(my) {
+    if (!db || !wid || !user) return;
+    unsubs.push(db.collection('plans').doc(wid).onSnapshot((snap) => { if (my === runId && hooks.onPlan) hooks.onPlan(snap.exists ? snap.data() : null, wid); }, () => { if (my === runId && hooks.onPlan) hooks.onPlan(null, wid); }));
+    db.collection('admins').doc(user.uid).get().then((d) => { if (my === runId && hooks.onAdmin) hooks.onAdmin(!!d.exists); }).catch(() => { if (my === runId && hooks.onAdmin) hooks.onAdmin(false); });
+  }
+  const newPlan = (name) => ({ plan: 'trial', trialEnds: root.firebase.firestore.Timestamp.fromMillis(root.Plan.trialEnd()), name: String(name || 'My business').slice(0, 80), createdAt: FV().serverTimestamp() });
+  // admin only (the rules refuse everyone else)
+  const adminList = () => db.collection('plans').get({ source: 'server' }).then((q) => q.docs.map((d) => Object.assign({ id: d.id }, d.data())));
+  const adminUsage = (id) => db.collection('plans').doc(id).collection('usage').doc('stats').get({ source: 'server' }).then((d) => (d.exists ? d.data() : null)).catch(() => null);
+  const adminSet = (id, patch) => db.collection('plans').doc(id).update(patch);
+  const pingUsage = (info) => (db && wid && user ? db.collection('plans').doc(wid).collection('usage').doc('stats').set(Object.assign({}, info, { seen: FV().serverTimestamp() }), { merge: true }).catch(() => {}) : Promise.resolve());
   async function start() {
     const my = ++runId; set('connecting');
     wid = await resolveWorkspace(); if (my !== runId) return;
     if (!wid) return awaiting(my);
-    watchTeam(my);
+    watchTeam(my); watchPlan(my);
     const state = hooks.getState();
     last = lsGet(lastKey());
     if (!last) {                                                    // first time this phone meets this workspace
@@ -242,7 +254,7 @@
   // Sign-in calls wait (up to 10 s) for the sign-in code to finish loading, so a very early tap still works.
   const need = () => Promise.race([sdkReady, new Promise((r) => setTimeout(r, 10000))]).then(() => { if (!auth) throw Object.assign(new Error('unavailable'), { code: 'app/unavailable' }); return auth; });
   const api = {
-    init, changed, info, push, usage, checkRules, createBusiness, joinByCode, cancelJoin, refreshRequests, checkSharing, team: () => team, approve, decline, setRank, removeMember, setPerms, newCode, transfer,
+    init, changed, info, push, usage, adminList, adminUsage, adminSet, pingUsage, ts: (ms) => root.firebase.firestore.Timestamp.fromMillis(ms), checkRules, createBusiness, joinByCode, cancelJoin, refreshRequests, checkSharing, team: () => team, approve, decline, setRank, removeMember, setPerms, newCode, transfer,
     // handles the online store uses (the same signed-in Firestore connection)
     db: () => db, storage: () => (root.firebase && root.firebase.storage ? root.firebase.storage() : null), uid: () => (user ? user.uid : null), workspace: () => wid, stamp: () => root.firebase.firestore.FieldValue.serverTimestamp(), ready: () => !!(db && user && wid),
     // Google opens as a pop-up for everyone, started straight from the tap (iPhone blocks a pop-up that opens after a wait). Only if the phone refuses the pop-up does the whole page go to Google and come back.

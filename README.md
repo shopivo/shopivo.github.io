@@ -151,3 +151,22 @@ Firestore rules **1.07** (1.07 lets an order carry the coupon code a customer us
 - **Transfer ownership:** Team → Transfer ownership: pick a member, two confirmations, then type TRANSFER. The new person becomes Owner, the old Owner a Manager.
 - **Data:** `workspaces/{w}` holds `members {uid: rank}`, `names`, `perms` and `code`; `codes/{CODE}` points to the workspace; `workspaces/{w}/joinRequests/{uid}` holds a request until the Owner answers. Invoices record who made them (`by`) once more than one person is in the business.
 - **Not built yet:** protection against two phones making the same invoice number at the very same moment.
+
+## Renting the app to other businesses (plans)
+
+Each business that signs up is its own workspace; the Firestore rules only let its members read it. A new business gets a **30-day free
+trial**. When the trial or the paid time ends, the account is **read-only for 14 days** (everything can be seen and downloaded, nothing is
+saved) and then **locked** until it is paid. Nothing is deleted. A business with no plan record (yours, or one made before plans) is never limited.
+
+One-time setup (rules 1.08):
+
+1. Firebase console → Firestore → Rules → paste `firestore.rules` → Publish. Publish this **before** onboarding customers.
+2. In the app: Settings → *Plan and agreements* → **My account ID** (tap to copy).
+3. Firebase console → Firestore → Start collection `admins` → Document ID = the copied account ID → add one field (for example `ok` = `true`). Reload the app: *Customer plans* appears under *Plan and agreements*.
+4. In `js/app.js`, fill in `OPERATOR` (your name and WhatsApp number with country code, digits only) so renewal pages show your contact button.
+
+*Customer plans* lists every business with its trial/paid-until date, size, item and invoice counts, and when it was last used. Tap one to add
+paid time (+1 month / +3 months / +1 year), change its plan, or lock/unlock it. Billing is by hand: the customer pays you, then you add the time.
+
+Limits to know about: the lock is enforced by the app on the customer's phone (it is not a hard server rule), so it stops everyday use but
+not a determined developer. Terms of use and the privacy note are plain-language drafts in `js/i18n.js` (`tp.*`); have them reviewed before relying on them.

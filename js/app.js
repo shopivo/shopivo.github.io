@@ -16,7 +16,10 @@
   const bizName = () => state.settings.businessName || 'B-RUIZ';
   const initials = (n) => String(n).trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join('').toUpperCase() || '·';
   // Versions shown in Settings > About. APP_VERSION goes up by 0.01 with each release; RULES_VERSION must match the header of firestore.rules (a test checks).
-  const APP_VERSION = '1.00', RULES_VERSION = '1.07', CLOUD_LIMIT = 1073741824;
+  const APP_VERSION = '1.00', RULES_VERSION = '1.08', CLOUD_LIMIT = 1073741824;
+  // Who runs the app. The name shows on the plan, terms and privacy pages; add a WhatsApp number (digits only, with country code) to show a contact button on them.
+  const OPERATOR = { name: 'Shopivo', whatsapp: '' };
+  let planDoc = null, planSt = { state: 'free' }, isAdmin = false, planAdm = { rows: null, err: '', busy: false }, planBlockAt = 0;
   const NUM_FIELDS = ['cost', 'price', 'sold', 'delivery'];
   const STATUSES = ['In Transit', 'Available', 'Owing', 'Paid', 'Closed'];   // stored names; only their display text is translated
   const stLabel = (s) => t('status.' + String(s).replace(' ', ''));
@@ -253,6 +256,7 @@
       const form = `<form id="f-gate"><label>${t('acct.email')}</label><input name="email" type="email" inputmode="email" autocomplete="email" value="${gateMode === 'in' ? esc(lastEmail()) : ''}" required>
       <label>${t('acct.password')}</label><span class="pwbox"><input name="password" type="password" autocomplete="${gateMode === 'create' ? 'new-password' : 'current-password'}" minlength="6" required><button type="button" class="eye" data-act="pw-eye" aria-label="${t('acct.showPw')}">👁</button></span>
       <div id="g-err" class="g-err" hidden></div>
+      ${gateMode === 'create' ? `<p class="g-small" style="margin:12px 0 0">${t('tp.agree')} <button type="button" class="g-link" style="display:inline" data-act="terms-open">${t('tp.termsT')}</button> · <button type="button" class="g-link" style="display:inline" data-act="priv-open">${t('tp.privT')}</button></p>` : ''}
       <button class="g-btn primary" style="margin-top:18px">${gateMode === 'create' ? t('acct.create') : t('acct.signIn')}</button>
       ${gateMode === 'in' ? `<button type="button" class="g-link" data-act="gate-forgot">${t('acct.forgot')}</button>` : ''}</form>`;
       const or = `<p class="g-small" style="text-align:center;margin:14px 0">${t('acct.or')}</p>`;
@@ -323,8 +327,9 @@
     try { const raw = localStorage.getItem(KEY); if (raw) return L.migrate(JSON.parse(raw)); } catch (e) { /* use default */ }
     return L.defaultState();
   }
-  function save() { if (peopleOn) { try { PE.ensure(state); } catch (e) { /* ignore */ } } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast(t('err.save')); } if (window.Cloud) Cloud.changed(); if (window.Store) Store.schedule(); }
+  function save() { if (!Plan.canWrite(planSt)) { planBlocked(); return; } if (peopleOn) { try { PE.ensure(state); } catch (e) { /* ignore */ } } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast(t('err.save')); } if (window.Cloud) Cloud.changed(); if (window.Store) Store.schedule(); }
   function toast(msg, ms) {
+    if (planBlockAt && Date.now() - planBlockAt < 600 && !Plan.canWrite(planSt)) msg = t(planSt.state === 'locked' ? 'pl.blockedLocked' : 'pl.blocked');   // a 'saved' message right after a refused save would be a lie
     const el = $('#toast'); el.textContent = plain(msg); el.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), ms || 3200);
   }
@@ -386,7 +391,7 @@
     closeTopMenu();
     cleanSelected();
     const moreTitles = { deliveries: 'more.deliveries', orders: 'more.orders', batches: 'more.batches', invoices: 'title.invoices', items: 'title.items', summary: 'title.summary', settings: 'title.settings' };
-    const titles = { home: bizName(), stock: stockBatch && stockFilter !== 'NoPrice' ? bl(stockBatch) : t('nav.stock'), sell: moreView === 'invoice' ? (pendingOrder ? t('ord.confirmTitle') : t('sell.newInv')) : t('nav.sell'), people: t('cu.title'), promote: t('nav.promote'), more: moreView ? (moreView.startsWith('set-') ? { 'set-theme': t('set.theme'), 'set-business': t('set.business'), 'set-invdesign': t('set.invDesign'), 'set-backup': t('set.backupRow'), 'set-about': t('set.storageRow'), 'set-password': t('acct.chPw') }[moreView] : t(moreTitles[moreView])) : t('nav.more') };
+    const titles = { home: bizName(), stock: stockBatch && stockFilter !== 'NoPrice' ? bl(stockBatch) : t('nav.stock'), sell: moreView === 'invoice' ? (pendingOrder ? t('ord.confirmTitle') : t('sell.newInv')) : t('nav.sell'), people: t('cu.title'), promote: t('nav.promote'), more: moreView ? (moreView.startsWith('set-') ? { 'set-theme': t('set.theme'), 'set-business': t('set.business'), 'set-invdesign': t('set.invDesign'), 'set-backup': t('set.backupRow'), 'set-about': t('set.storageRow'), 'set-plans': t('pl.admT'), 'set-terms': t('tp.termsT'), 'set-privacy': t('tp.privT'), 'set-password': t('acct.chPw') }[moreView] : t(moreTitles[moreView])) : t('nav.more') };
     $('#title').textContent = titles[tab];
     $('#back').hidden = !((tab === 'more' || tab === 'sell') && moreView);
     const hasLogo = !!state.settings.bizLogo, customBrand = !!state.settings.businessName, showBrand = $('#back').hidden, imgBrand = hasLogo || !customBrand;
@@ -430,7 +435,79 @@
   /* ---------- Home ---------- */
 
   const TRANSIT_LATE_DAYS = 14;
-  function Home() {
+  function Home() { return planCard() + Home0(); }
+
+  /* ---------- plans: free trial, paid-until date, read-only, locked; terms and privacy; the admin list ---------- */
+  const planCompute = () => { planSt = isAdmin ? { state: 'free' } : Plan.status(planDoc); return planSt; };
+  const planDate = (ms) => (ms ? new Date(ms).toLocaleDateString(I.getLang() === 'es' ? 'es' : 'en-GB', { day: 'numeric', month: 'short', year: 'numeric' }) : '—');
+  function rentLabel(st) {
+    if (st.state === 'trial') return tn('pl.trial', st.daysLeft);
+    if (st.state === 'active') return st.daysLeft != null ? tn('pl.paid', st.daysLeft) : t('pl.paidNoEnd');
+    if (st.state === 'readonly') return tn('pl.read', st.graceLeft);
+    if (st.state === 'locked') return t('pl.locked');
+    return t('pl.free');
+  }
+  let planToastAt = 0;
+  function planBlocked() { const n = Date.now(); planBlockAt = n; if (n - planToastAt > 4000) { planToastAt = n; toast(t(planSt.state === 'locked' ? 'pl.blockedLocked' : 'pl.blocked')); } }
+  const planWa = () => (OPERATOR.whatsapp ? `<a class="btn primary" style="display:block;text-align:center;text-decoration:none" href="https://wa.me/${OPERATOR.whatsapp}?text=${encodeURIComponent(t('pl.waText', { name: bizName() }))}" target="_blank" rel="noopener">💬 ${t('pl.waBtn', { op: OPERATOR.name })}</a>` : `<p class="muted small">${t('pl.contactNone', { op: OPERATOR.name })}</p>`);
+  // the card on Home: only in the last 7 days, and after the date has passed
+  function planCard() {
+    if (!Plan.needsNote(planSt)) return '';
+    const bad = planSt.state === 'readonly' || planSt.state === 'locked';
+    return `<button type="button" class="roomwarn ${bad ? 'high' : 'mid'}" style="width:100%;text-align:left;border:0;cursor:pointer" data-act="pl-info"><b>${esc(rentLabel(planSt))}</b><span>${t(bad ? 'pl.cardBad' : 'pl.cardSoon')}</span></button>`;
+  }
+  function rentInfo() {
+    const st = planSt, ends = st.until ? planDate(st.until) : '';
+    openSmall(`<h3>${t('pl.title')}</h3><div class="sumbox" style="margin:6px 0 10px"><div><span>${t('pl.status')}</span><b>${esc(rentLabel(st))}</b></div>${st.plan && st.plan !== 'trial' ? `<div><span>${t('pl.plan')}</span><b>${esc(t('pl.n.' + st.plan))}</b></div>` : ''}${ends ? `<div><span>${t(st.state === 'trial' ? 'pl.trialEnds' : 'pl.paidUntil')}</span><b>${ends}</b></div>` : ''}</div>
+      <p class="muted small">${t('pl.explain', { d: Plan.GRACE_DAYS })}</p>${planWa()}
+      <div class="btns"><button type="button" class="btn" data-act="export-json">💾 ${t('pl.download')}</button><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'card');
+  }
+  // A locked account sees only this: their data is safe, they can download a copy, contact, or sign out.
+  function planLockSync() {
+    let el = document.getElementById('planlock');
+    if (planSt.state !== 'locked') { if (el) el.remove(); return; }
+    if (!el) { el = document.createElement('div'); el.id = 'planlock'; document.body.appendChild(el); }
+    el.innerHTML = `<div class="plcard"><div style="font-size:42px">🔒</div><h2>${t('pl.lockT')}</h2><p>${t('pl.lockP')}</p>${planWa()}<div class="btns"><button type="button" class="btn" data-act="export-json">💾 ${t('pl.download')}</button><button type="button" class="btn" data-act="acct-out">${t('acct.signOut')}</button></div></div>`;
+  }
+  function planRefresh() { planCompute(); planLockSync(); render(); }
+  setInterval(() => { const was = planSt.state; planCompute(); if (planSt.state !== was) planRefresh(); }, 3600000);
+  // once a day a business with a plan record tells the admin how big it is and when it was last used
+  function planPing() {
+    if (!planDoc || isAdmin || !window.Cloud) return; const k = 'buy-sell-plan-ping', last = Number(localStorage.getItem(k) || 0); if (Date.now() - last < 43200000) return;
+    try { localStorage.setItem(k, String(Date.now())); } catch (e) { /* ignore */ }
+    Cloud.pingUsage({ bytes: settingsRoom().total, items: state.items.length, invoices: state.invoices.length, batches: state.batches.length, ver: APP_VERSION });
+  }
+  // ---- terms of use and privacy note (plain language) ----
+  const legalHTML = (kind) => { const n = kind === 'terms' ? 8 : 7; return `<div class="legal">${Array.from({ length: n }, (_, i) => `<h3>${t('tp.' + kind + '.h' + (i + 1))}</h3><p>${t('tp.' + kind + '.p' + (i + 1), { op: OPERATOR.name, d: Plan.GRACE_DAYS, tr: Plan.TRIAL_DAYS })}</p>`).join('')}<p class="muted small">${t('tp.updated')}</p></div>`; };
+  const legalSheet = (kind) => openSmall(`<h2 style="margin:0 0 6px">${t(kind === 'terms' ? 'tp.termsT' : 'tp.privT')}</h2>${legalHTML(kind)}<div class="btns"><button type="button" class="btn primary" data-act="close">${t('btn.close')}</button></div>`, 'sheet');
+  // ---- admin: every customer's plan (only a person listed in admins/ can open this) ----
+  async function planAdmLoad() {
+    if (planAdm.busy || !window.Cloud) return; planAdm.busy = true; planAdm.err = '';
+    try {
+      const rows = await Cloud.adminList(); const us = await Promise.all(rows.map((r) => Cloud.adminUsage(r.id))); rows.forEach((r, i) => { r.usage = us[i]; });
+      planAdm.rows = rows;
+    } catch (e) { planAdm.err = (e && e.code === 'permission-denied') ? t('pl.admNoAccess') : ((e && e.message) || ''); planAdm.rows = planAdm.rows || []; }
+    planAdm.busy = false; if (moreView === 'set-plans') render();
+  }
+  function PlansAdminPage() {
+    if (!isAdmin) return `<p class="muted">${t('pl.admNo')}</p>`;
+    if (planAdm.rows == null && !planAdm.busy) setTimeout(planAdmLoad, 0);
+    const rows = (planAdm.rows || []).map((r) => ({ r, st: Plan.status(r) })).sort((a, b) => ['locked', 'readonly', 'trial', 'active', 'free'].indexOf(a.st.state) - ['locked', 'readonly', 'trial', 'active', 'free'].indexOf(b.st.state) || String(a.r.name).localeCompare(String(b.r.name)));
+    const cls = { locked: 'high', readonly: 'high', trial: 'mid', active: 'ok', free: 'ok' };
+    return `<p class="muted small">${t('pl.admSub')}</p><div class="btns"><button type="button" class="btn" data-act="pl-reload">${planAdm.busy ? t('pl.loading') : '↻ ' + t('pl.reload')}</button></div>${planAdm.err ? `<p class="roomnote high">${esc(planAdm.err)}</p>` : ''}
+      <div class="list">${rows.length ? rows.map(({ r, st }) => { const u = r.usage || {}; return `<button class="row tap" data-act="pl-open" data-id="${esc(r.id)}"><div class="grow"><b>${esc(r.name || r.id)}</b><small>${esc(rentLabel(st))}${st.until ? ' · ' + planDate(st.until) : ''}</small><small>${u.items != null ? t('pl.use', { i: u.items, v: u.invoices || 0, s: fmtBytes(u.bytes || 0) }) : t('pl.noUse')}${u.seen ? ' · ' + t('pl.seen', { d: planDate(Plan.ms(u.seen)) }) : ''}</small></div><span class="chip ${cls[st.state] === 'ok' ? '' : 'on'}">${t('pl.st.' + st.state)}</span></button>`; }).join('') : `<p class="muted small">${planAdm.busy ? t('pl.loading') : t('pl.admNone')}</p>`}</div>`;
+  }
+  function planRowSheet(id) {
+    const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; const st = Plan.status(r);
+    const chips = Plan.PLANS.map((k) => `<button type="button" class="chip ${r.plan === k ? 'on' : ''}" data-act="pl-plan" data-id="${esc(id)}:${k}">${t('pl.n.' + k)}</button>`).join('');
+    const add = [[1, t('pl.add1')], [3, t('pl.add3')], [12, t('pl.add12')]].map(([m, l]) => `<button type="button" class="btn" data-act="pl-add" data-id="${esc(id)}:${m}">${l}</button>`).join('');
+    openSmall(`<h3>${esc(r.name || id)}</h3><div class="sumbox" style="margin:6px 0 10px"><div><span>${t('pl.status')}</span><b>${esc(rentLabel(st))}</b></div><div><span>${t(r.plan === 'trial' ? 'pl.trialEnds' : 'pl.paidUntil')}</span><b>${planDate(st.until)}</b></div></div>
+      <div class="ihr"><label>${t('pl.plan')}</label><div class="chiprow">${chips}</div></div><div class="ihr"><label>${t('pl.addTime')}</label><div class="btns" style="margin:0">${add}</div></div>
+      <div class="btns"><button type="button" class="btn ${r.locked ? 'primary' : 'dsolid'}" data-act="pl-lock" data-id="${esc(id)}">${r.locked ? t('pl.unlock') : t('pl.lockNow')}</button><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'card');
+  }
+  async function planAdmWrite(id, patch) { try { await Cloud.adminSet(id, patch); toast(t('pl.saved')); planAdm.rows = null; await planAdmLoad(); closeSheet(); } catch (e) { toast('⚠️ ' + ((e && e.message) || t('pl.err'))); } }
+
+  function Home0() {
     const tot = L.totals(state, flt);
     const inTransit = state.batches.filter((b) => bStatus(b) === 'In Transit').sort((a, b) => b.num - a.num);
     const owingAll = L.customerStats(state).filter((c) => c.owing > 0).sort((a, b) => b.owing - a.owing), owing = owingAll.slice(0, 3);
@@ -1347,6 +1424,10 @@
         ${trow('💾', t('set.backupRow'), t('set.backupSub'), nav('set-backup'))}
         ${trow('📥', t('more.import'), t('more.importSub'), 'data-act="import-xlsx"')}
         ${trow('📊', t('set.storageRow'), t('set.storageSub'), nav('set-about'))}</div>
+      <h2>${t('pl.sec')}</h2><div class="list grp">
+        ${planDoc || isAdmin ? trow('🧾', t('pl.title'), isAdmin ? t('pl.free') : rentLabel(planSt), 'data-act="pl-info"') : ''}${isAdmin ? trow('👥', t('pl.admT'), t('pl.admRow'), nav('set-plans')) : ''}${cloud.signedIn && window.Cloud && Cloud.uid() ? trow('🪪', t('pl.uid'), t('pl.uidSub'), 'data-act="copy-uid"') : ''}
+        ${trow('📄', t('tp.termsT'), t('tp.termsSub'), nav('set-terms'))}
+        ${trow('🔏', t('tp.privT'), t('tp.privSub'), nav('set-privacy'))}</div>
       <h2>${t('set.sec.about')}</h2><div class="list grp">
         ${trow('⬆️', t('set.versionRow', { v: APP_VERSION }), t('set.versionSub', { r: RULES_VERSION }), 'data-act="check-update"')}
         ${trow('🛡️', t('set.rulesRow'), t('set.rulesSub', { r: RULES_VERSION }), 'data-act="check-rules"')}
@@ -2086,6 +2167,9 @@
     const s = state.settings, cur = I.getLang();
     if (moreView === 'set-password') return chPwHTML() || '<p class="muted">' + t('set.pwNone') + '</p>';
     if (moreView === 'set-about') return AboutPage();
+    if (moreView === 'set-plans') return PlansAdminPage();
+    if (moreView === 'set-terms') return legalHTML('terms');
+    if (moreView === 'set-privacy') return legalHTML('privacy');
     if (moreView === 'set-backup') return BackupPage();
     if (moreView === 'set-invdesign') return InvDesignPage();
     if (moreView === 'set-theme') {
@@ -4628,6 +4712,15 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || !r._undo || !r._undo.length) return; r.value = r._undo.pop(); r.dispatchEvent(new Event('input', { bubbles: true })); if (!r._undo.length) t_.remove(); return; }
+      case 'pl-info': return rentInfo();
+      case 'copy-uid': { const u = window.Cloud && Cloud.uid(); if (!u) return; return copyText(u).then((ok) => toast(ok ? t('pl.uidCopied') : u)); }
+      case 'terms-open': return legalSheet('terms');
+      case 'priv-open': return legalSheet('privacy');
+      case 'pl-reload': planAdm.rows = null; return planAdmLoad();
+      case 'pl-open': return planRowSheet(id);
+      case 'pl-plan': { const [w, k] = id.split(':'); return planAdmWrite(w, { plan: k }); }
+      case 'pl-add': { const [w, m] = id.split(':'), r = (planAdm.rows || []).find((x) => x.id === w); if (!r) return; const cur = r.plan === 'trial' ? Plan.ms(r.trialEnds) : Plan.ms(r.paidUntil), ends = Plan.extend(cur, Date.now(), Number(m)); return planAdmWrite(w, { plan: r.plan === 'trial' ? 'starter' : r.plan, paidUntil: Cloud.ts(ends), locked: false }); }
+      case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
       case 'tm-open': return sheetTitleMaker();
       case 'tm-set': { if (!tm) return; const i = id.indexOf('='); const nm = $('#tm-name'), sb = $('#tm-sub'); if (nm) tm.name = nm.value; if (sb) tm.sub = sb.value; tm[id.slice(0, i)] = id.slice(i + 1); document.querySelectorAll('[data-act=tm-set]').forEach((b) => { const j = b.dataset.id.indexOf('='); b.classList.toggle('on', tm[b.dataset.id.slice(0, j)] === b.dataset.id.slice(j + 1)); }); return tmPaint(); }
       case 'tm-colpick': { if (!tm) return; const keep = tm, k = id, nm = $('#tm-name'), sb = $('#tm-sub'); if (nm) keep.name = nm.value; if (sb) keep.sub = sb.value; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetTitleMaker(keep), 0)); }
@@ -5333,12 +5426,14 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   if (window.PhotoSync) PhotoSync.init({ state: () => state });
   PUI.init({ state: () => state, save, render, toast, esc, bl, openSheet, openSmall, closeSheet, confirm: (m) => window.confirm(m), sync: () => syncHistory(), invMoney: (n) => invMoney(n), invoiceLang: () => invoiceLang(), shareLang, tagHTML });
   Cloud.init({
+    onPlan: (d) => { planDoc = d; planRefresh(); },
+    onAdmin: (a) => { isAdmin = !!a; planRefresh(); },
     getState: () => state,
     askConflict,
     onTeam: (tm) => { team = tm; try { if (tm) localStorage.setItem('buy-sell-team', JSON.stringify({ uid: cloud.uid, rank: tm.rank, perms: tm.perms })); else localStorage.removeItem('buy-sell-team'); } catch (e) { /* ignore */ } updateGate(); render(); refreshTeamSheets(); },
     onRequests: (list) => { joinReqs = list; renderTools(); refreshTeamSheets(); },
     onRequestsError: (code) => { reqErr = code || ''; refreshTeamSheets(); },
-    onStatus: (i) => { const was = cloud.signedIn; cloud = i; peopleCheck(); if (i.status === 'synced' && window.PhotoSync) PhotoSync.soon(3000); if (i.signedIn && !was && homeAfterSignIn) { homeAfterSignIn = false; closeSheet(); tab = 'home'; moreView = null; places = [{ tab: 'home', moreView: null }]; pageStack = []; render(); } if (i.status === 'synced' && window.Store) { Store.schedule(); Store.listen(); } else if (!i.signedIn && window.Store) Store.stopListen(); updateGate(); const el = $('#acct-st'); if (el && was === i.signedIn) { el.textContent = acctStatus(); el.parentNode.className = i.status === 'synced' ? 'good' : /error|rules|unavailable/.test(i.status) ? 'bad' : ''; } else if (tab === 'home' || (tab === 'more' && moreView === 'settings')) render(); },
+    onStatus: (i) => { const was = cloud.signedIn; cloud = i; peopleCheck(); if (i.status === 'synced') planPing(); if (i.status === 'synced' && window.PhotoSync) PhotoSync.soon(3000); if (i.signedIn && !was && homeAfterSignIn) { homeAfterSignIn = false; closeSheet(); tab = 'home'; moreView = null; places = [{ tab: 'home', moreView: null }]; pageStack = []; render(); } if (i.status === 'synced' && window.Store) { Store.schedule(); Store.listen(); } else if (!i.signedIn && window.Store) Store.stopListen(); updateGate(); const el = $('#acct-st'); if (el && was === i.signedIn) { el.textContent = acctStatus(); el.parentNode.className = i.status === 'synced' ? 'good' : /error|rules|unavailable/.test(i.status) ? 'bad' : ''; } else if (tab === 'home' || (tab === 'more' && moreView === 'settings')) render(); },
     onRemote: () => { L.migrate(state); peopleCheck(); wordList(); updateGate(); if (state.settings.palette) { Theme.apply(state.settings.palette); applyTheme(); } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } const a = document.activeElement; if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && $('#view').contains(a)) return setTimeout(render, 2000); render(); },
   });
   setTimeout(() => { const e = Cloud.redirectError && Cloud.redirectError(); if (e) toast(acctErr(e)); }, 4000);   // a Google sign-in that came back from Google's page with an error
