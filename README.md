@@ -151,3 +151,38 @@ Firestore rules **1.07** (1.07 lets an order carry the coupon code a customer us
 - **Transfer ownership:** Team → Transfer ownership: pick a member, two confirmations, then type TRANSFER. The new person becomes Owner, the old Owner a Manager.
 - **Data:** `workspaces/{w}` holds `members {uid: rank}`, `names`, `perms` and `code`; `codes/{CODE}` points to the workspace; `workspaces/{w}/joinRequests/{uid}` holds a request until the Owner answers. Invoices record who made them (`by`) once more than one person is in the business.
 - **Not built yet:** protection against two phones making the same invoice number at the very same moment.
+
+## Renting the app to other businesses (plans)
+
+Each business that signs up is its own workspace; the Firestore rules only let its members read it. A new business gets a **30-day free
+trial**. When the trial or the paid time ends, the account is **read-only for 14 days** (everything can be seen and downloaded, nothing is
+saved) and then **locked** until it is paid. Nothing is deleted. A business with no plan record (yours, or one made before plans) is never limited.
+
+One-time setup (rules 1.08):
+
+1. Firebase console → Firestore → Rules → paste `firestore.rules` → Publish. Publish this **before** onboarding customers.
+2. In the app: Settings → *Plan and agreements* → **My account ID** (tap to copy).
+3. Firebase console → Firestore → Start collection `admins` → Document ID = the copied account ID → add one field (for example `ok` = `true`). Reload the app: *Customer plans* appears under *Plan and agreements*.
+4. In `js/app.js`, fill in `OPERATOR` (your name and WhatsApp number with country code, digits only) so renewal pages show your contact button.
+
+*Customer plans* lists every business with its trial/paid-until date, size, item and invoice counts, and when it was last used. Tap one to add
+paid time (+1 month / +3 months / +1 year), change its plan, or lock/unlock it. Billing is by hand: the customer pays you, then you add the time.
+
+### Server lock (rules 1.09)
+
+Rules 1.09 make the lock real, on Google's servers: a business with a plan record cannot **write** after its trial/paid time ends (or when you lock it),
+cannot **read** its data 14 days after that, and its online store stops taking orders then. A new business must be created together with its trial record,
+and each account gets one trial (`trials/{uid}`). Businesses with no plan record, and admins, are never limited. The app's own lock screen still shows first.
+
+Rollout (do these in order):
+
+1. Publish rules **1.08**-or-later only after the app with plans is deployed. Create your `admins/{your account ID}` document first.
+2. Make a test customer: sign in with a different Google account and create a business (it gets a 30-day trial).
+3. In *Customer plans*, open that business and use **Rehearsal**: *Ended 3 days ago* (the test phone becomes read-only; try saving: it is refused),
+   *Ended 20 days ago* (locked: nothing loads), *30 days left* (everything works again). With rules 1.09 published, check the refusals are real by
+   looking in the Firebase console, Firestore, Usage/Rules for denied requests.
+4. Only then publish rules **1.09**. Keep the previous version: Firestore > Rules shows the history, and publishing an older one rolls back.
+
+Limits to know about: before rules 1.09 is published, the lock is enforced only by the app on the customer's phone, so it stops everyday use but
+not a determined developer. After 1.09 the server enforces it (pictures in Firebase Storage are covered by separate storage rules and are not locked yet).
+Terms of use and the privacy note are plain-language drafts in `js/i18n.js` (`tp.*`); have them reviewed before relying on them.

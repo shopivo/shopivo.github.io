@@ -1,5 +1,5 @@
 rules_version = '2';
-// B Ruiz Firestore rules 1.07
+// B Ruiz Firestore rules 1.09
 // Paste this into Firebase console > Firestore Database > Rules > Publish.
 // Only signed-in people can touch data, only their own user record, and only workspaces they are a member of.
 // 1.01 adds the online store: anyone with the store's link can read the published catalogue and send an order; only the owner can read orders or change the store.
@@ -9,10 +9,26 @@ rules_version = '2';
 // 1.05 shares a business between people: a business code (codes/{CODE}) that anyone signed in can look up one at a time, requests to join (workspaces/{w}/joinRequests/{uid}) that only the Owner can answer, and the online store can be read and changed by every member of the business (not only the person who created it).
 // 1.06 adds short store link names: names/{name} (3-30 lowercase letters, digits, hyphens) points at a store; anyone can read one, only the store's owner or a member of its business can claim, move or release it.
 // 1.07 lets an order carry the coupon code the customer used (coupon, 3 to 24 characters), so the seller can see it and the code can be marked used.
+// 1.08 adds plans for people who rent the app: plans/{workspace} holds the plan, trial end and paid-until date. A business Owner can only create it once, as a 30-day trial; only an admin (a person whose id is listed in admins/{id}, added by hand in the console) can change or list plans. Members can write their own usage numbers.
+// 1.09 makes plans a real server lock: a business with a plan record cannot write after its trial or paid time ends (or when an admin locks it), cannot read its data 14 days after that, and its online store stops taking orders then. A new business must be created together with its trial record, and one account gets one trial (trials/{uid}). Businesses with no plan record are never limited. Admins are never limited.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
     function isMember(w) { return signedIn() && get(/databases/$(database)/documents/workspaces/$(w)).data.members[request.auth.uid] != null; }
+    // ---- plan lock (rules 1.09) ----
+    function isAdmin() { return signedIn() && exists(/databases/$(database)/documents/admins/$(request.auth.uid)); }
+    function planWriteOk(w) {
+      let pp = /databases/$(database)/documents/plans/$(w);
+      return !exists(pp) || (get(pp).data.get('locked', false) != true
+        && (get(pp).data.plan == 'trial' ? request.time < get(pp).data.trialEnds
+            : (!('paidUntil' in get(pp).data) || request.time < get(pp).data.paidUntil))) || isAdmin();
+    }
+    function planReadOk(w) {
+      let pp = /databases/$(database)/documents/plans/$(w);
+      return !exists(pp) || (get(pp).data.get('locked', false) != true
+        && (get(pp).data.plan == 'trial' ? request.time < get(pp).data.trialEnds + duration.value(14, 'd')
+            : (!('paidUntil' in get(pp).data) || request.time < get(pp).data.paidUntil + duration.value(14, 'd')))) || isAdmin();
+    }
     function isOwner(w) { return signedIn() && get(/databases/$(database)/documents/workspaces/$(w)).data.members[request.auth.uid] == 'owner'; }
 
     match /users/{uid} {
@@ -36,7 +52,8 @@ service cloud.firestore {
         && (d.option == 'pickup' || d.option == 'delivery')
         && d.items is list && d.items.size() >= 1 && d.items.size() <= 30
         && d.total is number && d.total >= 0 && d.deliveryPrice is number && d.deliveryPrice >= 0
-        && get(/databases/$(database)/documents/stores/$(sid)).data.open == true;
+        && get(/databases/$(database)/documents/stores/$(sid)).data.open == true
+        && (!('workspace' in get(/databases/$(database)/documents/stores/$(sid)).data) || planReadOk(get(/databases/$(database)/documents/stores/$(sid)).data.workspace));
     }
     match /stores/{sid} {
       allow get: if true;
@@ -66,6 +83,29 @@ service cloud.firestore {
       allow update: if signedIn() && isOwner(resource.data.ws) && request.resource.data.ws == resource.data.ws;
       allow delete: if signedIn() && isOwner(resource.data.ws);
     }
+    // ---- plans and admins (rules 1.08) ----
+    match /admins/{uid} {
+      allow get: if signedIn() && request.auth.uid == uid;
+    }
+    // one free trial per account: written together with the first business, never changed or read by the app
+    match /trials/{uid} {
+      allow create: if signedIn() && request.auth.uid == uid;
+    }
+    match /plans/{w} {
+      allow get: if isMember(w) || isAdmin();
+      allow list: if isAdmin();
+      allow create: if signedIn() && request.resource.data.keys().hasOnly(['plan', 'trialEnds', 'name', 'createdAt'])
+        && request.resource.data.plan == 'trial' && request.resource.data.createdAt == request.time
+        && request.resource.data.trialEnds <= request.time + duration.value(31, 'd')
+        && request.resource.data.name is string && request.resource.data.name.size() <= 80
+        && getAfter(/databases/$(database)/documents/workspaces/$(w)).data.members[request.auth.uid] == 'owner'
+        && (isAdmin() || !exists(/databases/$(database)/documents/trials/$(request.auth.uid)));
+      allow update, delete: if isAdmin();
+      match /usage/{d} {
+        allow read: if isMember(w) || isAdmin();
+        allow write: if isMember(w);
+      }
+    }
     match /workspaces/{w} {
       // a person asks to join with the code; only the Owner reads the list and answers; the person can read and withdraw their own request
       match /joinRequests/{uid} {
@@ -75,11 +115,12 @@ service cloud.firestore {
         allow update: if signedIn() && isOwner(w);
         allow delete: if signedIn() && (request.auth.uid == uid || isOwner(w));
       }
-      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && request.resource.data.members[request.auth.uid] == 'owner';
+      allow create: if signedIn() && request.resource.data.ownerUid == request.auth.uid && request.resource.data.members[request.auth.uid] == 'owner' && existsAfter(/databases/$(database)/documents/plans/$(w));
       allow read: if isMember(w);
       allow update, delete: if isOwner(w);
       match /{collection}/{doc} {
-        allow read, write: if isMember(w);
+        allow read: if isMember(w) && planReadOk(w);
+        allow write: if isMember(w) && planWriteOk(w);
       }
     }
   }

@@ -1696,3 +1696,6 @@ body.ordselecting #view{padding-bottom:140px}
 .roomnote{margin:8px 0 0;padding:8px 10px;border-radius:10px;font-size:13.5px}.roomnote.ok{background:transparent;color:var(--mute);padding-left:0}
 html[data-theme=dark] .roomwarn.mid,html[data-theme=dark] .roomnote.mid{background:#4a3a10;color:#ffe3a0}html[data-theme=dark] .roomwarn.high,html[data-theme=dark] .roomnote.high{background:#5a1c1c;color:#ffd0d0}
 .tmpv{background:repeating-conic-gradient(#e9e4e8 0 25%,#fff 0 50%) 0 0/16px 16px;border-radius:12px;padding:14px;margin:6px 0 12px;display:grid;place-items:center}.tmpv canvas{max-width:100%;height:auto;display:block}
+.crprev{margin:6px 0}.crprev small{color:var(--mute);display:block;margin-bottom:4px}.crprev canvas{width:100%;height:auto;border-radius:10px;border:1px solid var(--line);display:block}.crwarn{color:#b25a00}
+#planlock{position:fixed;inset:0;z-index:99999;background:var(--bg);display:grid;place-items:center;padding:24px}.plcard{max-width:420px;width:100%;text-align:center}.plcard h2{margin:6px 0 8px}.plcard p{color:var(--mute)}.plcard .btns{margin-top:14px}
+.legal h3{margin:16px 0 4px;font-size:16px}.legal p{margin:0;line-height:1.5}
