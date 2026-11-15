@@ -176,12 +176,23 @@ and each account gets one trial (`trials/{uid}`). Businesses with no plan record
 
 Rollout (do these in order):
 
-1. Publish rules **1.08**-or-later only after the app with plans is deployed. Create your `admins/{your account ID}` document first.
+1. Deploy the app first. Then publish the latest rules (1.10 includes everything from 1.08 and 1.09). Create your `admins/{your account ID}` document first.
 2. Make a test customer: sign in with a different Google account and create a business (it gets a 30-day trial).
 3. In *Customer plans*, open that business and use **Rehearsal**: *Ended 3 days ago* (the test phone becomes read-only; try saving: it is refused),
    *Ended 20 days ago* (locked: nothing loads), *30 days left* (everything works again). With rules 1.09 published, check the refusals are real by
    looking in the Firebase console, Firestore, Usage/Rules for denied requests.
 4. Only then publish rules **1.09**. Keep the previous version: Firestore > Rules shows the history, and publishing an older one rolls back.
+
+### Taking payments (how to pay)
+
+Customers pay you directly; the app never sees card numbers. Set it up once in the app: Settings > *Plan and agreements* > **Payment details** (admin only).
+You can set the **fees** (monthly and optional yearly, for each plan, in your own currency), your WhatsApp number, your bank transfer details and a secure card link (and a card link per plan). Paying needs an account: a person who is not signed in sees *Create an account* instead of the pay details. Every customer then sees **How to pay**
+on their plan page, and on the lock screen: the prices, your bank details, a card button that opens the payment company's own secure page, their
+**payment reference** (six letters/numbers, also shown to you in Customer plans), and an **I have paid** button that sends you a WhatsApp message. Their plan
+is not changed by that message: you check the money arrived, then add time in Customer plans. These details live in Firestore `config/billing` (rules 1.10:
+any signed-in person can read it, only an admin can change it), not in the code, so account numbers are not in the public repository.
+
+Automatic renewal (a payment company telling a server function that a payment arrived) is the next step once you have chosen a company; it needs the Firebase paid plan.
 
 Limits to know about: before rules 1.09 is published, the lock is enforced only by the app on the customer's phone, so it stops everyday use but
 not a determined developer. After 1.09 the server enforces it (pictures in Firebase Storage are covered by separate storage rules and are not locked yet).

@@ -1,5 +1,5 @@
 rules_version = '2';
-// B Ruiz Firestore rules 1.09
+// B Ruiz Firestore rules 1.10
 // Paste this into Firebase console > Firestore Database > Rules > Publish.
 // Only signed-in people can touch data, only their own user record, and only workspaces they are a member of.
 // 1.01 adds the online store: anyone with the store's link can read the published catalogue and send an order; only the owner can read orders or change the store.
@@ -11,6 +11,7 @@ rules_version = '2';
 // 1.07 lets an order carry the coupon code the customer used (coupon, 3 to 24 characters), so the seller can see it and the code can be marked used.
 // 1.08 adds plans for people who rent the app: plans/{workspace} holds the plan, trial end and paid-until date. A business Owner can only create it once, as a 30-day trial; only an admin (a person whose id is listed in admins/{id}, added by hand in the console) can change or list plans. Members can write their own usage numbers.
 // 1.09 makes plans a real server lock: a business with a plan record cannot write after its trial or paid time ends (or when an admin locks it), cannot read its data 14 days after that, and its online store stops taking orders then. A new business must be created together with its trial record, and one account gets one trial (trials/{uid}). Businesses with no plan record are never limited. Admins are never limited.
+// 1.10 adds config/billing: how customers pay (bank details, payment links, prices, the contact number). Any signed-in person can read it; only an admin can change it.
 service cloud.firestore {
   match /databases/{database}/documents {
     function signedIn() { return request.auth != null; }
@@ -86,6 +87,10 @@ service cloud.firestore {
     // ---- plans and admins (rules 1.08) ----
     match /admins/{uid} {
       allow get: if signedIn() && request.auth.uid == uid;
+    }
+    match /config/{d} {
+      allow read: if signedIn();
+      allow write: if isAdmin();
     }
     // one free trial per account: written together with the first business, never changed or read by the app
     match /trials/{uid} {

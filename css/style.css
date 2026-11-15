@@ -1699,3 +1699,8 @@ html[data-theme=dark] .roomwarn.mid,html[data-theme=dark] .roomnote.mid{backgrou
 .crprev{margin:6px 0}.crprev small{color:var(--mute);display:block;margin-bottom:4px}.crprev canvas{width:100%;height:auto;border-radius:10px;border:1px solid var(--line);display:block}.crwarn{color:#b25a00}
 #planlock{position:fixed;inset:0;z-index:99999;background:var(--bg);display:grid;place-items:center;padding:24px}.plcard{max-width:420px;width:100%;text-align:center}.plcard h2{margin:6px 0 8px}.plcard p{color:var(--mute)}.plcard .btns{margin-top:14px}
 .legal h3{margin:16px 0 4px;font-size:16px}.legal p{margin:0;line-height:1.5}
+.paybox{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}.paybox pre{white-space:pre-wrap;font:inherit;margin:6px 0 8px}.payref{font:800 22px/1.2 inherit;letter-spacing:.12em;margin:6px 0}
+.plpay{text-align:left;margin:12px 0}.plpay>summary{font-weight:800;cursor:pointer;padding:10px 0}
+a.btn{display:flex!important;align-items:center;justify-content:center;text-align:center;text-decoration:none}a.btn:not(.primary){color:var(--ink)}
+#planlock{display:flex;overflow-y:auto;-webkit-overflow-scrolling:touch}#planlock .plcard{margin:auto;padding:12px 0}
+.feebox{border:1px solid var(--line);border-radius:14px;padding:12px;margin:10px 0}.feebox>b{display:block;margin-bottom:6px}.feerow{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:8px}.feerow small,.feebox>small{color:var(--mute);display:block;margin-bottom:2px}

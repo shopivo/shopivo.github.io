@@ -16,9 +16,10 @@
   const bizName = () => state.settings.businessName || 'B-RUIZ';
   const initials = (n) => String(n).trim().split(/\s+/).slice(0, 2).map((w) => w.charAt(0)).join('').toUpperCase() || '·';
   // Versions shown in Settings > About. APP_VERSION goes up by 0.01 with each release; RULES_VERSION must match the header of firestore.rules (a test checks).
-  const APP_VERSION = '1.00', RULES_VERSION = '1.09', CLOUD_LIMIT = 1073741824;
+  const APP_VERSION = '1.00', RULES_VERSION = '1.10', CLOUD_LIMIT = 1073741824;
   // Who runs the app. The name shows on the plan, terms and privacy pages; add a WhatsApp number (digits only, with country code) to show a contact button on them.
   const OPERATOR = { name: 'Shopivo', whatsapp: '' };
+  let payCfg = null;
   let planDoc = null, planSt = { state: 'free' }, isAdmin = false, planAdm = { rows: null, err: '', busy: false }, planBlockAt = 0;
   const NUM_FIELDS = ['cost', 'price', 'sold', 'delivery'];
   const STATUSES = ['In Transit', 'Available', 'Owing', 'Paid', 'Closed'];   // stored names; only their display text is translated
@@ -391,7 +392,7 @@
     closeTopMenu();
     cleanSelected();
     const moreTitles = { deliveries: 'more.deliveries', orders: 'more.orders', batches: 'more.batches', invoices: 'title.invoices', items: 'title.items', summary: 'title.summary', settings: 'title.settings' };
-    const titles = { home: bizName(), stock: stockBatch && stockFilter !== 'NoPrice' ? bl(stockBatch) : t('nav.stock'), sell: moreView === 'invoice' ? (pendingOrder ? t('ord.confirmTitle') : t('sell.newInv')) : t('nav.sell'), people: t('cu.title'), promote: t('nav.promote'), more: moreView ? (moreView.startsWith('set-') ? { 'set-theme': t('set.theme'), 'set-business': t('set.business'), 'set-invdesign': t('set.invDesign'), 'set-backup': t('set.backupRow'), 'set-about': t('set.storageRow'), 'set-plans': t('pl.admT'), 'set-terms': t('tp.termsT'), 'set-privacy': t('tp.privT'), 'set-password': t('acct.chPw') }[moreView] : t(moreTitles[moreView])) : t('nav.more') };
+    const titles = { home: bizName(), stock: stockBatch && stockFilter !== 'NoPrice' ? bl(stockBatch) : t('nav.stock'), sell: moreView === 'invoice' ? (pendingOrder ? t('ord.confirmTitle') : t('sell.newInv')) : t('nav.sell'), people: t('cu.title'), promote: t('nav.promote'), more: moreView ? (moreView.startsWith('set-') ? { 'set-theme': t('set.theme'), 'set-business': t('set.business'), 'set-invdesign': t('set.invDesign'), 'set-backup': t('set.backupRow'), 'set-about': t('set.storageRow'), 'set-plans': t('pl.admT'), 'set-paycfg': t('pay.cfgT'), 'set-terms': t('tp.termsT'), 'set-privacy': t('tp.privT'), 'set-password': t('acct.chPw') }[moreView] : t(moreTitles[moreView])) : t('nav.more') };
     $('#title').textContent = titles[tab];
     $('#back').hidden = !((tab === 'more' || tab === 'sell') && moreView);
     const hasLogo = !!state.settings.bizLogo, customBrand = !!state.settings.businessName, showBrand = $('#back').hidden, imgBrand = hasLogo || !customBrand;
@@ -449,7 +450,7 @@
   }
   let planToastAt = 0;
   function planBlocked() { const n = Date.now(); planBlockAt = n; if (n - planToastAt > 4000) { planToastAt = n; toast(t(planSt.state === 'locked' ? 'pl.blockedLocked' : 'pl.blocked')); } }
-  const planWa = () => (OPERATOR.whatsapp ? `<a class="btn primary" style="display:block;text-align:center;text-decoration:none" href="https://wa.me/${OPERATOR.whatsapp}?text=${encodeURIComponent(t('pl.waText', { name: bizName() }))}" target="_blank" rel="noopener">💬 ${t('pl.waBtn', { op: OPERATOR.name })}</a>` : `<p class="muted small">${t('pl.contactNone', { op: OPERATOR.name })}</p>`);
+  const planWa = () => (payWaNum() ? `<a class="btn primary" style="display:block;text-align:center;text-decoration:none" href="https://wa.me/${payWaNum()}?text=${encodeURIComponent(t('pl.waText', { name: bizName() }))}" target="_blank" rel="noopener">💬 ${t('pl.waBtn', { op: OPERATOR.name })}</a>` : `<p class="muted small">${t('pl.contactNone', { op: OPERATOR.name })}</p>`);
   // the card on Home: only in the last 7 days, and after the date has passed
   function planCard() {
     if (!Plan.needsNote(planSt)) return '';
@@ -459,15 +460,72 @@
   function rentInfo() {
     const st = planSt, ends = st.until ? planDate(st.until) : '';
     openSmall(`<h3>${t('pl.title')}</h3><div class="sumbox" style="margin:6px 0 10px"><div><span>${t('pl.status')}</span><b>${esc(rentLabel(st))}</b></div>${st.plan && st.plan !== 'trial' ? `<div><span>${t('pl.plan')}</span><b>${esc(t('pl.n.' + st.plan))}</b></div>` : ''}${ends ? `<div><span>${t(st.state === 'trial' ? 'pl.trialEnds' : 'pl.paidUntil')}</span><b>${ends}</b></div>` : ''}</div>
-      <p class="muted small">${t('pl.explain', { d: Plan.GRACE_DAYS })}</p>${planWa()}
+      <p class="muted small">${t('pl.explain', { d: Plan.GRACE_DAYS })}</p><button type="button" class="btn primary" data-act="pay-open" style="width:100%">💳 ${t('pay.howT')}</button>${planWa()}
       <div class="btns"><button type="button" class="btn" data-act="export-json">💾 ${t('pl.download')}</button><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'card');
+  }
+
+  // ---- how to pay: bank transfer details, secure card links, "I've paid" message (the details are set by the admin in Firestore config/billing) ----
+  const payWaNum = () => Plan.waDigits((payCfg && payCfg.whatsapp) || OPERATOR.whatsapp);
+  function payLoad() {
+    if (!window.Cloud || !Cloud.billingGet) return;
+    try { const c = localStorage.getItem('buy-sell-paycfg'); if (c && !payCfg) payCfg = JSON.parse(c); } catch (e) { /* ignore */ }
+    Cloud.billingGet().then((c) => { if (c) { payCfg = c; try { localStorage.setItem('buy-sell-paycfg', JSON.stringify(c)); } catch (e) { /* ignore */ } } });
+  }
+  const payRef = () => Plan.ref(window.Cloud && Cloud.workspace && Cloud.workspace());
+  // a fee like "TT$ 80" (whole numbers stay whole)
+  const feeText = (cur, n) => (Number(n) > 0 ? String(cur || '') + ' ' + (Number.isInteger(Number(n)) ? Number(n) : Number(n).toFixed(2)) : '');
+  const feeLine = (c, k) => { const f = (c.fees || {})[k] || {}, cur = c.currency || 'TT$', m = feeText(cur, f.m), y = feeText(cur, f.y); return [m && m + ' / ' + t('pay.month'), y && y + ' / ' + t('pay.year')].filter(Boolean).join(' · '); };
+  function payHTML() {
+    // paying needs an account: it is what ties the payment to a business
+    if (!cloud.signedIn) return `<p>${t('pay.needAcct')}</p><button type="button" class="btn primary" data-act="acct-new" style="width:100%">${t('pay.makeAcct')}</button><button type="button" class="btn" data-act="acct-open" style="width:100%;margin-top:8px">${t('gate.have')}</button>`;
+    const c = payCfg || {}, ref = payRef(), cur = planDoc && planDoc.plan && planDoc.plan !== 'trial' ? planDoc.plan : '', links = c.cardLinks || {};
+    const priceRows = Plan.PLANS.filter((k) => feeLine(c, k)).map((k) => `<div><span>${esc(t('pl.n.' + k))}${k === cur ? ' ✓' : ''}</span><b>${esc(feeLine(c, k))}</b></div>`).join('');
+    const bank = c.bankText ? `<div class="paybox"><b>🏦 ${t('pay.bank')}</b><pre>${esc(c.bankText)}</pre><button type="button" class="btn" data-act="pay-copy" data-id="bank">${t('pay.copyBank')}</button></div>` : '';
+    const cardBtns = Plan.PLANS.map((k) => { const u = Plan.safeLink(links[k] || c.cardLink); const fl = feeLine(c, k); return u && (fl || links[k]) ? `<a class="btn" style="margin-top:6px" href="${esc(u)}" target="_blank" rel="noopener noreferrer">💳 ${esc(t('pl.n.' + k))}${fl ? ' · ' + esc(fl.split(' · ')[0]) : ''}</a>` : ''; }).join('') || (Plan.safeLink(c.cardLink) ? `<a class="btn" href="${esc(Plan.safeLink(c.cardLink))}" target="_blank" rel="noopener noreferrer">💳 ${t('pay.cardBtn')}</a>` : '');
+    const card = cardBtns ? `<div class="paybox"><b>💳 ${t('pay.card')}</b><p class="muted small" style="margin:4px 0 6px">${t('pay.cardNote')}</p>${cardBtns}</div>` : '';
+    const msg = t('pay.waText', { name: bizName(), ref }) + (cur ? t('pay.waPlan', { plan: t('pl.n.' + cur) }) : ''), num = payWaNum();
+    const paid = num ? `<a class="btn primary" href="https://wa.me/${num}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">✅ ${t('pay.paid')}</a>` : `<button type="button" class="btn primary" data-act="pay-copy" data-id="msg">✅ ${t('pay.paidCopy')}</button>`;
+    if (!bank && !card && !priceRows) return `<p class="muted small">${t('pay.none', { op: OPERATOR.name })}</p>${paid}`;
+    return `${priceRows ? `<div class="sumbox" style="margin:6px 0 10px">${priceRows}</div>` : ''}${bank}${card}
+      <div class="paybox"><b>🔖 ${t('pay.ref')}</b><p class="payref">${esc(ref) || '—'}</p><p class="muted small" style="margin:0">${t('pay.refUse')}</p><button type="button" class="btn" data-act="pay-copy" data-id="ref" style="margin-top:6px">${t('pay.copyRef')}</button></div>
+      <p class="muted small">${t('pay.afterPay')}</p>${paid}`;
+  }
+  const paySheet = () => { payLoad(); openSmall(`<h3>${t('pay.howT')}</h3>${payHTML()}<div class="btns"><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'sheet'); };
+  // admin: the payment details every customer sees
+  function PayCfgPage() {
+    if (!isAdmin) return `<p class="muted">${t('pl.admNo')}</p>`;
+    const c = payCfg || {}, fe = c.fees || {}, lk = c.cardLinks || {};
+    const inp = (k, label, val, ph, mode) => `<label>${label}</label><input data-pc="${k}" value="${esc(val || '')}" placeholder="${esc(ph || '')}" autocomplete="off" autocapitalize="off"${mode ? ` inputmode="${mode}"` : ''}>`;
+    const num = (v) => (Number(v) > 0 ? String(v) : '');
+    return `<p class="muted small">${t('pay.feesSub')}</p>
+      <h3>${t('pay.fees')}</h3>
+      ${inp('currency', t('pay.currency'), c.currency || 'TT$', 'TT$')}
+      ${Plan.PLANS.map((k) => `<div class="feebox"><b>${esc(t('pl.n.' + k))}</b><div class="feerow"><div><small>${t('pay.perMonth')}</small><input data-pc="fee.${k}.m" value="${esc(num((fe[k] || {}).m))}" inputmode="decimal" placeholder="0" autocomplete="off"></div><div><small>${t('pay.perYear')}</small><input data-pc="fee.${k}.y" value="${esc(num((fe[k] || {}).y))}" inputmode="decimal" placeholder="${esc(t('pay.optional'))}" autocomplete="off"></div></div>
+        <small>${t('pay.planLink')}</small><input data-pc="link.${k}" value="${esc(lk[k] || '')}" placeholder="https://" autocomplete="off" autocapitalize="off"></div>`).join('')}
+      <p class="muted small">${t('pay.trialNote', { d: Plan.TRIAL_DAYS })}</p>
+      <h3>${t('pay.cfgContact')}</h3>
+      ${inp('whatsapp', t('pay.cfgWa'), c.whatsapp, '18685550100', 'tel')}
+      <label>${t('pay.cfgBank')}</label><textarea data-pc="bankText" rows="5" style="width:100%;font-size:16px" placeholder="${esc(t('pay.cfgBankPh'))}">${esc(c.bankText || '')}</textarea>
+      ${inp('cardLink', t('pay.cfgCard'), c.cardLink, 'https://')}
+      <div class="btns"><button type="button" class="btn primary" data-act="pc-save">${t('btn.save')}</button></div>`;
+  }
+  async function payCfgSave() {
+    const g = (k) => { const el = document.querySelector('[data-pc="' + k + '"]'); return el ? el.value.trim() : ''; };
+    const out = { whatsapp: Plan.waDigits(g('whatsapp')), bankText: g('bankText').slice(0, 600), cardLink: '', currency: (g('currency') || 'TT$').slice(0, 6), fees: {}, cardLinks: {} };
+    const link = (v) => { if (!v) return ''; const u = Plan.safeLink(v); if (!u) throw new Error(t('pay.badLink')); return u; };
+    const money = (v) => { if (!v) return 0; const n = parseFloat(String(v).replace(',', '.')); if (!(n >= 0) || n > 1e7) throw new Error(t('pay.badFee')); return Math.round(n * 100) / 100; };
+    try {
+      out.cardLink = link(g('cardLink'));
+      Plan.PLANS.forEach((k) => { const m = money(g('fee.' + k + '.m')), y = money(g('fee.' + k + '.y')); if (m || y) out.fees[k] = { m, y }; const u = link(g('link.' + k)); if (u) out.cardLinks[k] = u; });
+    } catch (e) { return toast('⚠️ ' + e.message); }
+    try { await Cloud.billingSet(out); payCfg = out; try { localStorage.setItem('buy-sell-paycfg', JSON.stringify(out)); } catch (e) { /* ignore */ } toast(t('pl.saved')); render(); } catch (e) { toast('⚠️ ' + ((e && e.message) || t('pl.err'))); }
   }
   // A locked account sees only this: their data is safe, they can download a copy, contact, or sign out.
   function planLockSync() {
     let el = document.getElementById('planlock');
     if (planSt.state !== 'locked') { if (el) el.remove(); return; }
     if (!el) { el = document.createElement('div'); el.id = 'planlock'; document.body.appendChild(el); }
-    el.innerHTML = `<div class="plcard"><div style="font-size:42px">🔒</div><h2>${t('pl.lockT')}</h2><p>${t('pl.lockP')}</p>${planWa()}<div class="btns"><button type="button" class="btn" data-act="export-json">💾 ${t('pl.download')}</button><button type="button" class="btn" data-act="acct-out">${t('acct.signOut')}</button></div></div>`;
+    el.innerHTML = `<div class="plcard"><div style="font-size:42px">🔒</div><h2>${t('pl.lockT')}</h2><p>${t('pl.lockP')}</p>${planWa()}<details class="plpay"><summary>💳 ${t('pay.howT')}</summary>${payHTML()}</details><div class="btns"><button type="button" class="btn" data-act="export-json">💾 ${t('pl.download')}</button><button type="button" class="btn" data-act="acct-out">${t('acct.signOut')}</button></div></div>`;
   }
   function planRefresh() { planCompute(); planLockSync(); render(); }
   setInterval(() => { const was = planSt.state; planCompute(); if (planSt.state !== was) planRefresh(); }, 3600000);
@@ -495,13 +553,13 @@
     const rows = (planAdm.rows || []).map((r) => ({ r, st: Plan.status(r) })).sort((a, b) => ['locked', 'readonly', 'trial', 'active', 'free'].indexOf(a.st.state) - ['locked', 'readonly', 'trial', 'active', 'free'].indexOf(b.st.state) || String(a.r.name).localeCompare(String(b.r.name)));
     const cls = { locked: 'high', readonly: 'high', trial: 'mid', active: 'ok', free: 'ok' };
     return `<p class="muted small">${t('pl.admSub')}</p><div class="btns"><button type="button" class="btn" data-act="pl-reload">${planAdm.busy ? t('pl.loading') : '↻ ' + t('pl.reload')}</button></div>${planAdm.err ? `<p class="roomnote high">${esc(planAdm.err)}</p>` : ''}
-      <div class="list">${rows.length ? rows.map(({ r, st }) => { const u = r.usage || {}; return `<button class="row tap" data-act="pl-open" data-id="${esc(r.id)}"><div class="grow"><b>${esc(r.name || r.id)}</b><small>${esc(rentLabel(st))}${st.until ? ' · ' + planDate(st.until) : ''}</small><small>${u.items != null ? t('pl.use', { i: u.items, v: u.invoices || 0, s: fmtBytes(u.bytes || 0) }) : t('pl.noUse')}${u.seen ? ' · ' + t('pl.seen', { d: planDate(Plan.ms(u.seen)) }) : ''}</small></div><span class="chip ${cls[st.state] === 'ok' ? '' : 'on'}">${t('pl.st.' + st.state)}</span></button>`; }).join('') : `<p class="muted small">${planAdm.busy ? t('pl.loading') : t('pl.admNone')}</p>`}</div>`;
+      <div class="list">${rows.length ? rows.map(({ r, st }) => { const u = r.usage || {}; return `<button class="row tap" data-act="pl-open" data-id="${esc(r.id)}"><div class="grow"><b>${esc(r.name || r.id)}</b><small>${esc(rentLabel(st))}${st.until ? ' · ' + planDate(st.until) : ''} · ${esc(Plan.ref(r.id))}</small><small>${u.items != null ? t('pl.use', { i: u.items, v: u.invoices || 0, s: fmtBytes(u.bytes || 0) }) : t('pl.noUse')}${u.seen ? ' · ' + t('pl.seen', { d: planDate(Plan.ms(u.seen)) }) : ''}</small></div><span class="chip ${cls[st.state] === 'ok' ? '' : 'on'}">${t('pl.st.' + st.state)}</span></button>`; }).join('') : `<p class="muted small">${planAdm.busy ? t('pl.loading') : t('pl.admNone')}</p>`}</div>`;
   }
   function planRowSheet(id) {
     const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; const st = Plan.status(r);
     const chips = Plan.PLANS.map((k) => `<button type="button" class="chip ${r.plan === k ? 'on' : ''}" data-act="pl-plan" data-id="${esc(id)}:${k}">${t('pl.n.' + k)}</button>`).join('');
     const add = [[1, t('pl.add1')], [3, t('pl.add3')], [12, t('pl.add12')]].map(([m, l]) => `<button type="button" class="btn" data-act="pl-add" data-id="${esc(id)}:${m}">${l}</button>`).join('');
-    openSmall(`<h3>${esc(r.name || id)}</h3><div class="sumbox" style="margin:6px 0 10px"><div><span>${t('pl.status')}</span><b>${esc(rentLabel(st))}</b></div><div><span>${t(r.plan === 'trial' ? 'pl.trialEnds' : 'pl.paidUntil')}</span><b>${planDate(st.until)}</b></div></div>
+    openSmall(`<h3>${esc(r.name || id)}</h3><div class="sumbox" style="margin:6px 0 10px"><div><span>${t('pay.ref')}</span><b>${esc(Plan.ref(id))}</b></div><div><span>${t('pl.status')}</span><b>${esc(rentLabel(st))}</b></div><div><span>${t(r.plan === 'trial' ? 'pl.trialEnds' : 'pl.paidUntil')}</span><b>${planDate(st.until)}</b></div></div>
       <div class="ihr"><label>${t('pl.plan')}</label><div class="chiprow">${chips}</div></div><div class="ihr"><label>${t('pl.addTime')}</label><div class="btns" style="margin:0">${add}</div></div>
       <div class="ihr"><label>${t('pl.testT')}</label><div class="btns" style="margin:0"><button type="button" class="btn" data-act="pl-test" data-id="${esc(id)}:3">${t('pl.test3')}</button><button type="button" class="btn" data-act="pl-test" data-id="${esc(id)}:20">${t('pl.test20')}</button><button type="button" class="btn" data-act="pl-test" data-id="${esc(id)}:-30">${t('pl.test30')}</button></div></div>
       <div class="btns"><button type="button" class="btn ${r.locked ? 'primary' : 'dsolid'}" data-act="pl-lock" data-id="${esc(id)}">${r.locked ? t('pl.unlock') : t('pl.lockNow')}</button><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'card');
@@ -1426,7 +1484,7 @@
         ${trow('📥', t('more.import'), t('more.importSub'), 'data-act="import-xlsx"')}
         ${trow('📊', t('set.storageRow'), t('set.storageSub'), nav('set-about'))}</div>
       <h2>${t('pl.sec')}</h2><div class="list grp">
-        ${planDoc || isAdmin ? trow('🧾', t('pl.title'), isAdmin ? t('pl.free') : rentLabel(planSt), 'data-act="pl-info"') : ''}${isAdmin ? trow('👥', t('pl.admT'), t('pl.admRow'), nav('set-plans')) : ''}${cloud.signedIn && window.Cloud && Cloud.uid() ? trow('🪪', t('pl.uid'), t('pl.uidSub'), 'data-act="copy-uid"') : ''}
+        ${trow('💳', t('pay.howT'), t('pay.rowSub'), 'data-act="pay-open"')}${planDoc || isAdmin ? trow('🧾', t('pl.title'), isAdmin ? t('pl.free') : rentLabel(planSt), 'data-act="pl-info"') : ''}${isAdmin ? trow('👥', t('pl.admT'), t('pl.admRow'), nav('set-plans')) + trow('💳', t('pay.cfgT'), t('pay.cfgRow'), nav('set-paycfg')) : ''}${cloud.signedIn && window.Cloud && Cloud.uid() ? trow('🪪', t('pl.uid'), t('pl.uidSub'), 'data-act="copy-uid"') : ''}
         ${trow('📄', t('tp.termsT'), t('tp.termsSub'), nav('set-terms'))}
         ${trow('🔏', t('tp.privT'), t('tp.privSub'), nav('set-privacy'))}</div>
       <h2>${t('set.sec.about')}</h2><div class="list grp">
@@ -2169,6 +2227,7 @@
     if (moreView === 'set-password') return chPwHTML() || '<p class="muted">' + t('set.pwNone') + '</p>';
     if (moreView === 'set-about') return AboutPage();
     if (moreView === 'set-plans') return PlansAdminPage();
+    if (moreView === 'set-paycfg') return PayCfgPage();
     if (moreView === 'set-terms') return legalHTML('terms');
     if (moreView === 'set-privacy') return legalHTML('privacy');
     if (moreView === 'set-backup') return BackupPage();
@@ -4479,6 +4538,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'gate-forgot': case 'acct-forgot': { const em = ($('#f-gate [name=email]') || $('#f-acct [name=email]') || {}).value; if (em) rememberEmail(em.trim()); closeSheet(); gateForgot = true; gateView = null; updateGate(); return; }
       case 'gate-forgotback': gateForgot = false; gateMode = 'in'; gateView = 'auth'; $('#gate').innerHTML = gateHTML('auth'); return;
       case 'gate-color': gateDraft.palette = id; if (gdOn()) { const el = $('#gd-name'); const keep = el ? el.value : ''; state.settings.palette = id; Theme.apply(id); applyTheme(); gdDraw(false); const e2 = $('#gd-name'); if (e2) e2.value = keep; return; } regate(); return;
+      case 'acct-new': closeSheet(); gateForced = true; gateMode = 'create'; gateView = null; updateGate(); return;
       case 'acct-open': if (cloud.signedIn) return sheetAccount(); closeSheet(); gateForced = true; gateMode = hasData() ? 'in' : 'create'; gateView = null; updateGate(); return;
       case 'signin-dismiss': setPref('signinDismissed', Date.now()); return render();
       case 'acct-google': homeAfterSignIn = true; return acctDone(Cloud.signInGoogle());
@@ -4714,6 +4774,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || !r._undo || !r._undo.length) return; r.value = r._undo.pop(); r.dispatchEvent(new Event('input', { bubbles: true })); if (!r._undo.length) t_.remove(); return; }
       case 'pl-info': return rentInfo();
+      case 'pay-open': return paySheet();
+      case 'pay-copy': { const c = payCfg || {}, txt = id === 'bank' ? String(c.bankText || '') : id === 'ref' ? payRef() : t('pay.waText', { name: bizName(), ref: payRef() }); return copyText(txt).then((ok) => toast(ok ? t('pay.copied') : txt)); }
+      case 'pc-save': return payCfgSave();
       case 'copy-uid': { const u = window.Cloud && Cloud.uid(); if (!u) return; return copyText(u).then((ok) => toast(ok ? t('pl.uidCopied') : u)); }
       case 'terms-open': return legalSheet('terms');
       case 'priv-open': return legalSheet('privacy');
@@ -5428,8 +5491,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   if (window.PhotoSync) PhotoSync.init({ state: () => state });
   PUI.init({ state: () => state, save, render, toast, esc, bl, openSheet, openSmall, closeSheet, confirm: (m) => window.confirm(m), sync: () => syncHistory(), invMoney: (n) => invMoney(n), invoiceLang: () => invoiceLang(), shareLang, tagHTML });
   Cloud.init({
-    onPlan: (d) => { planDoc = d; planRefresh(); },
-    onAdmin: (a) => { isAdmin = !!a; planRefresh(); },
+    onPlan: (d) => { planDoc = d; if (d) payLoad(); planRefresh(); },
+    onAdmin: (a) => { isAdmin = !!a; if (a) payLoad(); planRefresh(); },
     getState: () => state,
     askConflict,
     onTeam: (tm) => { team = tm; try { if (tm) localStorage.setItem('buy-sell-team', JSON.stringify({ uid: cloud.uid, rank: tm.rank, perms: tm.perms })); else localStorage.removeItem('buy-sell-team'); } catch (e) { /* ignore */ } updateGate(); render(); refreshTeamSheets(); },

@@ -35,6 +35,11 @@
     const day = d.getUTCDate(); d.setUTCMonth(d.getUTCMonth() + months); if (d.getUTCDate() < day) d.setUTCDate(0);
     return d.getTime();
   }
-  const api = { DAY, TRIAL_DAYS, GRACE_DAYS, PLANS, ms, status, canWrite, canOpen, needsNote, trialEnd, extend };
+  // The reference a customer puts on a bank transfer or card payment so it can be matched to their business: the first 6 letters/numbers of its id.
+  const ref = (id) => String(id || '').replace(/[^A-Za-z0-9]/g, '').slice(0, 6).toUpperCase();
+  // Only secure web addresses are accepted for payment links.
+  const safeLink = (u) => { u = String(u || '').trim(); return /^https:\/\/[^\s<>"']+$/i.test(u) ? u : ''; };
+  const waDigits = (v) => String(v || '').replace(/\D/g, '').slice(0, 15);
+  const api = { ref, safeLink, waDigits, DAY, TRIAL_DAYS, GRACE_DAYS, PLANS, ms, status, canWrite, canOpen, needsNote, trialEnd, extend };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Plan = api;
 })(typeof window !== 'undefined' ? window : globalThis);

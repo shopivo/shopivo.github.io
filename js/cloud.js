@@ -191,6 +191,8 @@
   // admin only (the rules refuse everyone else)
   const adminList = () => db.collection('plans').get({ source: 'server' }).then((q) => q.docs.map((d) => Object.assign({ id: d.id }, d.data())));
   const adminUsage = (id) => db.collection('plans').doc(id).collection('usage').doc('stats').get({ source: 'server' }).then((d) => (d.exists ? d.data() : null)).catch(() => null);
+  const billingGet = () => (db ? db.collection('config').doc('billing').get().then((d) => (d.exists ? d.data() : null)).catch(() => null) : Promise.resolve(null));
+  const billingSet = (data) => db.collection('config').doc('billing').set(data);
   const adminSet = (id, patch) => db.collection('plans').doc(id).update(patch);
   const pingUsage = (info) => (db && wid && user ? db.collection('plans').doc(wid).collection('usage').doc('stats').set(Object.assign({}, info, { seen: FV().serverTimestamp() }), { merge: true }).catch(() => {}) : Promise.resolve());
   async function start() {
@@ -263,7 +265,7 @@
   // Sign-in calls wait (up to 10 s) for the sign-in code to finish loading, so a very early tap still works.
   const need = () => Promise.race([sdkReady, new Promise((r) => setTimeout(r, 10000))]).then(() => { if (!auth) throw Object.assign(new Error('unavailable'), { code: 'app/unavailable' }); return auth; });
   const api = {
-    init, changed, info, push, usage, adminList, adminUsage, adminSet, pingUsage, ts: (ms) => root.firebase.firestore.Timestamp.fromMillis(ms), checkRules, createBusiness, joinByCode, cancelJoin, refreshRequests, checkSharing, team: () => team, approve, decline, setRank, removeMember, setPerms, newCode, transfer,
+    init, changed, info, push, usage, adminList, adminUsage, adminSet, pingUsage, billingGet, billingSet, ts: (ms) => root.firebase.firestore.Timestamp.fromMillis(ms), checkRules, createBusiness, joinByCode, cancelJoin, refreshRequests, checkSharing, team: () => team, approve, decline, setRank, removeMember, setPerms, newCode, transfer,
     // handles the online store uses (the same signed-in Firestore connection)
     db: () => db, storage: () => (root.firebase && root.firebase.storage ? root.firebase.storage() : null), uid: () => (user ? user.uid : null), workspace: () => wid, stamp: () => root.firebase.firestore.FieldValue.serverTimestamp(), ready: () => !!(db && user && wid),
     // Google opens as a pop-up for everyone, started straight from the tap (iPhone blocks a pop-up that opens after a wait). Only if the phone refuses the pop-up does the whole page go to Google and come back.
