@@ -89,6 +89,7 @@
     pageStack.push({ key, open });
   }
   function pageBack() {   // one step back from a full-screen page: the page it was opened from, or close
+    if (edKind && !$('#sheet').classList.contains('small')) { if (edChanged()) return edAsk(); edCleanup(); }   // an edit page: unsaved changes are asked about first
     if ($('#sheet').classList.contains('small')) return closeSheet();   // a pop-up on top: just dismiss it
     if (pageStack.length > 1) { pageStack.pop(); const prev = pageStack[pageStack.length - 1]; reopening = true; try { prev.open(); } finally { reopening = false; } render(); restoreSheetY(prev.y); }
     else closeSheet();
@@ -1650,12 +1651,12 @@
     const d = e.target; if (!(d && d.dataset && d.dataset.ihk)) return; ihOpenSecs[d.dataset.ihk] = d.open;
     if (Date.now() - stTapAt > 700) return;
     // In the Brand Studio only one section is open at a time (unless the owner switched "keep several open" on); the new one scrolls to just under the pinned preview.
-    if (d.open && stOn && d.classList.contains('ihsub') && !state.settings.studioMulti && d.closest('#st-bodywrap') && d.parentElement) {   // the small drop-downs inside a section (Business name, Contact lines, ...) work the same way
+    if (d.open && stOn && d.classList.contains('ihsub') && !state.settings.studioMulti && d.closest('#ed-body') && d.parentElement) {   // the small drop-downs inside a section (Business name, Contact lines, ...) work the same way
       d.parentElement.querySelectorAll(':scope > details.ihsub[open]').forEach((o) => { if (o !== d) { o.open = false; ihOpenSecs[o.dataset.ihk] = false; } });
     }
-    if (d.open && stOn && d.classList.contains('ihsec') && !state.settings.studioMulti && d.closest('#st-bodywrap')) {
-      document.querySelectorAll('#st-bodywrap details.ihsec[open]').forEach((o) => { if (o !== d) { o.open = false; ihOpenSecs[o.dataset.ihk] = false; } });
-      const top = $('#st-top'); document.documentElement.style.setProperty('--sttop', ((top ? top.getBoundingClientRect().height : 160) + 6) + 'px');
+    if (d.open && stOn && d.classList.contains('ihsec') && !state.settings.studioMulti && d.closest('#ed-body')) {
+      document.querySelectorAll('#ed-body details.ihsec[open]').forEach((o) => { if (o !== d) { o.open = false; ihOpenSecs[o.dataset.ihk] = false; } });
+      const top = $('#ed-head'); document.documentElement.style.setProperty('--sttop', ((top ? top.getBoundingClientRect().height : 160) + 6) + 'px');
       requestAnimationFrame(() => { try { d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e2) { /* stays where it is */ } });
     }
   }, true);
@@ -1732,7 +1733,7 @@
     const rm = settingsRoom(), roomBox = rm.level === 'ok' ? '' : `<div class="roomwarn ${rm.level}" role="status"><b>${t('room.warnT', { p: rm.pct })}</b><span>${roomNote(rm)}</span></div>`;
     return `${roomBox}${layout}${imgs}${text}${banner}${invcol}${pagebg}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="ih-reset">${t('ih.reset')}</button></div><div class="btns" style="margin-top:10px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
   }
-  function ihRefresh() { const b = $('#ih-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ihBodyHTML(); $('#sheet').scrollTop = sc; setTimeout(svPaint, 0); const u = $('#ih-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('ih.inUse') : t('ih.use'); } ihPaint(); }
+  function ihRefresh() { if (edKind) return edRefresh(); const b = $('#ih-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ihBodyHTML(); $('#sheet').scrollTop = sc; setTimeout(svPaint, 0); const u = $('#ih-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('ih.inUse') : t('ih.use'); } ihPaint(); }
   // ---- colour picker: circle + brightness, colours taken from the banner, tap-the-header eyedropper, recent colours ----
   let cpT = null, cpH = 0, cpS = 0, cpV = 1, ihEye = '';
   const hsv2hex = (h, sa, v) => { const f = (n) => { const k = (n + h / 60) % 6; return v - v * sa * Math.max(0, Math.min(k, 4 - k, 1)); }; return '#' + [f(5), f(3), f(1)].map((x) => Math.round(x * 255).toString(16).padStart(2, '0')).join(''); };
@@ -1943,7 +1944,7 @@
     const border = `<div class="ihr tgl"><span>${t('lk.border')}</span>${swt('lk-tog', 'ring.on', c.ring.on)}</div>${c.ring.on ? lkRng('ring.width', t('tt.thick'), 'ringw') + lkCol('ring.col', t('ih.color')) : ''}`;
     return `${ihSec('lk:style', t('lk.s.style'), gal)}${ihSec('lk:letters', t('lk.s.letters'), letters)}${ihSec('lk:colors', t('lk.s.colors'), colours)}${ihSec('lk:border', t('lk.s.border'), border)}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="lk-reset">${t('tt.reset')}</button></div>`;
   }
-  function lkRefresh() { const b = $('#lk-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = lkBodyHTML(); $('#sheet').scrollTop = sc; lkPaint(); }
+  function lkRefresh() { if (edKind) return edRefresh(); const b = $('#lk-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = lkBodyHTML(); $('#sheet').scrollTop = sc; lkPaint(); }
   function sheetLogoStudio() {
     enterPage('logomaker', '', () => sheetLogoStudio());
     lkOn = true;
@@ -1990,7 +1991,7 @@
     const saved = ttSec('saved', t('ih.sec.saved'), ttSavedHTML());
     return `${name}${text}${lay}${saved}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="tt-reset">${t('tt.reset')}</button></div>`;
   }
-  function ttRefresh() { const b = $('#tt-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ttBodyHTML(); $('#sheet').scrollTop = sc; ttPaint(); }
+  function ttRefresh() { if (edKind) return edRefresh(); const b = $('#tt-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ttBodyHTML(); $('#sheet').scrollTop = sc; ttPaint(); }
   function sheetTitle() {
     enterPage('title', '', () => sheetTitle());
     ttOn = true;
@@ -2021,10 +2022,6 @@
     if (Studio.NEEDS_TITLE[c.layout] && (!c.slots.title || stSt().autoTitle)) c.slots.title = stTitleSrc(color, (Studio.byId(tplId) || {}).look);
     return c;
   }
-  // How things were when the Studio opened, so one tap puts it back (kept only while the Studio is open).
-  const stSnap = () => JSON.parse(JSON.stringify({ header: state.settings.invHeader || null, design: state.settings.invoiceDesign || null, studio: state.settings.studio || null }));
-  const stChanged = () => { const p0 = state.settings.studioPrev; return !!p0 && JSON.stringify(p0) !== JSON.stringify(stSnap()); };
-  function stRestore() { const p0 = state.settings.studioPrev; if (!p0) return; const q = JSON.parse(JSON.stringify(p0)); state.settings.invHeader = q.header || undefined; if (!q.header) delete state.settings.invHeader; state.settings.invoiceDesign = q.design || undefined; if (!q.design) delete state.settings.invoiceDesign; state.settings.studio = q.studio || undefined; if (!q.studio) delete state.settings.studio; Object.keys(headCache).forEach((k) => delete headCache[k]); save(); stRefresh(); toast(t('st.restored')); }
   // Keep the business card in the Studio colour (only when the owner switched that on)
   function stSyncCard() { if (!stSt().card) return; try { bcSave(CardMaker.applyScheme(bcCfg(), 'invoice', stColor())); } catch (e) { /* the card keeps its colours */ } }
   function stApply(tplId) {
@@ -2038,7 +2035,7 @@
   }
   const stTplName = (t0) => t('st.look.' + t0.look) + ' · ' + t('st.lay.' + t0.layout);
   function stPaint() {
-    const pv = $('#st-pv'); if (pv) { const cfg = ihCfg(), S = 2; pv.width = InvHeader.W * S; pv.height = InvHeader.H * S; const x = pv.getContext('2d'); x.scale(S, S); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); }
+    document.querySelectorAll('#st-pv, #sm-invoice').forEach((pv) => { const cfg = ihCfg(), S = 2; pv.width = InvHeader.W * S; pv.height = InvHeader.H * S; const x = pv.getContext('2d'); x.scale(S, S); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); });
     const cc = $('#st-card'); if (cc) { try { const src = bcCanvas('front', CardMaker.applyScheme(bcCfg(), 'invoice', stColor()), 0.5); cc.width = src.width; cc.height = src.height; cc.getContext('2d').drawImage(src, 0, 0); } catch (e) { /* no preview */ } }
     document.querySelectorAll('canvas[data-stpromo]').forEach((pc) => { const t0 = Studio.byId(stSt().tpl) || { look: 'bold' }, ps = Studio.promoStyle(t0.look, stColor(), InvHeader.mix); pc.width = 540; pc.height = 86; const g = pc.getContext('2d'), gr = g.createLinearGradient(0, 0, 540, 86); gr.addColorStop(0, ps.head[0]); gr.addColorStop(1, ps.head[1]); g.fillStyle = gr; g.fillRect(0, 0, 540, 86); g.fillStyle = ps.ink; g.textBaseline = 'alphabetic'; g.font = '800 30px system-ui,Arial'; g.fillText(storeCfg().name || bizName(), 20, 42, 500); g.globalAlpha = 0.85; g.font = '600 16px system-ui,Arial'; g.fillText(t('pr.subNew'), 20, 68, 500); g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillRect(0, 70, 0, 0); });
     const col = stColor(); document.querySelectorAll('canvas[data-sttpl]').forEach((cv) => { const cfg = stCfgFor(cv.dataset.sttpl, col), x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); }); svPaint();
@@ -2051,7 +2048,7 @@
       ${row('card', t('st.cardSync'), t('st.cardSyncSub'), !!s0.card)}${row('promo', t('st.promoSync'), t('st.promoSyncSub'), !!s0.promo)}
       <button type="button" class="btn primary" data-act="st-everywhere" style="margin-top:10px">${t('st.everywhere')}</button>`;
   }
-  function stBrandHTML() {
+  function stBrandHTML(parts) {
     const col = stColor(), s = stSt(), cfg = ihCfg(), ic = InvHeader.colours(cfg);
     const sw = (c) => `<button type="button" class="stsw ${c.toLowerCase() === col ? 'on' : ''}" data-act="st-color" data-id="${c}" style="background:${c}" aria-label="${c}"></button>`;
     const brandCols = [Theme.brand()].concat(stLogoColors()), custom = !Studio.SWATCHES.concat(brandCols).some((c) => c.toLowerCase() === col);
@@ -2064,24 +2061,23 @@
       <button type="button" class="row tap" data-act="contact-open" style="margin-top:8px"><div class="grow"><b>${t('hub.contact')}</b><small>${esc([ihInfo().name, state.settings.bizCity, state.settings.bizPhone].filter(Boolean).join(' · '))}</small></div><span class="chev">›</span></button></div>`;
     const adv = `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}${mbRow('🔤', t('tt.row'), t('tt.rowSub'), 'tt-open')}${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo')}</div>`;
     const accent = `<div class="ihr col"><label>${t('ih.accent')}</label><button type="button" class="ihsw" data-act="st-accent" style="background:${ic.head}" aria-label="${t('ih.pickColor')}"></button></div>`;
-    return `${ihSec('st:design', '1 · ' + t('st.s1'), `<div class="stgal">${gallery}</div>`)}
-      ${ihSec('st:color', '2 · ' + t('st.s2'), colours + accent)}
-      ${ihSec('st:details', '3 · ' + t('st.s3b'), stDetailsHTML())}
-      ${ihSec('st:page', '4 · ' + t('st.s4'), `<p class="muted small" style="margin:0 0 6px">${t('ih.pagebgSub')}</p>${frameBlockHTML()}`)}
-      ${ihSec('st:more', t('st.more'), adv + `<h4 class="sth4">${t('mb.savedInv')}</h4>${svSlotsHTML('inv', true)}`)}
-      <div class="btns" style="margin-top:14px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
+    const secs = {
+      design: ihSec('st:design', t('st.s1'), `<div class="stgal">${gallery}</div>`),
+      color: ihSec('st:color', t('st.s2'), colours + accent),
+      details: ihSec('st:details', t('st.s3b'), stDetailsHTML()),
+      page: ihSec('st:page', t('st.s4'), `<p class="muted small" style="margin:0 0 6px">${t('ih.pagebgSub')}</p>${frameBlockHTML()}`),
+      more: ihSec('st:more', t('st.more'), adv + `<h4 class="sth4">${t('mb.savedInv')}</h4>${svSlotsHTML('inv', true)}`),
+    };
+    return (parts || ['design', 'color', 'details', 'page', 'more']).map((k) => secs[k]).join('');
   }
-  // ---- the tabs: Brand, Invoice, Card, Logo, Title, Promote. Each tab hosts one of the creators (their pages stay the same, only their frame is shared). ----
-  let stTab = 'brand';
-  const ST_TABS = [['brand', '✨'], ['invoice', '🧾'], ['card', '💳'], ['logo', '🖼️'], ['title', '🔤'], ['promote', '🗣️']];
-  const stBodyId = () => ({ brand: 'st-body', promote: 'st-body', invoice: 'ih-body', card: 'bc-body', logo: 'lk-body', title: 'tt-body' })[stTab];
+  // ---- Brand Studio, the new shape: a main page that only SHOWS your brand (a card per thing, with a live preview and an Edit button),
+  // and one Edit page per thing: slim top bar (Back / Save), the live preview pinned on top, the controls below. The only ways out are Back and Save;
+  // Back with unsaved changes asks. Edits are applied as you make them and Discard puts the snapshot taken when the page opened back. ----
+  let edKind = null, edSnap = '', edMin = pref('edPvMin', false);
+  const ED_KINDS = ['brand', 'invoice', 'card', 'logo', 'title', 'promote'];
+  const edNice = (k) => t('st.ed.' + k);
   const stField = (k, label, type) => `<div class="ihr"><label>${label}</label><input type="${type || 'text'}" data-bz="${k}" value="${esc(state.settings[k] || '')}" autocomplete="off"${type === 'tel' ? ' inputmode="tel"' : ''}></div>`;
   const stDetailsHTML = () => `<p class="muted small" style="margin:0 0 6px">${t('st.detailsSub')}</p>${stField('businessName', t('set.bizName'))}${stField('bizCity', t('bz.city'))}${stField('bizPhone', t('bz.phone'), 'tel')}${stField('bizEmail', t('bz.email'), 'email')}`;
-  function stPromoHTML() {
-    return stShareHTML();
-  }
-  const stBodyHTML = () => (stTab === 'promote' ? stPromoHTML() : stBrandHTML());
-  const stBodyFor = () => ({ brand: stBodyHTML, promote: stBodyHTML, invoice: ihBodyHTML, card: bcBodyHTML, title: ttBodyHTML, logo: () => (state.settings.bizLogo ? lkGenHTML() : '') + lkBodyHTML() + `<div class="list grp" style="margin-top:12px">${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo-page')}</div>` })[stTab]();
   // Every switch and big button in the Studio says exactly what it will do before it does it (a short pop-up with the steps and a Cancel).
   const ST_INFO = {
     'multi:on': ['st.c.multiOn.t', ['st.c.multiOn.1', 'st.c.multiOn.2', 'st.c.multiOn.3'], 'st.c.multiOn.ok'],
@@ -2092,7 +2088,6 @@
     'promo:off': ['st.c.promoOff.t', ['st.c.promoOff.1', 'st.c.promoOff.2'], 'st.c.promoOff.ok'],
     'everywhere': ['st.c.every.t', ['st.c.every.1', 'st.c.every.2', 'st.c.every.3', 'st.c.every.4'], 'st.c.every.ok'],
     'use': ['st.c.use.t', ['st.c.use.1', 'st.c.use.2', 'st.c.use.3'], 'st.c.use.ok'],
-    'restore': ['st.c.restore.t', ['st.c.restore.1', 'st.c.restore.2', 'st.c.restore.3'], 'st.c.restore.ok'],
   };
   function stConfirm(key) {
     const [title, lines, ok] = ST_INFO[key];
@@ -2104,60 +2099,92 @@
   const stMultiHTML = () => `<div class="stmulti"><div class="t"><b>${t('st.multi')}</b><small>${t('st.multiSub')}</small></div>${swt('st-multi', 'x', !!state.settings.studioMulti)}</div>`;
   // For an owner who already has a logo: the letter-logo maker's shapes and "use" button sit in a block of their own under it.
   function lkGenHTML() { const c = lkCfg(); return `<div class="card lkgen"><b>${t('st.makeNew')}</b><small>${t('st.makeNewSub')}</small><div class="lkpv">${LMK.SHAPES.map((sh) => `<button type="button" class="${c.shape === sh ? 'on' : ''}" data-act="lk-set" data-id="shape=${sh}" aria-label="${t('ih.sh.' + sh)}"><canvas data-lkshape="${sh}" width="220" height="220"></canvas></button>`).join('')}</div><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>`; }
-  function stTopHTML() {
-    const on = invDesignId() === 'custom', sample = `<button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button>`;
-    if (stTab === 'invoice') return `<canvas id="ih-pv" width="1600" height="380" aria-label="${t('ih.title')}"></canvas><div class="stbar">${sample}<button type="button" class="btn primary" id="ih-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div>`;
-    if (stTab === 'card') return `<canvas id="bc-pv" width="1050" height="600" aria-label="${t('bc.title')}"></canvas><div class="chiprow bcside"><button type="button" class="chip on" data-act="bc-side" data-id="front">${t('bc.front')}</button><button type="button" class="chip" data-act="bc-side" data-id="back">${t('bc.back')}</button></div>`;
-    if (stTab === 'logo' && state.settings.bizLogo) return `<div class="lkown"><span class="lgpv fit ${logoShape()}"><img src="${state.settings.bizLogo}" alt=""></span><div class="t"><b>${t('st.yourLogo')}</b><small>${esc(bizName())}</small></div></div><div class="stbar"><button type="button" class="btn primary" data-act="logo-pick">${t('bz.logoChange')}</button><button type="button" class="btn" data-act="mb-logo-page">${t('st.logoMore')}</button></div>`;
-    if (stTab === 'logo') { const c = lkCfg(); return `<div class="lkpv">${LMK.SHAPES.map((sh) => `<button type="button" class="${c.shape === sh ? 'on' : ''}" data-act="lk-set" data-id="shape=${sh}" aria-label="${t('ih.sh.' + sh)}"><canvas data-lkshape="${sh}" width="220" height="220"></canvas></button>`).join('')}</div><div class="stbar"><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>`; }
-    if (stTab === 'title') return `<div class="tmpv"><canvas id="tt-pv" aria-label="${t('tt.title')}"></canvas></div><div class="stbar"><button type="button" class="btn primary" data-act="tt-use">${t('tt.use')}</button></div>`;
-    if (stTab === 'promote') return `<canvas data-stpromo="1" class="stpromo"></canvas>`;
-    return `<canvas id="st-pv" width="1600" height="380" aria-label="${t('st.title')}"></canvas><div class="stbar">${sample}<button type="button" class="btn primary" id="st-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div>`;
+  // ---- main page: one card per thing, showing it live, with an Edit button ----
+  function stMainHTML() {
+    const col = stColor(), s = state.settings, cfg = ihCfg(), logo = hdrLogoSrc(cfg), title = cfg.slots.title;
+    const card = (k, sub, preview, extra) => `<div class="card stc"><div class="stch"><div><b>${edNice(k)}</b><small>${sub}</small></div><button type="button" class="btn primary stedit" data-act="se-open" data-id="${k}">${t('st.edit')}</button></div><div class="stpv">${preview}</div>${extra || ''}</div>`;
+    const contact = esc([bizName(), s.bizCity, s.bizPhone].filter(Boolean).join(' · '));
+    return `<p class="muted small" style="margin:0 2px 10px">${t('st.mainSub')}</p>
+      ${card('brand', t('st.m.brand'), `<div class="stbr"><span class="stsw on" style="background:${col}"></span><div><b>${esc(bizName())}</b><small>${contact || t('bz.none')}</small></div></div>`)}
+      ${card('invoice', t('st.m.invoice'), '<canvas id="sm-invoice" width="1600" height="380"></canvas>', stSample())}
+      ${card('card', t('st.m.card'), '<canvas id="sm-card"></canvas>')}
+      ${card('logo', t('st.m.logo'), `<div class="lkown"><span class="lgpv fit ${logoShape()}">${s.bizLogo ? `<img src="${s.bizLogo}" alt="">` : esc(initials(bizName()))}</span><div class="t"><b>${t(s.bizLogo ? 'st.yourLogo' : 'st.noLogo')}</b><small>${esc(bizName())}</small></div></div>`)}
+      ${card('title', t('st.m.title'), title ? `<div class="sttitle"><img src="${title}" alt=""></div>` : `<p class="muted small" style="margin:0">${t('st.noTitle')}</p>`)}
+      ${card('promote', t('st.m.promote'), '<canvas data-stpromo="1" class="stpromo"></canvas>')}`;
   }
-  function stFlags() { ihOn = stTab === 'invoice'; bcOn = stTab === 'card'; lkOn = stTab === 'logo'; ttOn = stTab === 'title'; stOn = true; }
-  function stPaintAll() { stPaint(); if (ihOn) ihPaint(); if (bcOn) { bcPaint(); } if (lkOn) lkPaint(); if (ttOn) ttPaint(); svPaint(); }
-  function stAttachCard() { const cv = $('#bc-pv'); if (cv) { bcSide = 'front'; cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } }
-  // keep the open tab in view inside the tab row (only the row moves, never the page)
-  function stStripCenter() { const st = $('#st-strip'), on = st && st.querySelector('button.on'); if (st && on) st.scrollLeft = Math.max(0, on.offsetLeft - (st.clientWidth - on.offsetWidth) / 2); }
-  // The title bar slides away while you read down the page and comes back as soon as you pull back a little; the pinned block moves up and down with it (smoothly, nothing on the page jumps).
-  let stLastY = 0, stBarHidden = false;
-  function stBarWatch() {
-    const sh = $('#sheet'); if (!sh) return; stLastY = sh.scrollTop; stBarHidden = false; sh.classList.remove('st-bar-hide');
-    const fb = sh.querySelector('.fullbar'); if (fb) sh.style.setProperty('--fbh', Math.round(fb.getBoundingClientRect().height) + 'px');
-    sh.onscroll = () => {
-      const y = sh.scrollTop, d = y - stLastY; stLastY = y;
-      if (y < 40) stBarHidden = false; else if (d > 8) stBarHidden = true; else if (d < -8) stBarHidden = false; else return;
-      sh.classList.toggle('st-bar-hide', stBarHidden); const tp = $('#st-top'); if (tp) tp.classList.toggle('stuck', stBarHidden);
-    };
-  }
-  function stRender() {
-    const top = $('#st-top'), wrap = $('#st-bodywrap'); if (!top || !wrap) return;
-    stFlags(); top.querySelector('.stcont').innerHTML = stTopHTML(); wrap.innerHTML = `${stMultiHTML()}<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div>`;
-    document.querySelectorAll('#st-strip button[data-id]').forEach((b) => b.classList.toggle('on', b.dataset.id === stTab)); $('#sheet').scrollTop = 0; stAttachCard(); stPaintAll(); stStripCenter();
-  }
-  function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); setTimeout(svPaint, 0); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !(stTab === 'brand' && stChanged()); }
-  function sheetStudio(tab) {
-    if (tab) stTab = tab;
-    enterPage('studio', '', () => sheetStudio());
-    stFlags(); state.settings.studioPrev = state.settings.studioPrev || stSnap();
-    const strip = ST_TABS.map(([k, ic]) => `<button type="button" class="${stTab === k ? 'on' : ''}" data-act="st-tab" data-id="${k}">${ic} ${t('st.tab.' + k)}</button>`).join('');
-    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div>
-      <div class="ihtop ststudio" id="st-top"><div class="ststrip" id="st-strip"><button type="button" class="stback" data-act="close" aria-label="${t('aria.back')}">‹</button>${strip}</div><div class="stcont">${stTopHTML()}</div></div>
-      <div id="st-bodywrap">${stMultiHTML()}<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div></div>
-      <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`,
-      () => { stOn = ihOn = bcOn = lkOn = ttOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
-    stAttachCard(); stPaintAll(); stStripCenter();
-    stBarWatch();
-  }
-  // Open the Studio on one tab with all its drop-downs closed (so the old Invoice / Card / Logo / Title entries all lead here).
-  function openStudio(tab) {
-    const open = { brand: { 'st:design': true } }[tab] || {}; ihClosed('st:', open); ihClosed(''); ihClosed('tt:'); ihClosed('lk:');
-    if (tab === 'invoice-banner') { ihOpenSecs.banner = true; tab = 'invoice'; }
-    const sh = $('#sheet'), inStudio = !sh.hidden && ((pageStack[pageStack.length - 1] || {}).key === 'studio|');
-    if (inStudio) { stTab = tab; return stRender(); }
-    return sheetStudio(tab);
+  const stSample = () => `<button type="button" class="btn" data-act="inv-sample" style="margin-top:8px">👁 ${t('inv.sampleBtn')}</button>`;
+  function stMainPaint() { stPaint(); const cc = $('#sm-card'); if (cc) { try { const src = bcCanvas('front', bcCfg(), 0.5); cc.width = src.width; cc.height = src.height; cc.getContext('2d').drawImage(src, 0, 0); } catch (e) { /* no preview */ } } }
+  function stRefresh() { if (edKind) return edRefresh(); const m = $('.stmain'); if (m) { m.innerHTML = stMainHTML(); stMainPaint(); } }
+  function sheetStudio() {
+    enterPage('studio', '', () => sheetStudio()); stOn = true;
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div><div class="pd stmain">${stMainHTML()}</div>`, () => { stOn = false; ihPrune(); render(); }, true);
+    stMainPaint();
   }
 
+  // ---- an edit page ----
+  const edChanged = () => JSON.stringify(state.settings) !== edSnap;
+  function edTopHTML() {
+    const k = edKind, c = lkCfg();
+    if (k === 'invoice') return `<canvas id="ih-pv" width="1600" height="380" aria-label="${t('ih.title')}"></canvas>`;
+    if (k === 'card') return `<canvas id="bc-pv" width="1050" height="600" aria-label="${t('bc.title')}"></canvas><div class="chiprow bcside"><button type="button" class="chip on" data-act="bc-side" data-id="front">${t('bc.front')}</button><button type="button" class="chip" data-act="bc-side" data-id="back">${t('bc.back')}</button></div>`;
+    if (k === 'logo') return state.settings.bizLogo ? `<div class="lkown"><span class="lgpv fit ${logoShape()}"><img src="${state.settings.bizLogo}" alt=""></span><div class="t"><b>${t('st.yourLogo')}</b><small>${esc(bizName())}</small></div></div>` : `<div class="lkown"><canvas data-lkshape="${c.shape}" width="220" height="220" style="width:72px;height:72px"></canvas><div class="t"><b>${t('st.noLogo')}</b><small>${t('st.noLogoSub')}</small></div></div>`;
+    if (k === 'title') return `<div class="tmpv"><canvas id="tt-pv" aria-label="${t('tt.title')}"></canvas></div>`;
+    if (k === 'promote') return '<canvas data-stpromo="1" class="stpromo"></canvas>';
+    return `<div class="stbr"><span class="stsw on" style="background:${stColor()}"></span><div><b>${esc(bizName())}</b><small>${esc([state.settings.bizCity, state.settings.bizPhone, state.settings.bizEmail].filter(Boolean).join(' · '))}</small></div></div>`;
+  }
+  function edBodyHTML() {
+    const k = edKind, multi = stMultiHTML();
+    if (k === 'brand') return multi + stBrandHTML(['color', 'details']);
+    if (k === 'invoice') return multi + stSample().replace('margin-top:8px', 'margin:0 0 8px') + stBrandHTML(['design', 'color']) + ihBodyHTML();
+    if (k === 'card') return multi + bcBodyHTML();
+    if (k === 'title') return multi + `<button type="button" class="btn primary" data-act="tt-use" style="margin-bottom:8px">${t('tt.use')}</button>` + ttBodyHTML();
+    if (k === 'promote') return multi + stShareHTML();
+    // logo: the shape of your logo and your saved logos, then the maker that builds a logo from letters
+    const s = state.settings, dl = s.bizLogo ? `<button type="button" class="btn" data-act="bp-dl" data-id="logo" style="margin-top:8px">⬇ ${t('bz.logoDl')}</button>` : '';
+    const brand = brandAvail() ? `<div class="card bpbrand" style="margin:8px 0"><b>${t('bz.brand')}</b><p class="muted small">${t('bz.brandSub')}</p><button type="button" class="btn ${brandOn() ? '' : 'primary'}" data-act="bp-brand">${brandOn() ? '✓ ' + t('bz.brandDone') : t('bz.brandBtn')}</button></div>` : '';
+    return multi + ihSec('logoset', t('logo.settings'), logoSettingsHTML() + dl) + brand + lkGenHTML() + lkBodyHTML();
+  }
+  function edPaint() { stPaint(); if (ihOn) ihPaint(); if (bcOn) bcPaint(); if (lkOn) lkPaint(); if (ttOn) ttPaint(); svPaint(); }
+  function stAttachCard() { const cv = $('#bc-pv'); if (cv) { bcSide = 'front'; cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } }
+  function edRefresh() {
+    const b = $('#ed-body'), top = document.querySelector('#ed-top .edpv'); if (!b || !edKind) return;
+    const sc = $('#sheet').scrollTop; b.innerHTML = edBodyHTML(); if (top) top.innerHTML = edTopHTML(); $('#sheet').scrollTop = sc; stAttachCard(); edPaint();
+  }
+  function edFlags() { ihOn = edKind === 'invoice'; bcOn = edKind === 'card'; lkOn = edKind === 'logo'; ttOn = edKind === 'title'; stOn = true; }
+  function edCleanup() { edKind = null; ihOn = bcOn = lkOn = ttOn = false; document.body.classList.remove('ed-open'); try { ihPrune(); } catch (e) { /* nothing to prune */ } }
+  function openEditor(kind) {
+    if (!edKind) edSnap = JSON.stringify(state.settings);
+    edKind = kind; edFlags();
+    enterPage('studioed', '', () => openEditor(edKind));
+    openSheet(`<div class="edhead" id="ed-head"><div class="fullbar edbar"><button data-act="se-back" aria-label="${t('aria.back')}">‹</button><div><b>${edNice(kind)}</b></div><button type="button" class="edsave" data-act="se-save">${t('btn.save')}</button></div>
+        <div class="edtop${edMin ? ' min' : ''}" id="ed-top"><div class="edpv">${edTopHTML()}</div><button type="button" class="edh" data-act="se-min" aria-label="${t('st.ed.size')}">${edMin ? '▾' : '▴'}</button></div></div>
+      <div class="pd" id="ed-body">${edBodyHTML()}</div>
+      <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`, () => { edCleanup(); stOn = false; render(); }, true);
+    document.body.classList.add('ed-open'); stAttachCard(); edPaint();
+  }
+  // leave the edit page (after Save or Discard): back to the page it was opened from
+  function edExit() {
+    edCleanup(); const sh = $('#sheet');
+    if (sh.classList.contains('small')) { const p = smallPrev; if (p && p.stack.length > 1) { p.stack = p.stack.slice(0, -1); p.open = p.stack[p.stack.length - 1].open; } else smallPrev = null; closeSheet(); } else pageBack();
+  }
+  function edSave() {
+    try { if (edKind === 'invoice' && JSON.stringify(state.settings.invHeader || null) !== JSON.stringify(JSON.parse(edSnap).invHeader || null)) state.settings.invoiceDesign = 'custom'; } catch (e) { /* design choice left as it is */ }
+    save(); toast(t('st.savedOk')); edExit();
+  }
+  function edDiscard() {
+    try { state.settings = JSON.parse(edSnap); } catch (e) { /* keep as is */ } Object.keys(headCache).forEach((k) => delete headCache[k]); save(); toast(t('st.discarded')); edExit();
+  }
+  function edAsk() {
+    openSmall(`<h3>${t('st.ed.askT')}</h3><p class="muted">${t('st.ed.askB')}</p><div class="btns" style="flex-direction:column;gap:10px"><button class="btn primary" data-act="se-ask-save">${t('btn.save')}</button><button class="btn dsolid" data-act="se-ask-discard">${t('st.ed.discard')}</button><button class="btn" data-act="close">${t('st.ed.keep')}</button></div>`, 'card');
+  }
+  // Open the Studio (main page) or straight into one edit page, with every drop-down closed.
+  function openStudio(tab) {
+    ihClosed('st:'); ihClosed(''); ihClosed('tt:'); ihClosed('lk:');
+    if (tab === 'invoice-banner') { ihOpenSecs.banner = true; tab = 'invoice'; }
+    if (!tab || tab === 'main') return sheetStudio();
+    if (edKind && !$('#sheet').hidden) { edKind = tab; edFlags(); return openEditor(tab); }
+    return openEditor(tab);
+  }
   /* ---------- default places for a new business: the same places, no prices; the high-risk areas come marked ---------- */
   function seedDefaultPlaces() {
     const c0 = storeCfg(); if (c0.zones && c0.zones.length) return false;
@@ -2266,7 +2293,7 @@
       <div class="btns"><button type="button" class="btn primary" data-act="bc-share">📤 ${t('bc.share')}</button><button type="button" class="btn" data-act="bc-pic">💾 ${t('mb.savePic')}</button></div><div class="btns"><button type="button" class="btn" data-act="bc-pdf">⬇ ${t('bc.dlPdf')}</button><button type="button" class="btn" data-act="bc-png" data-id="front">⬇ ${t('bc.dlFront')}</button><button type="button" class="btn" data-act="bc-png" data-id="back">⬇ ${t('bc.dlBack')}</button></div><p class="muted small">${t('bc.printNote')}</p>`);
     return `${col}${what}${arrange}${pat}${qr}${saved}${print}`;
   }
-  function bcRefresh() { const b = $('#bc-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = bcBodyHTML(); $('#sheet').scrollTop = sc; bcPaint(); setTimeout(svPaint, 0); }
+  function bcRefresh() { if (edKind) return edRefresh(); const b = $('#bc-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = bcBodyHTML(); $('#sheet').scrollTop = sc; bcPaint(); setTimeout(svPaint, 0); }
   function sheetCard() {
     enterPage('bizcard', '', () => sheetCard());
     bcOn = true;
@@ -2355,7 +2382,7 @@
       <div class="btns">${d ? b('sv-edit', t('mb.edit'), 'primary') + (kind === 'inv' && !use ? b('sv-use', t('mb.use')) : '') + (kind === 'card' ? b('sv-share', '📤 ' + t('mb.share')) + b('sv-pic', '💾 ' + t('mb.savePic')) : '') + b('sv-save', t('mb.over')) + `<button type="button" class="btn" data-act="sv-del" data-id="${kind}:${i}" aria-label="${t('ih.delete')}">✕</button>` : b('sv-save', t('mb.saveHere'), 'primary') + b('sv-new', t('mb.makeNew'))}</div></div>`;
   };
   const svSlotsHTML = (kind, thumbs) => `${svCard(kind, 0, thumbs)}${svCard(kind, 1, thumbs)}<p class="muted small">${t('mb.limit')}</p>`;
-  function svRedraw() { if (typeof ihOn !== 'undefined' && ihOn && $('#ih-body')) return ihRefresh(); if (bcOn && $('#bc-body')) return bcRefresh(); const top = (pageStack[pageStack.length - 1] || {}).key || '', pg = { 'myinvoice|': sheetMyInvoice, 'mycard|': sheetMyCard }[top]; if (pg) return pg(); }
+  function svRedraw() { if (edKind) return edRefresh(); if (typeof ihOn !== 'undefined' && ihOn && $('#ih-body')) return ihRefresh(); if (bcOn && $('#bc-body')) return bcRefresh(); const top = (pageStack[pageStack.length - 1] || {}).key || '', pg = { 'myinvoice|': sheetMyInvoice, 'mycard|': sheetMyCard }[top]; if (pg) return pg(); }
   function svPaint() {
     document.querySelectorAll('canvas[data-svc]').forEach((cv) => {
       const [kind, n, side] = cv.dataset.svc.split(':'), d = svSlot(kind, Number(n)); if (!d) return;
@@ -5015,7 +5042,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mb-logo': return openStudio('logo');
       case 'mb-style': return goFromPage({ tab: 'more', moreView: 'set-invdesign' });
       case 'ih-banner': return openStudio('invoice-banner');
-      case 'sv-edit': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); return k === 'inv' ? sheetHeader() : sheetCard(); }
+      case 'sv-edit': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); if (edKind) return edRefresh(); return k === 'inv' ? sheetHeader() : sheetCard(); }
       case 'sv-use': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); state.settings.invoiceDesign = 'custom'; save(); toast(t('ih.toast')); return svRedraw(); }
       case 'sv-save': { const [k, n] = id.split(':'), el = document.querySelector('[data-svname="' + id + '"]'); svSave(k, Number(n), el && el.value.trim()); toast(t('ih.savedOk')); return svRedraw(); }
       case 'sv-del': { const [k, n] = id.split(':'); return askCard(t('mb.delAsk'), { danger: true, ok: t('ih.delete') }).then((y) => { if (!y) return; state.settings[SVKEY[k]] = svList(k).filter((d) => d.slot !== Number(n)); ihPrune(); save(); svRedraw(); }); }
@@ -5055,13 +5082,17 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-add': { const [w, m] = id.split(':'), r = (planAdm.rows || []).find((x) => x.id === w); if (!r) return; const cur = r.plan === 'trial' ? Plan.ms(r.trialEnds) : Plan.ms(r.paidUntil), ends = Plan.extend(cur, Date.now(), Number(m)); return planAdmWrite(w, { plan: r.plan === 'trial' ? 'starter' : r.plan, paidUntil: Cloud.ts(ends), locked: false }); }
       case 'pl-test': { const [w, d] = id.split(':'); return planAdmWrite(w, { plan: 'trial', trialEnds: Cloud.ts(Date.now() - Number(d) * 864e5), locked: false }); }
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
-      case 'studio-open': return openStudio('brand');
-      case 'studio-details': openStudio('brand'); ihOpenSecs['st:details'] = true; return stRefresh();
+      case 'studio-open': return openStudio('main');
+      case 'studio-details': openStudio('brand'); ihOpenSecs['st:details'] = true; return edRefresh();
       case 'st-multi': return stConfirm(state.settings.studioMulti ? 'multi:off' : 'multi:on').then((y) => { if (!y) return; state.settings.studioMulti = !state.settings.studioMulti; save(); const m = document.querySelector('.stmulti'); if (m) m.outerHTML = stMultiHTML(); });
-      case 'st-tab': stTab = id; ihClosed('st:'); return stRender();
+      case 'se-open': return openEditor(id);
+      case 'se-back': return pageBack();
+      case 'se-save': return edSave();
+      case 'se-min': edMin = !edMin; setPref('edPvMin', edMin); { const tp = $('#ed-top'); if (tp) { tp.classList.toggle('min', edMin); t_.textContent = edMin ? '▾' : '▴'; } } return;
+      case 'se-ask-save': return edSave();
+      case 'se-ask-discard': return edDiscard();
       case 'mb-logo-page': ihClosed(''); return sheetMyLogo();
       case 'st-tpl': return stApply(id);
-      case 'st-restore': return stConfirm('restore').then((y) => { if (y) stRestore(); });
       case 'st-toggle': return stConfirm(id + (stSt()[id] ? ':off' : ':on')).then((y) => { if (!y) return; state.settings.studio = Object.assign({}, stSt(), { [id]: !stSt()[id] }); if (id === 'card') stSyncCard(); save(); stRefresh(); toast(t(stSt()[id] ? 'st.on' : 'st.off')); });
       case 'st-everywhere': return stConfirm('everywhere').then((y) => { if (!y) return; state.settings.studio = Object.assign({}, stSt(), { card: true, promo: true }); stSyncCard(); save(); stRefresh(); toast(t('st.everywhereDone')); });
       case 'st-color': return stSetColor(id);
@@ -5483,7 +5514,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   }
   // After the logo or its shape changes: redraw the card(s) and the preview wherever they are open.
   function refreshLogoUI() {
-    if (stOn && stTab === 'logo' && $('#st-top')) stRender();
+    if (edKind) edRefresh();
     if (((pageStack[pageStack.length - 1] || {}).key || '') === 'mylogo|' && !$('#sheet').hidden && !$('#sheet').classList.contains('small')) sheetMyLogo();
     document.querySelectorAll('.lgcard').forEach((el) => { const w = document.createElement('div'); w.innerHTML = logoCardHTML(); el.replaceWith(w.firstElementChild); });
     const pl = $('#ct-pl'); if (pl) { const n = storeCfg().name || bizName(); pl.outerHTML = ctLogoHTML(n); const tp = document.querySelector('.pvw .top'); if (tp) tp.classList.toggle('wideLogo', !!state.settings.bizLogo && logoShape() === 'wide'); }

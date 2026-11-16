@@ -127,3 +127,21 @@ input[type=range]{touch-action:pan-y}
 #sheet.st-bar-hide .fullbar{transform:translateY(-110%)}
 .ihtop.ststudio{top:var(--fbh,60px);transition:top .22s ease}
 #sheet.st-bar-hide .ihtop.ststudio{top:0}
+/* Brand Studio: main page cards and the edit page */
+.stmain .stc{padding:14px;margin:0 0 12px;display:flex;flex-direction:column;gap:10px}
+.stch{display:flex;align-items:flex-start;justify-content:space-between;gap:10px}.stch b{display:block;font-size:16px}.stch small{display:block;color:var(--mute);font-size:12.5px;margin-top:2px}
+.stedit{width:auto;min-height:40px;padding:0 18px;flex:none}
+.stpv canvas{display:block;width:100%;height:auto;border-radius:12px;box-shadow:var(--sh-c)}
+.stpv .sttitle img{max-height:60px;max-width:100%}
+.stbr{display:flex;align-items:center;gap:12px}.stbr b{display:block}.stbr small{color:var(--mute)}.stbr .stsw{width:34px;height:34px;flex:none}
+body.ed-open #tabbar,body.ed-open #actionbar{display:none!important}
+.edhead{position:sticky;top:0;z-index:8;margin:0 -16px;background:var(--bg);box-shadow:0 8px 14px -10px rgba(0,0,0,.38),0 1px 0 var(--ln)}
+.edhead .fullbar.edbar{position:static;margin:0;height:calc(52px + var(--sat));padding:var(--sat) 10px 0;border-radius:0 0 var(--r2) var(--r2);box-shadow:none;display:flex;align-items:center;gap:6px}
+.edbar .edsave{margin-left:auto;background:#fff;color:var(--brand);border:0;border-radius:99px;padding:8px 20px;min-height:0;font-weight:800;font-size:15px;width:auto;box-shadow:none}
+.edtop{position:relative;padding:8px 16px 18px;margin:0}
+.edtop .edpv canvas{display:block;width:100%;height:auto;max-height:118px;object-fit:contain;border-radius:12px}
+.edtop #bc-pv{max-height:150px}.edtop .lkown .lgpv{width:64px;height:64px}
+.edtop .tmpv{margin:0;padding:6px}.edtop .tmpv canvas{max-height:84px;width:auto}
+.edtop.min .edpv{max-height:46px;overflow:hidden}.edtop.min .edpv canvas{max-height:44px}.edtop.min .bcside{display:none}.edtop.min .lkown .lgpv{width:40px;height:40px}.edtop.min .lkown .t small{display:none}
+.edh{position:absolute;left:50%;bottom:-2px;transform:translateX(-50%);width:54px;height:22px;min-height:0;padding:0;border:0;border-radius:11px 11px 0 0;background:var(--card);color:var(--mute);font-size:11px;box-shadow:var(--sh-c);line-height:1}
+#ed-body details.ihsec{scroll-margin-top:var(--sttop,150px)}
