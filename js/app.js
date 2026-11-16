@@ -469,6 +469,14 @@
       <div class="btns"><button type="button" class="btn" data-act="export-json">💾 ${t('pl.download')}</button><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'card');
   }
 
+  // ---- help and support: one tap to message the person who runs the app, with the business name and payment reference already in the message ----
+  function supportSheet() {
+    payLoad(); const num = payWaNum(), ref = payRef(), msg = t('sup.waText', { name: bizName(), ref: ref || '-' });
+    openSmall(`<h3>${t('sup.title')}</h3><p class="muted">${t('sup.body', { op: OPERATOR.name })}</p>
+      ${num ? `<a class="btn primary" style="display:block;text-align:center;text-decoration:none" href="https://wa.me/${num}?text=${encodeURIComponent(msg)}" target="_blank" rel="noopener">💬 ${t('pl.waBtn', { op: OPERATOR.name })}</a>` : `<p class="muted small">${t('sup.noNum', { op: OPERATOR.name })}</p><button type="button" class="btn primary" data-act="sup-copy">${t('sup.copy')}</button>`}
+      <p class="muted small" style="margin:10px 2px 4px">${t('sup.includes')}</p>
+      <div class="btns"><button type="button" class="btn" data-act="pl-info">🧾 ${t('pl.title')}</button><button type="button" class="btn" data-act="close">${t('btn.close')}</button></div>`, 'card');
+  }
   // ---- how to pay: bank transfer details, secure card links, "I've paid" message (the details are set by the admin in Firestore config/billing) ----
   const payWaNum = () => Plan.waDigits((payCfg && payCfg.whatsapp) || OPERATOR.whatsapp);
   function payLoad() {
@@ -1497,7 +1505,7 @@
         ${trow('📥', t('more.import'), t('more.importSub'), 'data-act="import-xlsx"')}
         ${trow('📊', t('set.storageRow'), t('set.storageSub'), nav('set-about'))}</div>
       <h2>${t('pl.sec')}</h2><div class="list grp">
-        ${trow('💳', t('pay.howT'), t('pay.rowSub'), 'data-act="pay-open"')}${planDoc || isAdmin ? trow('🧾', t('pl.title'), isAdmin ? t('pl.free') : rentLabel(planSt), 'data-act="pl-info"') : ''}${isAdmin ? trow('👥', t('pl.admT'), t('pl.admRow'), nav('set-plans')) + trow('💳', t('pay.cfgT'), t('pay.cfgRow'), nav('set-paycfg')) : ''}${cloud.signedIn && window.Cloud && Cloud.uid() ? trow('🪪', t('pl.uid'), t('pl.uidSub'), 'data-act="copy-uid"') : ''}
+        ${trow('🛟', t('sup.row'), t('sup.rowSub'), 'data-act="support-open"')}${trow('💳', t('pay.howT'), t('pay.rowSub'), 'data-act="pay-open"')}${planDoc || isAdmin ? trow('🧾', t('pl.title'), isAdmin ? t('pl.free') : rentLabel(planSt), 'data-act="pl-info"') : ''}${isAdmin ? trow('👥', t('pl.admT'), t('pl.admRow'), nav('set-plans')) + trow('💳', t('pay.cfgT'), t('pay.cfgRow'), nav('set-paycfg')) : ''}${cloud.signedIn && window.Cloud && Cloud.uid() ? trow('🪪', t('pl.uid'), t('pl.uidSub'), 'data-act="copy-uid"') : ''}
         ${trow('📄', t('tp.termsT'), t('tp.termsSub'), nav('set-terms'))}
         ${trow('🔏', t('tp.privT'), t('tp.privSub'), nav('set-privacy'))}</div>
       <h2>${t('set.sec.about')}</h2><div class="list grp">
@@ -3919,6 +3927,7 @@
   function notifList() {
     const out = [], now = Date.now(), c = storeCfg();
     const add = (n) => out.push(n);
+    if (!isAdmin && Plan.needsNote(planSt)) add({ key: 'plan:' + planSt.state + ':' + (planSt.daysLeft != null ? planSt.daysLeft : planSt.graceLeft || ''), grp: 'attn', ic: '⏳', always: true, title: rentLabel(planSt), sub: t(planSt.state === 'readonly' || planSt.state === 'locked' ? 'pl.cardBad' : 'pl.cardSoon'), go: ['pl-info', ''] });   // renewal reminder: the last 7 days, and after the date has passed
     if (can('team')) joinReqs.forEach((r) => add({ key: 'join:' + r.uid, grp: 'attn', ic: '👥', always: true, title: t('notif.join', { name: esc(r.name || r.email || '') }), sub: t('notif.joinSub'), go: ['req-open', r.uid] }));
     if (window.Store) {
       Store.orders().filter((o) => o.status === 'confirmed').forEach((o) => { const lat = latestInvOf(o), cf = tsAt(o.confirmedAt); if (lat && o.invSentNo !== lat.no && cf && cf.getTime() > INV_FROM && Date.now() - cf.getTime() > 5 * 60000) add({ key: 'send:' + o.id + ':' + lat.no, grp: 'attn', ic: '📤', always: true, title: t('notif.sendInv', { name: esc(o.name) }), sub: t('notif.sendInvSub', { code: esc(o.code || SCore.orderCode(o.id)), no: lat.no }), go: ['order-open', o.id] }); });
@@ -5012,6 +5021,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'rng-undo': { const r = t_.closest('.ihr') && t_.closest('.ihr').querySelector('input[type=range]'); if (!r || !r._undo || !r._undo.length) return; r.value = r._undo.pop(); r.dispatchEvent(new Event('input', { bubbles: true })); if (!r._undo.length) t_.remove(); return; }
       case 'pl-info': return rentInfo();
+      case 'support-open': return supportSheet();
+      case 'sup-copy': { const ta = t('sup.waText', { name: bizName(), ref: payRef() || '-' }); try { navigator.clipboard.writeText(ta); toast(t('pay.copied')); } catch (e) { toast(ta); } return; }
       case 'pay-open': return paySheet();
       case 'pay-copy': { const c = payCfg || {}, txt = id === 'bank' ? String(c.bankText || '') : id === 'ref' ? payRef() : t('pay.waText', { name: bizName(), ref: payRef() }); return copyText(txt).then((ok) => toast(ok ? t('pay.copied') : txt)); }
       case 'pc-save': return payCfgSave();
