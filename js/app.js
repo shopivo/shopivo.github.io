@@ -2067,12 +2067,15 @@
     return stShareHTML();
   }
   const stBodyHTML = () => (stTab === 'promote' ? stPromoHTML() : stBrandHTML());
-  const stBodyFor = () => ({ brand: stBodyHTML, promote: stBodyHTML, invoice: ihBodyHTML, card: bcBodyHTML, title: ttBodyHTML, logo: () => lkBodyHTML() + `<div class="list grp" style="margin-top:12px">${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo-page')}</div>` })[stTab]();
+  const stBodyFor = () => ({ brand: stBodyHTML, promote: stBodyHTML, invoice: ihBodyHTML, card: bcBodyHTML, title: ttBodyHTML, logo: () => (state.settings.bizLogo ? lkGenHTML() : '') + lkBodyHTML() + `<div class="list grp" style="margin-top:12px">${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo-page')}</div>` })[stTab]();
   const stMultiHTML = () => `<div class="stmulti"><span>${t('st.multi')}</span>${swt('st-multi', 'x', !!state.settings.studioMulti)}</div>`;
+  // For an owner who already has a logo: the letter-logo maker's shapes and "use" button sit in a block of their own under it.
+  function lkGenHTML() { const c = lkCfg(); return `<div class="card lkgen"><b>${t('st.makeNew')}</b><small>${t('st.makeNewSub')}</small><div class="lkpv">${LMK.SHAPES.map((sh) => `<button type="button" class="${c.shape === sh ? 'on' : ''}" data-act="lk-set" data-id="shape=${sh}" aria-label="${t('ih.sh.' + sh)}"><canvas data-lkshape="${sh}" width="220" height="220"></canvas></button>`).join('')}</div><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>`; }
   function stTopHTML() {
     const on = invDesignId() === 'custom', sample = `<button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button>`;
     if (stTab === 'invoice') return `<canvas id="ih-pv" width="1600" height="380" aria-label="${t('ih.title')}"></canvas><div class="stbar">${sample}<button type="button" class="btn primary" id="ih-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div>`;
     if (stTab === 'card') return `<canvas id="bc-pv" width="1050" height="600" aria-label="${t('bc.title')}"></canvas><div class="chiprow bcside"><button type="button" class="chip on" data-act="bc-side" data-id="front">${t('bc.front')}</button><button type="button" class="chip" data-act="bc-side" data-id="back">${t('bc.back')}</button></div>`;
+    if (stTab === 'logo' && state.settings.bizLogo) return `<div class="lkown"><span class="lgpv fit ${logoShape()}"><img src="${state.settings.bizLogo}" alt=""></span><div class="t"><b>${t('st.yourLogo')}</b><small>${esc(bizName())}</small></div></div><div class="stbar"><button type="button" class="btn primary" data-act="logo-pick">${t('bz.logoChange')}</button><button type="button" class="btn" data-act="mb-logo-page">${t('st.logoMore')}</button></div>`;
     if (stTab === 'logo') { const c = lkCfg(); return `<div class="lkpv">${LMK.SHAPES.map((sh) => `<button type="button" class="${c.shape === sh ? 'on' : ''}" data-act="lk-set" data-id="shape=${sh}" aria-label="${t('ih.sh.' + sh)}"><canvas data-lkshape="${sh}" width="220" height="220"></canvas></button>`).join('')}</div><div class="stbar"><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>`; }
     if (stTab === 'title') return `<div class="tmpv"><canvas id="tt-pv" aria-label="${t('tt.title')}"></canvas></div><div class="stbar"><button type="button" class="btn primary" data-act="tt-use">${t('tt.use')}</button></div>`;
     if (stTab === 'promote') return `<canvas data-stpromo="1" class="stpromo"></canvas>`;
@@ -5430,6 +5433,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   }
   // After the logo or its shape changes: redraw the card(s) and the preview wherever they are open.
   function refreshLogoUI() {
+    if (stOn && stTab === 'logo' && $('#st-top')) stRender();
     if (((pageStack[pageStack.length - 1] || {}).key || '') === 'mylogo|' && !$('#sheet').hidden && !$('#sheet').classList.contains('small')) sheetMyLogo();
     document.querySelectorAll('.lgcard').forEach((el) => { const w = document.createElement('div'); w.innerHTML = logoCardHTML(); el.replaceWith(w.firstElementChild); });
     const pl = $('#ct-pl'); if (pl) { const n = storeCfg().name || bizName(); pl.outerHTML = ctLogoHTML(n); const tp = document.querySelector('.pvw .top'); if (tp) tp.classList.toggle('wideLogo', !!state.settings.bizLogo && logoShape() === 'wide'); }
