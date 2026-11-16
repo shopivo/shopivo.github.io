@@ -84,3 +84,4 @@ input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--brand) 55%,tr
 .stbar{display:flex;gap:8px;margin-top:8px}.stbar .btn{margin-top:0;flex:1;min-height:46px}.ihtop .stbar .btn{width:auto}
 .sth4{margin:14px 2px 6px;font-size:12px;letter-spacing:.08em;text-transform:uppercase;color:var(--mute)}
 .stbar .btn{padding:0 8px;font-size:14px;white-space:nowrap}
+.strest{margin:2px 14px 0;text-align:center}.strest button{background:none;border:0;color:var(--brand);font-weight:700;font-size:13px;min-height:0;padding:8px;box-shadow:none;text-decoration:underline}

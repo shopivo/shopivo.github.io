@@ -1638,7 +1638,7 @@
     return i;
   };
   const ihCfg = () => InvHeader.norm(InvHeader.fromKeys(state.settings.invHeader, state.settings.invPool));
-  const ihPrune = () => { const p = state.settings.invPool; if (!p) return; InvHeader.prune(p, [state.settings.invHeader].concat((state.settings.invHeaderSaved || []).map((d) => d.cfg))); if (!Object.keys(p).length) delete state.settings.invPool; };
+  const ihPrune = () => { const p = state.settings.invPool; if (!p) return; InvHeader.prune(p, [state.settings.invHeader].concat((state.settings.invHeaderSaved || []).map((d) => d.cfg)).concat(state.settings.studioPrev && state.settings.studioPrev.header ? [state.settings.studioPrev.header] : [])); if (!Object.keys(p).length) delete state.settings.invPool; };
   // On a white square or rounded tile the round logo from the saved set is used when there is one; otherwise the normal business logo
   const hdrLogoSrc = (cfg) => cfg.slots.logo || (['square', 'rounded'].includes(cfg.items.logo.shape) && ((state.settings.bizLogoSet || []).find((x) => x.shape === 'circle') || {}).src) || state.settings.bizLogo;
   const ihImages = (cfg) => ({ logo: hdrImg(hdrLogoSrc(cfg)), title: hdrImg(cfg.slots.title), extra1: hdrImg(cfg.slots.extra1), extra2: hdrImg(cfg.slots.extra2), bg: hdrImg(cfg.bg.image.src) });
@@ -1972,6 +1972,10 @@
     if (Studio.NEEDS_TITLE[c.layout] && (!c.slots.title || stSt().autoTitle)) c.slots.title = stTitleSrc(color, (Studio.byId(tplId) || {}).look);
     return c;
   }
+  // How things were when the Studio opened, so one tap puts it back (kept only while the Studio is open).
+  const stSnap = () => JSON.parse(JSON.stringify({ header: state.settings.invHeader || null, design: state.settings.invoiceDesign || null, studio: state.settings.studio || null }));
+  const stChanged = () => { const p0 = state.settings.studioPrev; return !!p0 && JSON.stringify(p0) !== JSON.stringify(stSnap()); };
+  function stRestore() { const p0 = state.settings.studioPrev; if (!p0) return; const q = JSON.parse(JSON.stringify(p0)); state.settings.invHeader = q.header || undefined; if (!q.header) delete state.settings.invHeader; state.settings.invoiceDesign = q.design || undefined; if (!q.design) delete state.settings.invoiceDesign; state.settings.studio = q.studio || undefined; if (!q.studio) delete state.settings.studio; Object.keys(headCache).forEach((k) => delete headCache[k]); save(); stRefresh(); toast(t('st.restored')); }
   function stApply(tplId) {
     const col = stColor(), s = stSt(); let c = Studio.apply(ihCfg(), tplId, col, InvHeader), auto = !!s.autoTitle;
     if (Studio.NEEDS_TITLE[c.layout] && (!c.slots.title || auto)) { c.slots.title = stTitleSrc(col, (Studio.byId(tplId) || {}).look); c.items.title.on = true; auto = true; }
@@ -2008,14 +2012,14 @@
       ${ihSec('st:more', t('st.more'), adv + `<h4 class="sth4">${t('mb.savedInv')}</h4>${svSlotsHTML('inv', false)}`)}
       <div class="btns" style="margin-top:14px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
   }
-  function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } }
+  function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !stChanged(); }
   function sheetStudio() {
     enterPage('studio', '', () => sheetStudio());
-    stOn = true; ['st:design', 'st:color'].forEach((k) => { if (ihOpenSecs[k] === undefined) ihOpenSecs[k] = true; });
+    stOn = true; state.settings.studioPrev = stSnap(); ['st:design', 'st:color'].forEach((k) => { if (ihOpenSecs[k] === undefined) ihOpenSecs[k] = true; });
     const on = invDesignId() === 'custom';
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div>
       <div class="ihtop"><canvas id="st-pv" width="1600" height="380" aria-label="${t('st.title')}"></canvas><div class="stbar"><button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button><button type="button" class="btn primary" id="st-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div></div>
-      <div class="pd" id="st-body">${stBodyHTML()}</div>`, () => { stOn = false; render(); }, true);
+      <p class="strest" id="st-rest" ${stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="st-body">${stBodyHTML()}</div>`, () => { stOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
     stPaint();
   }
   function lmUse() {
@@ -4911,6 +4915,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
       case 'studio-open': return sheetStudio();
       case 'st-tpl': return stApply(id);
+      case 'st-restore': return stRestore();
       case 'st-color': return stSetColor(id);
       case 'st-colpick': return openColorPick({ get: () => stColor(), set: (v) => { state.settings.studio = Object.assign({}, stSt(), { color: Studio.hex(v) }); save(); } }, () => setTimeout(() => { const s0 = stSt(); if (s0.tpl) stApply(s0.tpl); else stRefresh(); }, 0));
       case 'st-accent': return openColorPick({ get: () => ihVal('accent'), set: (v) => ihSet('accent', v) }, () => setTimeout(() => { stRefresh(); stPaint(); }, 0));
