@@ -1105,15 +1105,20 @@
   const cover = (g, im, x, y, w, h) => { const k = Math.max(w / im.width, h / im.height), sw = w / k, sh = h / k; g.save(); g.beginPath(); g.rect(x, y, w, h); g.clip(); g.drawImage(im, (im.width - sw) / 2, (im.height - sh) / 2, sw, sh, x, y, w, h); g.restore(); };
   const rrect = (g, x, y, w, h, r) => { g.beginPath(); g.moveTo(x + r, y); g.arcTo(x + w, y, x + w, y + h, r); g.arcTo(x + w, y + h, x, y + h, r); g.arcTo(x, y + h, x, y, r); g.arcTo(x, y, x + w, y, r); g.closePath(); };
   const brandNow = () => (window.Theme && Theme.brand ? Theme.brand() : '#741b47');
+  // Promote pictures can follow the Brand Studio design (when the owner switched that on there); null keeps the old look (theme colour fading to dark).
+  const promoStyleNow = () => { const s0 = state.settings.studio; if (!s0 || !s0.promo || !s0.tpl) return null; const t0 = Studio.byId(s0.tpl); return t0 ? Studio.promoStyle(t0.look, Studio.hex(s0.color, brandNow()), InvHeader.mix) : null; };
+  let promoSt = null;
+  const promoAccent = () => (promoSt ? promoSt.accent : brandNow());
   function pricePill(g, x, y, i, k) {   // a white pill with the price (and the old price crossed out on a sale); never a cost
     const sale = L.salePrice(i), now = plain(money(sale > 0 ? sale : Number(i.price) || 0)), was = sale > 0 ? plain(money(Number(i.price) || 0)) : '';
     g.font = `800 ${Math.round(30 * k)}px system-ui,Arial`; const w1 = g.measureText(now).width; g.font = `600 ${Math.round(22 * k)}px system-ui,Arial`; const w2 = was ? g.measureText(was).width + 14 * k : 0;
     const w = w1 + w2 + 36 * k, h = 52 * k; g.fillStyle = 'rgba(255,255,255,.96)'; rrect(g, x, y - h, w, h, h / 2); g.fill();
-    g.fillStyle = brandNow(); g.textBaseline = 'middle'; g.font = `800 ${Math.round(30 * k)}px system-ui,Arial`; g.fillText(now, x + 18 * k, y - h / 2 + 1);
+    g.fillStyle = promoAccent(); g.textBaseline = 'middle'; g.font = `800 ${Math.round(30 * k)}px system-ui,Arial`; g.fillText(now, x + 18 * k, y - h / 2 + 1);
     if (was) { g.fillStyle = '#7b7080'; g.font = `600 ${Math.round(22 * k)}px system-ui,Arial`; const wx = x + 18 * k + w1 + 14 * k; g.fillText(was, wx, y - h / 2 + 1); g.fillRect(wx, y - h / 2 + 1, g.measureText(was).width, 2 * k); }
   }
   const toBlob = (cv) => new Promise((ok) => cv.toBlob(ok, 'image/jpeg', 0.9));
   async function prMake() {   // the pictures to share: one collage, or one picture per item
+    promoSt = promoStyleNow();
     const list = prChosen(), prices = prShowPrices(), c = storeCfg(), name = c.name || bizName(), sub = t(prWhich === 'sale' ? 'pr.subSale' : prWhich === 'new' ? 'pr.subNew' : 'pr.subAll');
     const foot = prices ? t('pr.footPrices') : t('pr.footMsg'), imgs = await Promise.all(list.map((i) => PUI.url(i.photo.id, 'full').then((u) => (u ? loadImg(u) : null)).then((im) => im || PUI.url(i.photo.id, 'thumb').then((u) => (u ? loadImg(u) : null)))));
     const items = list.map((i, n) => ({ i, im: imgs[n] })).filter((x) => x.im), out = [], lg = state.settings.bizLogo ? await loadImg(state.settings.bizLogo).catch(() => null) : null, lsh = LogoFit.effective(state.settings), lwhole = lsh === 'circle' && state.settings.bizLogoShape !== 'circle', lw = lg && lsh === 'wide' ? Math.min(360, Math.round(96 * lg.width / Math.max(1, lg.height))) : 96, circ = (g, x, y) => { if (!lg) return; const w = lw, h = 96, rr = lsh === 'circle' ? 48 : lsh === 'rounded' ? 22 : lsh === 'square' ? 8 : 12; g.save(); g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, rr); else g.rect(x, y, w, h); g.closePath(); g.clip(); if (lsh === 'wide') { g.fillStyle = '#fff'; g.fillRect(x, y, w, h); const k = Math.min((w - 12) / lg.width, (h - 12) / lg.height); g.drawImage(lg, x + (w - lg.width * k) / 2, y + (h - lg.height * k) / 2, lg.width * k, lg.height * k); } else if (lwhole) { g.fillStyle = '#fff'; g.fillRect(x, y, w, h); const k = Math.min(w * 0.6 / lg.width, h * 0.6 / lg.height); g.drawImage(lg, x + (w - lg.width * k) / 2, y + (h - lg.height * k) / 2, lg.width * k, lg.height * k); } else { const k = Math.max(w / lg.width, h / lg.height); g.drawImage(lg, x + (w - lg.width * k) / 2, y + (h - lg.height * k) / 2, lg.width * k, lg.height * k); } g.restore(); if (lsh !== 'wide') { g.lineWidth = 4; g.strokeStyle = 'rgba(255,255,255,.9)'; g.beginPath(); if (g.roundRect) g.roundRect(x, y, w, h, rr); else g.rect(x, y, w, h); g.stroke(); } };
@@ -1129,13 +1134,13 @@
     }
     const n = Math.min(items.length, 6), odd = n % 2 === 1, rows = Math.ceil(n / 2), cw = 530, ch = n === 1 ? 1100 : 660, W = 1080, H = 170 + (n === 1 ? ch + 16 : rows * (ch + 8) + 8) + 100, cv = document.createElement('canvas'); cv.width = W; cv.height = H; const g = cv.getContext('2d');
     g.fillStyle = '#fff'; g.fillRect(0, 0, W, H);
-    const hg = g.createLinearGradient(0, 0, W, 170); hg.addColorStop(0, brandNow()); hg.addColorStop(1, '#2a0b1d'); g.fillStyle = hg; g.fillRect(0, 0, W, 170);
-    g.fillStyle = '#fff'; g.textBaseline = 'alphabetic'; const tx = lg ? 80 + lw : 40; circ(g, 40, 37); g.font = '800 60px system-ui,Arial'; g.fillText(name, tx, 84, 1040 - tx); g.font = '600 30px system-ui,Arial'; g.globalAlpha = .85; g.fillText(sub, tx, 130, 1040 - tx); g.globalAlpha = 1;
+    const hg = g.createLinearGradient(0, 0, W, 170); hg.addColorStop(0, promoSt ? promoSt.head[0] : brandNow()); hg.addColorStop(1, promoSt ? promoSt.head[1] : '#2a0b1d'); g.fillStyle = hg; g.fillRect(0, 0, W, 170);
+    g.fillStyle = promoSt ? promoSt.ink : '#fff'; g.textBaseline = 'alphabetic'; const tx = lg ? 80 + lw : 40; circ(g, 40, 37); g.font = '800 60px system-ui,Arial'; g.fillText(name, tx, 84, 1040 - tx); g.font = '600 30px system-ui,Arial'; g.globalAlpha = .85; g.fillText(sub, tx, 130, 1040 - tx); g.globalAlpha = 1;
     items.slice(0, n).forEach(({ i, im }, k) => { const last = odd && k === n - 1, x = last ? 8 : 8 + (k % 2) * (cw + 8), y = 170 + 8 + Math.floor(k / 2) * (ch + 8), w = last ? W - 16 : cw; cover(g, im, x, y, w, ch); if (prices && (Number(i.price) > 0 || L.salePrice(i) > 0)) pricePill(g, x + 16, y + ch - 16, i, 1); });   // an odd last picture spreads across the whole width
-    g.fillStyle = brandNow(); g.textAlign = 'center'; g.font = '700 32px system-ui,Arial'; g.fillText(foot, W / 2, H - 38, 1000); out.push(new File([await toBlob(cv)], 'promo-' + Date.now() + '.jpg', { type: 'image/jpeg' }));
+    g.fillStyle = promoAccent(); g.textAlign = 'center'; g.font = '700 32px system-ui,Arial'; g.fillText(foot, W / 2, H - 38, 1000); out.push(new File([await toBlob(cv)], 'promo-' + Date.now() + '.jpg', { type: 'image/jpeg' }));
     return out;
   }
-  function prSig() { return [prFormat, prShowPrices(), prChosen().map((i) => i.id + ':' + (i.price || '') + ':' + (i.discount || '') + ':' + (i.saleOn ? 1 : 0)).join(','), (storeCfg().name || ''), (state.settings.bizLogo || '').length].join('|'); }
+  function prSig() { return [prFormat, prShowPrices(), prChosen().map((i) => i.id + ':' + (i.price || '') + ':' + (i.discount || '') + ':' + (i.saleOn ? 1 : 0)).join(','), (storeCfg().name || ''), (state.settings.bizLogo || '').length, JSON.stringify(promoStyleNow())].join('|'); }
   async function prEnsure() { const sig = prSig(); if (prFiles.sig === sig && prFiles.files.length) return prFiles.files; const files = await prMake(); (prFiles.urls || []).forEach((u) => URL.revokeObjectURL(u)); prFiles = { sig, files, urls: files.map((f) => URL.createObjectURL(f)) }; prIdx = Math.min(prIdx, Math.max(0, files.length - 1)); return files; }
   let prTimer = null;
   function prPreview() { clearTimeout(prTimer); prTimer = setTimeout(async () => { const box = $('#prprev'); if (!box || prMode !== 'pictures') return; if (!prChosen().length) { box.innerHTML = ''; return; } box.innerHTML = `<div class="muted small">${t('pr.making')}</div>`; try { await prEnsure(); const b2 = $('#prprev'); if (b2 && prFiles.urls.length) { const n = prFiles.urls.length, many = prFormat === 'each' && n > 1; b2.innerHTML = `<div class="prcar">${many ? `<button type="button" class="prar l" data-act="pr-prev" aria-label="${t('nav.prev')}">‹</button>` : ''}<img src="${prFiles.urls[prIdx] || prFiles.urls[0]}" alt="" class="prpimg" data-prswipe="1">${many ? `<button type="button" class="prar r" data-act="pr-next" aria-label="${t('nav.next')}">›</button>` : ''}</div><div class="muted small" style="margin-top:6px">${prFormat === 'each' ? (many ? (prIdx + 1) + ' / ' + n : tn('pr.pictures', n)) : t('pr.oneCollage')}</div>`; } } catch (e) { /* the preview is optional */ } }, 250); }
@@ -1995,22 +2000,32 @@
   const stSnap = () => JSON.parse(JSON.stringify({ header: state.settings.invHeader || null, design: state.settings.invoiceDesign || null, studio: state.settings.studio || null }));
   const stChanged = () => { const p0 = state.settings.studioPrev; return !!p0 && JSON.stringify(p0) !== JSON.stringify(stSnap()); };
   function stRestore() { const p0 = state.settings.studioPrev; if (!p0) return; const q = JSON.parse(JSON.stringify(p0)); state.settings.invHeader = q.header || undefined; if (!q.header) delete state.settings.invHeader; state.settings.invoiceDesign = q.design || undefined; if (!q.design) delete state.settings.invoiceDesign; state.settings.studio = q.studio || undefined; if (!q.studio) delete state.settings.studio; Object.keys(headCache).forEach((k) => delete headCache[k]); save(); stRefresh(); toast(t('st.restored')); }
+  // Keep the business card in the Studio colour (only when the owner switched that on)
+  function stSyncCard() { if (!stSt().card) return; try { bcSave(CardMaker.applyScheme(bcCfg(), 'invoice', stColor())); } catch (e) { /* the card keeps its colours */ } }
   function stApply(tplId) {
     const col = stColor(), s = stSt(); let c = Studio.apply(ihCfg(), tplId, col, InvHeader), auto = !!s.autoTitle;
     if (Studio.NEEDS_TITLE[c.layout] && (!c.slots.title || auto)) { c.slots.title = stTitleSrc(col, (Studio.byId(tplId) || {}).look); c.items.title.on = true; auto = true; }
-    ihSave(c); state.settings.invoiceDesign = 'custom'; state.settings.studio = { tpl: tplId, color: col, autoTitle: auto }; save(); stRefresh(); toast(t('st.applied'));
+    ihSave(c); state.settings.invoiceDesign = 'custom'; state.settings.studio = Object.assign({}, s, { tpl: tplId, color: col, autoTitle: auto }); stSyncCard(); save(); stRefresh(); toast(t('st.applied'));
   }
   function stSetColor(hex) {
     const s = stSt(); state.settings.studio = Object.assign({}, s, { color: Studio.hex(hex) }); save();
-    if (s.tpl) { stApply(s.tpl); } else stRefresh();
+    if (s.tpl) { stApply(s.tpl); } else { stSyncCard(); stRefresh(); }
   }
   const stTplName = (t0) => t('st.look.' + t0.look) + ' · ' + t('st.lay.' + t0.layout);
   function stPaint() {
     const pv = $('#st-pv'); if (pv) { const cfg = ihCfg(), S = 2; pv.width = InvHeader.W * S; pv.height = InvHeader.H * S; const x = pv.getContext('2d'); x.scale(S, S); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); }
+    const cc = $('#st-card'); if (cc) { try { const src = bcCanvas('front', CardMaker.applyScheme(bcCfg(), 'invoice', stColor()), 0.5); cc.width = src.width; cc.height = src.height; cc.getContext('2d').drawImage(src, 0, 0); } catch (e) { /* no preview */ } }
+    const pc = $('#st-promo'); if (pc) { const t0 = Studio.byId(stSt().tpl) || { look: 'bold' }, ps = Studio.promoStyle(t0.look, stColor(), InvHeader.mix); pc.width = 540; pc.height = 86; const g = pc.getContext('2d'), gr = g.createLinearGradient(0, 0, 540, 86); gr.addColorStop(0, ps.head[0]); gr.addColorStop(1, ps.head[1]); g.fillStyle = gr; g.fillRect(0, 0, 540, 86); g.fillStyle = ps.ink; g.textBaseline = 'alphabetic'; g.font = '800 30px system-ui,Arial'; g.fillText(storeCfg().name || bizName(), 20, 42, 500); g.globalAlpha = 0.85; g.font = '600 16px system-ui,Arial'; g.fillText(t('pr.subNew'), 20, 68, 500); g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillRect(0, 70, 0, 0); }
     const col = stColor(); document.querySelectorAll('canvas[data-sttpl]').forEach((cv) => { const cfg = stCfgFor(cv.dataset.sttpl, col), x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); });
   }
   function stPaintSoon() { if (!stOn) return; cancelAnimationFrame(stRaf); stRaf = requestAnimationFrame(stPaint); }
   function stLogoColors() { try { const i = hdrImg(state.settings.bizLogo); if (!i || !i.complete || !i.naturalWidth) return []; const cv = document.createElement('canvas'); cv.width = cv.height = 48; const g = cv.getContext('2d'); g.drawImage(i, 0, 0, 48, 48); return Studio.dominant(g.getImageData(0, 0, 48, 48).data, 4); } catch (e) { return []; } }
+  function stShareHTML() {
+    const s0 = stSt(), row = (key, label, sub, on) => `<div class="rw2 prrow"><div class="t"><b>${label}</b><small>${sub}</small></div>${swt('st-toggle', key, on)}</div>`;
+    return `<p class="muted small" style="margin:0 0 8px">${t('st.shareSub')}</p><div class="stshare"><div><canvas id="st-card"></canvas><small>${t('st.cardLbl')}</small></div><div><canvas id="st-promo"></canvas><small>${t('st.promoLbl')}</small></div></div>
+      ${row('card', t('st.cardSync'), t('st.cardSyncSub'), !!s0.card)}${row('promo', t('st.promoSync'), t('st.promoSyncSub'), !!s0.promo)}
+      <button type="button" class="btn primary" data-act="st-everywhere" style="margin-top:10px">${t('st.everywhere')}</button>`;
+  }
   function stBodyHTML() {
     const col = stColor(), s = stSt(), cfg = ihCfg(), ic = InvHeader.colours(cfg);
     const sw = (c) => `<button type="button" class="stsw ${c.toLowerCase() === col ? 'on' : ''}" data-act="st-color" data-id="${c}" style="background:${c}" aria-label="${c}"></button>`;
@@ -2028,6 +2043,7 @@
       ${ihSec('st:color', '2 · ' + t('st.s2'), colours + accent)}
       ${ihSec('st:brand', '3 · ' + t('st.s3'), brand)}
       ${ihSec('st:page', '4 · ' + t('st.s4'), `<p class="muted small" style="margin:0 0 6px">${t('ih.pagebgSub')}</p>${frameBlockHTML()}`)}
+      ${ihSec('st:share', '5 · ' + t('st.s5'), stShareHTML())}
       ${ihSec('st:more', t('st.more'), adv + `<h4 class="sth4">${t('mb.savedInv')}</h4>${svSlotsHTML('inv', false)}`)}
       <div class="btns" style="margin-top:14px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
   }
@@ -4936,6 +4952,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'studio-open': return sheetStudio();
       case 'st-tpl': return stApply(id);
       case 'st-restore': return stRestore();
+      case 'st-toggle': { state.settings.studio = Object.assign({}, stSt(), { [id]: !stSt()[id] }); if (id === 'card') stSyncCard(); save(); stRefresh(); return toast(t(stSt()[id] ? 'st.on' : 'st.off')); }
+      case 'st-everywhere': { state.settings.studio = Object.assign({}, stSt(), { card: true, promo: true }); stSyncCard(); save(); stRefresh(); return toast(t('st.everywhereDone')); }
       case 'st-color': return stSetColor(id);
       case 'st-colpick': return openColorPick({ get: () => stColor(), set: (v) => { state.settings.studio = Object.assign({}, stSt(), { color: Studio.hex(v) }); save(); } }, () => setTimeout(() => { const s0 = stSt(); if (s0.tpl) stApply(s0.tpl); else stRefresh(); }, 0));
       case 'st-accent': return openColorPick({ get: () => ihVal('accent'), set: (v) => ihSet('accent', v) }, () => setTimeout(() => { stRefresh(); stPaint(); }, 0));

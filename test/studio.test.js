@@ -12,4 +12,8 @@ assert.strictEqual(b.items.name.color, '#ffffff'); assert.strictEqual(cl.bg.type
 // dominant colours: red wins over white and grey
 const px = []; for (let i = 0; i < 60; i++) px.push(200, 20, 30, 255); for (let i = 0; i < 100; i++) px.push(255, 255, 255, 255); for (let i = 0; i < 40; i++) px.push(128, 128, 128, 255); for (let i = 0; i < 30; i++) px.push(20, 40, 200, 255);
 const d = S.dominant(px, 3); assert.strictEqual(d.length, 2); assert.ok(d[0].startsWith('#c8')); assert.ok(d[1].startsWith('#14'));
+// Promote pictures and the business card follow the brand colour
+const ps = S.promoStyle('soft', '#741b47', IH.mix), pb = S.promoStyle('bold', '#741b47', IH.mix), pc = S.promoStyle('clean', '#741b47', IH.mix);
+assert.ok(IH.lum(ps.head[0]) > 200 && ps.ink === '#1b1420'); assert.strictEqual(pb.head[0], '#741b47'); assert.strictEqual(pb.ink, '#ffffff'); assert.strictEqual(pc.head[0], pc.head[1]);
+const cc = S.cardColors('#1565c0', IH.mix); assert.ok(IH.lum(cc.dark) < IH.lum(cc.light)); assert.ok(/^#[0-9a-f]{6}$/.test(cc.dark));
 console.log('studio tests passed');

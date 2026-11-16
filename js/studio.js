@@ -34,6 +34,15 @@
     const t = S.byId(tplId); if (!t) return IH.norm(cfg);
     return S.paint(IH.applyLayout(cfg, t.layout), S.recipe(t.look, color, IH.mix), IH);
   };
+  // The same design on Promote pictures: the header band colours, the writing on it, and the colour of the price and the footer line.
+  S.promoStyle = (look, color, mix) => {
+    const c = S.hex(color);
+    if (look === 'soft') return { head: [mix(c, '#ffffff', 0.9), mix(c, '#ffffff', 0.62)], ink: '#1b1420', accent: mix(c, '#000000', 0.12) };
+    if (look === 'clean') return { head: [mix(c, '#ffffff', 0.94), mix(c, '#ffffff', 0.94)], ink: '#1b1420', accent: c };
+    return { head: [c, mix(c, '#000000', 0.72)], ink: '#ffffff', accent: c };   // bold (also what Promote used before the Studio: the theme colour fading to dark)
+  };
+  // The business card colours for a brand colour (the same recipe as the card's 'follow the invoice' colours)
+  S.cardColors = (color, mix) => { const c = S.hex(color); return { dark: mix(c, '#000000', 0.55), light: mix(c, '#ffffff', 0.35) }; };
   // Colours worth offering as a brand colour (a fixed, tasteful set)
   S.SWATCHES = ['#741b47', '#b5179e', '#c62828', '#e8590c', '#c9892a', '#2e7d32', '#0b7285', '#1565c0', '#283593', '#6a1b9a', '#37474f', '#111111'];
   // The strongest colours of a small picture's pixels (data = RGBA array), skipping near-white, near-black and grey. Returns up to n hex colours.
