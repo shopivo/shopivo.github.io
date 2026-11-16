@@ -2411,8 +2411,9 @@
         <div class="btns"><button class="btn primary" data-act="apply-palette" ${changed ? '' : 'disabled'}>${t('set.apply')}</button></div>`;
     }
     return `${logoCardHTML()}
-      <form id="f-settings"><label>${t('set.bizName')}</label><input name="businessName" value="${esc(bizName())}" autocomplete="off">
-      <label>${t('set.bizCity')}</label><input name="bizCity" value="${esc(s.bizCity || '')}" autocomplete="off"><div class="grid2"><div><label>${t('set.bizPhone')}</label><input name="bizPhone" type="text" inputmode="tel" value="${esc(s.bizPhone || '')}" autocomplete="off"></div><div><label>${t('set.bizEmail')}</label><input name="bizEmail" type="text" inputmode="email" value="${esc(s.bizEmail || '')}" autocomplete="off"></div></div><div class="grid2"><div><label>${t('set.year')}</label><input name="year" type="text" inputmode="numeric" value="${s.year}"></div>
+      <form id="f-settings"><button type="button" class="row tap" data-act="studio-details" style="margin:10px 0 4px"><div class="grow"><b>${t('st.s3b')}</b><small>${esc([bizName(), s.bizCity, s.bizPhone, s.bizEmail].filter(Boolean).join(' · ') || t('bz.none'))}</small></div><span class="chev">›</span></button><p class="muted small" style="margin:0 2px 6px">${t('st.detailsMoved')}</p>
+      <input type="hidden" name="businessName" value="${esc(bizName())}"><input type="hidden" name="bizCity" value="${esc(s.bizCity || '')}"><input type="hidden" name="bizPhone" value="${esc(s.bizPhone || '')}"><input type="hidden" name="bizEmail" value="${esc(s.bizEmail || '')}">
+      <div class="grid2"><div><label>${t('set.year')}</label><input name="year" type="text" inputmode="numeric" value="${s.year}"></div>
       <div><label>${t('set.margin')}</label><input name="defaultMargin" type="text" inputmode="decimal" value="${s.defaultMargin}"></div></div>
       <label>${t('set.dueDays')}</label><input name="dueDays" type="text" inputmode="numeric" value="${L.dueDays(state)}"><p class="muted small" style="margin:4px 0 0">${t('set.dueDaysNote')}</p>
       <label>${t('set.markup')}</label><input name="markup" type="text" inputmode="decimal" step="0.001" value="${s.markup}">
@@ -4990,6 +4991,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-test': { const [w, d] = id.split(':'); return planAdmWrite(w, { plan: 'trial', trialEnds: Cloud.ts(Date.now() - Number(d) * 864e5), locked: false }); }
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
       case 'studio-open': return openStudio('brand');
+      case 'studio-details': openStudio('brand'); ihOpenSecs['st:details'] = true; return stRefresh();
       case 'st-tab': stTab = id; ihClosed('st:'); return stRender();
       case 'mb-logo-page': ihClosed(''); return sheetMyLogo();
       case 'st-tpl': return stApply(id);
