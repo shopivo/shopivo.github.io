@@ -1633,6 +1633,8 @@
     const b = document.createElement('button'); b.type = 'button'; b.className = 'rundo'; b.dataset.act = 'rng-undo'; b.setAttribute('aria-label', t('ih.undo')); b.textContent = '↶';
     lb.insertBefore(b, lb.querySelector('.v'));
   }, true);
+  // Open a creator with all its drop-downs closed (the ones of the other creators are left alone). Pass the prefix of this creator's keys, or '' for the older creators.
+  const ihClosed = (prefix, keep) => { Object.keys(ihOpenSecs).forEach((k) => { const mine = prefix ? k.startsWith(prefix) : !/^(st|tt|lk):/.test(k); if (mine) delete ihOpenSecs[k]; }); if (keep) Object.assign(ihOpenSecs, keep); };
   document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.dataset && d.dataset.ihk) ihOpenSecs[d.dataset.ihk] = d.open; }, true);
   /* ---------- invoice header builder: pictures (files or a zip), layouts, pieces, banner, saved designs ---------- */
   const hdrImgs = new Map();
@@ -1921,7 +1923,7 @@
   function lkRefresh() { const b = $('#lk-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = lkBodyHTML(); $('#sheet').scrollTop = sc; lkPaint(); }
   function sheetLogoStudio() {
     enterPage('logomaker', '', () => sheetLogoStudio());
-    lkOn = true; ['lk:style', 'lk:letters'].forEach((k) => { if (ihOpenSecs[k] === undefined) ihOpenSecs[k] = true; });
+    lkOn = true;
     const c = lkCfg();
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('lk.title')}</b><small>${t('lk.sub')}</small></div></div>
       <div class="ihtop"><div class="lkpv">${LMK.SHAPES.map((s) => `<button type="button" class="${c.shape === s ? 'on' : ''}" data-act="lk-set" data-id="shape=${s}" aria-label="${t('ih.sh.' + s)}"><canvas data-lkshape="${s}" width="220" height="220"></canvas></button>`).join('')}</div><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>
@@ -1968,7 +1970,7 @@
   function ttRefresh() { const b = $('#tt-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = ttBodyHTML(); $('#sheet').scrollTop = sc; ttPaint(); }
   function sheetTitle() {
     enterPage('title', '', () => sheetTitle());
-    ttOn = true; if (ihOpenSecs['tt:name'] === undefined) ihOpenSecs['tt:name'] = true;
+    ttOn = true;
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('tt.title')}</b><small>${t('tt.sub')}</small></div></div>
       <div class="ihtop"><div class="tmpv"><canvas id="tt-pv" aria-label="${t('tt.title')}"></canvas></div><button type="button" class="btn primary" data-act="tt-use">${t('tt.use')}</button></div>
       <div class="pd" id="tt-body">${ttBodyHTML()}</div>`, () => { ttOn = false; render(); }, true);
@@ -2050,7 +2052,7 @@
   function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !stChanged(); }
   function sheetStudio() {
     enterPage('studio', '', () => sheetStudio());
-    stOn = true; state.settings.studioPrev = stSnap(); ['st:design', 'st:color'].forEach((k) => { if (ihOpenSecs[k] === undefined) ihOpenSecs[k] = true; });
+    stOn = true; state.settings.studioPrev = stSnap();
     const on = invDesignId() === 'custom';
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div>
       <div class="ihtop"><canvas id="st-pv" width="1600" height="380" aria-label="${t('st.title')}"></canvas><div class="stbar"><button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button><button type="button" class="btn primary" id="st-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div></div>
@@ -4891,7 +4893,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'gd-logo-pick': { const f = $('#logo-file'); if (f) f.click(); return; }
       case 'gd-store': return gdCreateStore();
       case 'gd-look': { const [l, p] = id.split('|'); state.settings.invoiceDesign = 'custom'; ihSave(InvHeader.applyPreset(InvHeader.applyLayout(ihCfg(), l), p)); gdDraw(false); return; }
-      case 'lm-open': case 'lk-open': return sheetLogoStudio();
+      case 'lm-open': case 'lk-open': ihClosed('lk:'); return sheetLogoStudio();
       case 'lk-style': { const c = lkCfg(); c.style = id; lkSave(LMK.recolor(c, c.bg)); return lkRefresh(); }
       case 'lk-set': { const i = id.indexOf('='); lkSet(id.slice(0, i), id.slice(i + 1)); document.querySelectorAll('.lkpv button').forEach((b0) => b0.classList.toggle('on', b0.dataset.id === 'shape=' + lkCfg().shape)); return lkRefresh(); }
       case 'lk-brand': { const c = lkCfg(); lkSave(LMK.recolor(c, id)); return lkRefresh(); }
@@ -4899,7 +4901,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'lk-colpick': return openColorPick({ get: () => LMK.getPath(lkCfg(), id), set: (v) => lkSet(id, v) }, () => setTimeout(lkRefresh, 0));
       case 'lk-use': return lkUse();
       case 'lk-reset': return askCard(t('lk.resetAsk'), { danger: true, ok: t('tt.reset') }).then((y) => { if (!y) return; delete state.settings.logoCfg; save(); lkRefresh(); document.querySelectorAll('.lkpv button').forEach((b0) => b0.classList.toggle('on', b0.dataset.id === 'shape=' + lkCfg().shape)); });
-      case 'bc-open': return sheetCard();
+      case 'bc-open': ihClosed(''); return sheetCard();
       case 'bc-auto': { const c = bcCfg(); c.fv = (c.fv + 1) % CardMaker.FRONT_N; c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
       case 'bc-arrreset': { const c = bcCfg(); c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
       case 'bc-sel': bcSel = id; return bcRefresh();
@@ -4908,9 +4910,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mb-open': return mbOpen();
       case 'mb-inv': return sheetMyInvoice();
       case 'mb-card': return sheetMyCard();
-      case 'mb-logo': return sheetMyLogo();
+      case 'mb-logo': ihClosed(''); return sheetMyLogo();
       case 'mb-style': return goFromPage({ tab: 'more', moreView: 'set-invdesign' });
-      case 'ih-banner': ihOpenSecs = { banner: true }; return sheetHeader();
+      case 'ih-banner': ihClosed('', { banner: true }); return sheetHeader();
       case 'sv-edit': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); return k === 'inv' ? sheetHeader() : sheetCard(); }
       case 'sv-use': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); state.settings.invoiceDesign = 'custom'; save(); toast(t('ih.toast')); return svRedraw(); }
       case 'sv-save': { const [k, n] = id.split(':'), el = document.querySelector('[data-svname="' + id + '"]'); svSave(k, Number(n), el && el.value.trim()); toast(t('ih.savedOk')); return svRedraw(); }
@@ -4931,7 +4933,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'sv-share': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d || k !== 'card') return; return cardShare(d.cfg); }
       case 'bc-png': { const cfg = bcCfg(); return bcBlob(bcCanvas(id, cfg, 2), 'image/png').then((b) => bcDownload(b, `${bcFile()}-card-${id}-${cfg.bleed ? 'bleed-1125x675' : '1050x600'}.png`)); }
       case 'bc-pdf': return bcMakePdf().then((b) => bcDownload(b, `${bcFile()}-business-card-${bcCfg().bleed ? 'WITH-BLEED-3.75x2.25in' : '3.5x2in'}.pdf`));
-      case 'ih-open': return sheetHeader();
+      case 'ih-open': ihClosed(''); return sheetHeader();
       case 'ih-add': { const f = $('#ih-file'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
@@ -4949,7 +4951,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-add': { const [w, m] = id.split(':'), r = (planAdm.rows || []).find((x) => x.id === w); if (!r) return; const cur = r.plan === 'trial' ? Plan.ms(r.trialEnds) : Plan.ms(r.paidUntil), ends = Plan.extend(cur, Date.now(), Number(m)); return planAdmWrite(w, { plan: r.plan === 'trial' ? 'starter' : r.plan, paidUntil: Cloud.ts(ends), locked: false }); }
       case 'pl-test': { const [w, d] = id.split(':'); return planAdmWrite(w, { plan: 'trial', trialEnds: Cloud.ts(Date.now() - Number(d) * 864e5), locked: false }); }
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
-      case 'studio-open': return sheetStudio();
+      case 'studio-open': ihClosed('st:', { 'st:design': true }); return sheetStudio();
       case 'st-tpl': return stApply(id);
       case 'st-restore': return stRestore();
       case 'st-toggle': { state.settings.studio = Object.assign({}, stSt(), { [id]: !stSt()[id] }); if (id === 'card') stSyncCard(); save(); stRefresh(); return toast(t(stSt()[id] ? 'st.on' : 'st.off')); }
@@ -4959,7 +4961,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'st-accent': return openColorPick({ get: () => ihVal('accent'), set: (v) => ihSet('accent', v) }, () => setTimeout(() => { stRefresh(); stPaint(); }, 0));
       case 'st-logoshape': ihSet('items.logo.shape', id); return stRefresh();
       case 'st-autotitle': { const c = ihCfg(); c.slots.title = stTitleSrc(stColor(), (Studio.byId(stSt().tpl) || {}).look); c.items.title.on = true; ihSave(c); state.settings.studio = Object.assign({}, stSt(), { autoTitle: true }); save(); stRefresh(); return toast(t('tm.done')); }
-      case 'tm-open': case 'tt-open': return sheetTitle();
+      case 'tm-open': case 'tt-open': ihClosed('tt:'); return sheetTitle();
       case 'tt-set': { const i = id.indexOf('='); const p = id.slice(0, i); let v = id.slice(i + 1); if (/^\d+(\.\d+)?$/.test(v) && !/(font|style|deco|align|case)$/.test(p)) v = Number(v); ttSet(p, v); return ttRefresh(); }
       case 'tt-tog': { ttSet(id, !TM.getPath(ttCfg(), id)); return ttRefresh(); }
       case 'tt-colpick': return openColorPick({ get: () => TM.getPath(ttCfg(), id), set: (v) => ttSet(id, v) }, () => setTimeout(ttRefresh, 0));
