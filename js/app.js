@@ -756,7 +756,7 @@
     const noPriceTag = isNoPrice(i) ? `<span class="nopr">${t('stock.noPrice')}</span>` : '';
     return `<div class="item ${sel ? 'sel' : ''} ${i.status === 'Paid' ? 'paid' : ''}" data-id="${i.id}">
       <label class="chk" aria-label="${t('aria.selectItem')}"><input type="checkbox" data-sel ${sel ? 'checked' : ''}></label>
-      <button class="main" data-act="edit-item" data-id="${i.id}">${PUI.thumb(i).replace(/<\/span>$/, (sale && !L.isSold(i) ? `<small class="saleoff ph-sale">−${Number(i.discount)}%</small>` : offStrip(i)) + '</span>')}<span class="txt"><b>${esc(dn(i)) || `<span class="muted">${t('item.untitled')}</span>`}${String(i.desc || '').trim() && !String(i.size || '').trim() && !L.isSold(i) ? ` <i class="szwarn" title="${t('size.missingTip')}">!</i>` : ''}</b>
+      <button class="main" data-act="edit-item" data-id="${i.id}">${PUI.thumb(i).replace(/<\/span>$/, (sale && !L.isSold(i) ? `<small class="saleoff ph-sale">−${Number(i.discount)}%</small>` : offStrip(i)) + '</span>')}<span class="txt"><b>${esc(dn(i)) || `<span class="muted">${t('item.untitled')}</span>`}${nameFixedMark(i)}${String(i.desc || '').trim() && !String(i.size || '').trim() && !L.isSold(i) ? ` <i class="szwarn" title="${t('size.missingTip')}">!</i>` : ''}</b>
         <small>${i.id}${i.size ? ' · <b class="szb">' + esc(szLabel(i.size)) + '</b>' : ''}${tag ? `<span class="bl2">${esc(blShort(i.batchId))}</span>` : ''}</small>${(() => { const mo = i.reservedFor ? MO.byId(state, i.reservedFor) : null, rs = mo && !mo.cancelledAt ? '🔒 ' + t('mo.reservedBy', { name: esc(clabel(mo.client)) }) : ''; return i.customer || i.invoice || rs || (L.isHeld(i) && !L.isSold(i)) ? `<small>${[i.customer ? esc(i.customer) : '', i.invoice || '', rs, L.isHeld(i) && !L.isSold(i) ? '🔒 ' + t('stock.ordered') : ''].filter(Boolean).join(' · ')}</small>` : ''; })()}</span></button>
       <div class="side"><span class="pill ${i.status.replace(' ', '')}">${stLabel(i.status)}</span><b>${isNoPrice(i) ? noPriceTag : priceHtml}</b></div>
       <button class="share-btn" data-act="photo-share" data-id="${i.id}" aria-label="${t('photo.share')}" ${noPhoto ? 'disabled' : ''}>${SHARE}</button></div>`;
@@ -2677,6 +2677,7 @@
     syncKeyboard();
     syncHistory();
     PUI.hydrate();
+    { const di = $('#sheet').querySelector('input[data-f=desc], input[data-f=descS]'); if (di) dymUpdate(di); }   // a name with a typo shows the suggestion as soon as the item opens
   }
   let ordDirty = false;   // an order changed while a page was open on top of the Store list: redraw the list when that page closes
   function closeSheet() {
@@ -2851,6 +2852,21 @@
     if (state.settings.wordsSeeded !== Wd.VERSION) { state.settings.words = Wd.seed(state.settings.words || []); state.settings.wordsSeeded = Wd.VERSION; save(); }   // the starter list is added to the saved list again whenever it grows (your own words stay as they are)
     return state.settings.words || [];
   }
+  // "Did you mean pulsera?": under the name box, one tap fixes it; "keep" is remembered so the question is not asked again for that word
+  function dymUpdate(input) {
+    if (!input || !input.closest) return; const row = input.closest('.dscrow'); if (!row) return;
+    let box = row.nextElementSibling; if (!box || !box.classList.contains('dym')) { box = document.createElement('div'); box.className = 'dym'; row.after(box); }
+    if (input.matches(':disabled')) { box.hidden = true; box.innerHTML = ''; return; }   // a sold item cannot be edited, so there is nothing to tap
+    const fx = Wd.fixText(input.value, wordList(), wordFixes()), list = fx.changes.filter((c) => !c.learned).concat(fx.pending).slice(0, 1);
+    if (!list.length) { box.hidden = true; box.innerHTML = ''; return; }
+    const c = list[0], opts = c.ambiguous ? c.ambiguous.slice(0, 2) : [c.to];
+    box.innerHTML = `<span>${t('dym.q', { word: esc(c.from) })}</span>${opts.map((o) => `<button type="button" class="dymb" data-act="dym-yes" data-from="${esc(c.from)}" data-to="${esc(o)}">${esc(o.toLowerCase())}</button>`).join('')}<button type="button" class="dymb keep" data-act="dym-keep" data-from="${esc(c.from)}">${t('dym.keep')}</button>`; box.hidden = false;
+  }
+  let dymT = 0;
+  document.addEventListener('input', (e) => { const el = e.target; if (el && el.dataset && (el.dataset.f === 'desc' || el.dataset.f === 'descS')) { clearTimeout(dymT); dymT = setTimeout(() => dymUpdate(el), 300); } });
+  document.addEventListener('focusin', (e) => { const el = e.target; if (el && el.dataset && (el.dataset.f === 'desc' || el.dataset.f === 'descS')) dymUpdate(el); });
+  const dymSave = (from, to) => { state.settings.wordFixes = Object.assign({}, wordFixes(), { [Wd.fold(from)]: to }); save(); };
+  const nameFixedMark = (i) => { try { return Wd.fixText(i.desc || '', wordList(), wordFixes()).changes.some((c) => !c.learned) ? ` <i class="fixq" title="${esc(t('dym.mark'))}">?</i>` : ''; } catch (e) { return ''; } };   // shown corrected on invoices: tap the item to confirm or keep
   const esBadge = (i) => { const sp = Wd.spanish(i, wordList()); return sp.state === 'none' ? '' : `<u class="${sp.state === 'ok' ? 'ok' : ''}">${sp.state === 'ok' ? '✓' : '!'}</u>`; };
   // On an English phone the description is the English name and 🇪🇸 is the Spanish name; on a Spanish phone it is the other way round.
   const esMode = () => I.getLang() === 'es';
@@ -3179,7 +3195,7 @@
       ${sold ? `<div class="lockbar">🔒 <div><b>${t('item.locked')}</b><small>${i.invoice ? t('item.lockedNote', { no: i.invoice }) : t('item.lockedNoInv')}</small>${(() => { const iv = state.invoices.find((x) => x.no === i.invoice); return iv && iv.balance > 0 && !iv.updatedBy ? `<button class="pay-btn" data-act="pay-inv" data-id="${iv.no}" data-back="item" data-item="${i.id}" style="margin-top:8px">${t('pay.btn')} · ${t('cust.stillOwes', { amt: money(iv.balance) })}</button>` : ''; })()}</div></div>` : ''}
       ${(() => { const ids = itemNavList(i), n = ids.indexOf(i.id); if (ids.length < 2 || n < 0) return PUI.photoBox(i); return `<div class="swbox" data-swipe="1">${PUI.photoBox(i)}${n > 0 ? `<button type="button" class="swe l" data-act="item-go" data-id="${ids[n - 1]}" aria-label="${t('nav.prev')}">‹</button>` : ''}${n < ids.length - 1 ? `<button type="button" class="swe r" data-act="item-go" data-id="${ids[n + 1]}" aria-label="${t('nav.next')}">›</button>` : ''}</div>`; })()}
       <fieldset class="lockset" ${lock || !can('stock') ? 'disabled' : ''}>
-      <label>${t('item.desc')}</label><div class="dscrow"><input data-f="${esMode() ? 'descS' : 'desc'}" value="${esc(descShown(i))}" placeholder="${t('item.descPh')}" autocomplete="off">${micBtn()}${esBtn(i)}</div>${lock ? '' : szSection(i, true, false)}${lock ? '' : grpNote(i, true)}
+      <label>${t('item.desc')}</label><div class="dscrow"><input data-f="${esMode() ? 'descS' : 'desc'}" value="${esc(descShown(i))}" placeholder="${t('item.descPh')}" autocomplete="off" spellcheck="true" lang="${esMode() ? 'es' : 'en'}">${micBtn()}${esBtn(i)}</div>${lock ? '' : szSection(i, true, false)}${lock ? '' : grpNote(i, true)}
       <div class="costonly"><label>🔒 ${t('item.cost', { cur: b.currency })} <span class="privnote">${t('item.privateNote')}</span></label><input data-f="cost" type="text" inputmode="decimal" step="0.01" min="0" value="${i.cost || ''}"></div>
       <div class="mrow" id="pricerow"><div><label>${t('item.price')}</label><input data-f="price" type="text" inputmode="decimal" step="0.01" min="0" value="${i.price || ''}" placeholder="0.00"></div><div><label class="ghost">&nbsp;</label><button class="btn" type="button" data-act="use-rec" data-id="${i.id}">${t('item.recShort')}</button></div></div>
       <div id="saleblock">${saleHTML(i)}</div>
@@ -3213,7 +3229,7 @@
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('qe.title')}</b><small>${bl(b.id)} · ${esc(i.store)}</small></div>${ids.length > 1 && n >= 0 ? `<div class="nx qcount"><span class="c">${t('nav.ofN', { n: n + 1, total: ids.length })}</span></div>` : ''}<button class="dots" data-act="page-more" aria-label="${t('batch.more')}">⋮</button></div>
       <div class="qe"><div class="qstrip" id="qstrip">${strip}</div>
       <div class="qbig" data-qswipe="1">${n > 0 ? `<button type="button" class="qsw l" data-act="qe-go" data-id="${ids[n - 1]}" data-b="${batchId}" aria-label="${t('nav.prev')}">‹</button>` : ''}${n < ids.length - 1 ? `<button type="button" class="qsw r" data-act="qe-go" data-id="${ids[n + 1]}" data-b="${batchId}" aria-label="${t('nav.next')}">›</button>` : ''}${i.photo ? `<img data-ph="${i.photo.id}" data-kind="${i.photo.noFull ? 'thumb' : 'full'}" alt="">` : `<span class="qnone">${t('photo.noPhoto')}</span>`}</div>
-      <div class="qf"><label>${t('item.desc')}</label><div class="dscrow"><input data-f="${esMode() ? 'descS' : 'desc'}" value="${esc(descShown(i))}" placeholder="${t('item.descPh')}" autocomplete="off" enterkeyhint="next">${micBtn()}${esBtn(i)}</div>
+      <div class="qf"><label>${t('item.desc')}</label><div class="dscrow"><input data-f="${esMode() ? 'descS' : 'desc'}" value="${esc(descShown(i))}" placeholder="${t('item.descPh')}" autocomplete="off" spellcheck="true" lang="${esMode() ? 'es' : 'en'}" enterkeyhint="next">${micBtn()}${esBtn(i)}</div>
       <div class="mrow"><div class="costonly"><label>🔒 ${t('item.cost', { cur: b.currency })}</label><input data-f="cost" type="text" inputmode="decimal" value="${i.cost || ''}" placeholder="0.00" enterkeyhint="done"></div><div><label>${t('qty.label')}</label>${qtyHtml(i)}</div></div>
       <div class="mrow"><div><label>${t('item.price')}</label><input data-f="price" type="text" inputmode="decimal" value="${i.price || ''}" placeholder="0.00" enterkeyhint="done"></div><div><label class="ghost">&nbsp;</label><button class="btn" type="button" data-act="use-rec" data-id="${i.id}">${t('item.recShort')}</button></div></div>
       ${szSection(i, false, true)}${grpNote(i)}
@@ -3334,23 +3350,26 @@
   }
   const invMoney = (n) => 'TT$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const invDate = (d) => new Date(d).toLocaleDateString('en-GB');
-  const esName = (it) => { const sp = Wd.spanish(it, wordList()); return sp.es || it.desc; };   // the Spanish name of an item (the saved one, or the word list's best translation)
+  const esName = (it) => {
+    const w = wordList(), sp = Wd.spanish(it, w); if (sp.state === 'ok' || !String(it.desc || '').trim()) return sp.es || it.desc;
+    const fx = Wd.fixText(it.desc, w, wordFixes()); if (fx.changes.length) { const sp2 = Wd.spanish(Object.assign({}, it, { desc: fx.text }), w); if (sp2.state === 'ok') return sp2.es; if (fx.changes.every((c) => c.lang === 'es')) return fx.text; }
+    return sp.es || it.desc;
+  };   // the Spanish name of an item (the saved one, or the word list's best translation)
   // On an English phone, a name that was typed in Spanish is shown in English wherever the word list understands every word of it (otherwise it stays as typed).
-  let enCache = new Map(), enCacheFor = null;
+  const wordFixes = () => state.settings.wordFixes || {};   // typos the owner answered: { typo: 'right word' | null (keep it as typed) }
+  let enCache = new Map(), enCacheFor = null, enCacheFx = null;
   const enName = (str) => {
     const base0 = String(str == null ? '' : str); if (!base0.trim()) return base0;
-    const w = wordList(); if (enCacheFor !== w) { enCache = new Map(); enCacheFor = w; }
+    const w = wordList(); if (enCacheFor !== w || enCacheFx !== wordFixes()) { enCache = new Map(); enCacheFor = w; enCacheFx = wordFixes(); }
     if (enCache.has(base0)) return enCache.get(base0);
-    let out = base0; try { const m = base0.split(' · '), e = Wd.toEnglish(m[0].trim(), w); if (e.en && !e.missing.length) out = e.en + (m.length > 1 ? ' · ' + m.slice(1).join(' · ') : ''); } catch (err) { /* keep the name as typed */ }
+    let out = base0; try { const fx = Wd.fixText(base0, w, wordFixes()), m = fx.text.split(' · '), e = Wd.toEnglish(m[0].trim(), w); if (e.en && !e.missing.length) out = e.en + (m.length > 1 ? ' · ' + m.slice(1).join(' · ') : ''); else if (fx.changes.length && fx.changes.every((c) => c.lang === 'en')) out = fx.text; /* an English name with a clear typo fixed */ } catch (err) { /* keep the name as typed */ }
     enCache.set(base0, out); return out;
   };
   const descEn = (text) => (I.getLang() === 'es' ? String(text || '') : String(text || '').split(/\s*,\s*/).filter(Boolean).map(enName).join(', '));   // an invoice's item list ("Franela oso, Cholas") in the language of the phone
   const dn = (i) => (I.getLang() === 'es' ? esName(i) : enName(i.desc || ''));   // an item's name on screen: Spanish when the app is in Spanish (the saved Spanish name, or the word list's translation)
   const lineName = (l, lg) => {
     if ((lg || invoiceLang()) !== 'es') {   // an English invoice: a name that was written in Spanish (an imported sheet, say) is shown in English when the word list understands every word of it
-      const m = String(l.desc).split(' · '), base = m[0].trim(); if (!base) return l.desc;
-      try { const e = Wd.toEnglish(base, wordList()); if (e.en && !e.missing.length) return e.en + (m.length > 1 ? ' · ' + m.slice(1).join(' · ') : ''); } catch (err) { /* keep the saved name */ }
-      return l.desc;
+      return enName(String(l.desc));   // the same reading as everywhere else, typo fixes included
     }
     const m = String(l.desc).split(' · '), base = m[0].trim(), it = state.items.find((x) => String(x.desc || '').trim() === base); return it ? esName(it) + (m.length > 1 ? ' · ' + m.slice(1).join(' · ') : '') : l.desc; };
   const invLines = (v) => (v.lines && v.lines.length ? v.lines : [{ desc: v.desc, qty: v.qty, price: v.total - v.delivery }]);
@@ -4963,6 +4982,12 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'sm-month': smDay = 0; go({ tab: 'more', moreView: 'summary-' + id }); window.scrollTo(0, 0); return render();
       case 'sm-day': smDay = smDay === Number(id) ? 0 : Number(id); return render();
       case 'sm-mnav': { const mm = /^summary-(\d{4})-(\d{1,2})$/.exec(moreView || ''); if (!mm) return; const d = new Date(+mm[1], +mm[2] + Number(id), 1); smDay = 0; smYear = d.getFullYear(); moreView = 'summary-' + d.getFullYear() + '-' + d.getMonth(); places[places.length - 1].moreView = moreView; return render(); }
+      case 'dym-yes': case 'dym-keep': {
+        const box = t_.closest('.dym'), input = box && box.previousElementSibling && box.previousElementSibling.querySelector('input'); if (!input) return;
+        const from = t_.dataset.from; if (t_.dataset.act === 'dym-yes') { const to = t_.dataset.to; input.value = input.value.replace(new RegExp('(^|[^\\p{L}])' + from.replace(/[.*+?^${}()|[\]\\]/g, '\\$&') + '(?![\\p{L}])', 'iu'), (m, pre) => pre + (from[0] === from[0].toUpperCase() ? to.charAt(0).toUpperCase() + to.slice(1) : to)); dymSave(from, to.toLowerCase()); input.dispatchEvent(new Event('input', { bubbles: true })); input.dispatchEvent(new Event('change', { bubbles: true })); }
+        else dymSave(from, null);
+        return dymUpdate(input);
+      }
       case 'due-open': return sheetDue();
       case 'home-cal': { const now = new Date(); smDay = 0; smYear = now.getFullYear(); go({ tab: 'more', moreView: 'summary-' + now.getFullYear() + '-' + now.getMonth() }); render(); window.scrollTo(0, 0); return requestAnimationFrame(() => { const c = document.querySelector('.smcal'); if (c) window.scrollTo(0, Math.max(0, c.getBoundingClientRect().top + window.scrollY - (document.querySelector('.appbar').getBoundingClientRect().height + document.querySelector('.smhead').getBoundingClientRect().height + 52))); }); }   // the current month, scrolled to the calendar; Back goes straight to Home
       case 'dd-chip': { const inp = document.querySelector('#sheet input[name=dueDays], #view input[name=dueDays]'); if (inp && id !== 'custom') inp.value = id; if (inp && id === 'custom') inp.focus(); document.querySelectorAll('[data-act=dd-chip]').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return; }

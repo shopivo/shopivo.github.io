@@ -373,7 +373,68 @@
     return { en: r.en, state: r.missing.length ? 'check' : 'ok', missing: r.missing };
   };
 
+
+  // ---- spelling: a word that is not in the list but is one typo away from one that is ------------------------------------------------
+  // "pulsers" is one letter from "pulsera", "braclet" one from "bracelet". The list is read in both languages, so the closest word also
+  // says which language the typed word was meant to be in. Accents do not count as typos.
+  const vocabCache = new WeakMap();
+  const vocab = (words) => {
+    const arr = words || []; if (vocabCache.has(arr)) return vocabCache.get(arr);
+    const m = new Map();
+    let fam = ''; const add = (txt, lang) => String(txt || '').split(/\s+/).forEach((tk) => { const w = clean(tk), k = fold(w); if (k.length >= 4 && /^\p{L}+$/u.test(k) && !m.has(k)) m.set(k, { w: w.toLowerCase(), lang, fam }); });   // fam: the word it belongs to (singular and plural share it)
+    arr.forEach((x) => {
+      fam = norm(x.en); add(x.en, 'en'); add(x.es, 'es'); const kind = kindOf(x);
+      if (kind === 'n' && !x.pl) { add(enPlural(x.en), 'en'); add(x.pe || pluralPhrase(x.es), 'es'); }
+      if (kind === 'a' && x.inv !== 'all') { try { [['m', true], ['f', false], ['f', true]].forEach(([g, pl]) => add(agree(x, g, pl), 'es')); } catch (e) { /* forms that cannot be made are skipped */ } }
+    });
+    ALIASES.forEach(([es, en, pe]) => { fam = norm(en); add(es, 'es'); add(pe, 'es'); });
+    vocabCache.set(arr, m); return m;
+  };
+  // edit distance with swaps of neighbouring letters counted as one typo; gives up above `max`
+  const typoDistance = (a, b, max) => {
+    if (a === b) return 0; if (Math.abs(a.length - b.length) > max) return max + 1;
+    const n = a.length, m = b.length, d = Array.from({ length: n + 1 }, () => new Array(m + 1).fill(0));
+    for (let i = 0; i <= n; i++) d[i][0] = i; for (let j = 0; j <= m; j++) d[0][j] = j;
+    for (let i = 1; i <= n; i++) for (let j = 1; j <= m; j++) {
+      const c = a[i - 1] === b[j - 1] ? 0 : 1; d[i][j] = Math.min(d[i - 1][j] + 1, d[i][j - 1] + 1, d[i - 1][j - 1] + c);
+      if (i > 1 && j > 1 && a[i - 1] === b[j - 2] && a[i - 2] === b[j - 1]) d[i][j] = Math.min(d[i][j], d[i - 2][j - 2] + 1);
+    }
+    return d[n][m];
+  };
+  const keepCase = (from, to) => (from && from[0] === from[0].toUpperCase() && from[0] !== from[0].toLowerCase() ? cap(to) : to);
+  // One word: null when it is a known word (or too short / not a word to judge); otherwise the closest known word.
+  // { to, lang, dist } for one clear match, { ambiguous: [...] } when several words are equally close.
+  const suggest = (token, words) => {
+    const t = clean(String(token || '')), k = fold(t);
+    if (k.length < 4 || !/^\p{L}+$/u.test(k)) return null;
+    const v = vocab(words); if (v.has(k)) return null;
+    if (/^(xxs|xs|xl|xxl|xxxl)$/.test(k)) return null;
+    const max = k.length >= 8 ? 2 : 1; let bd = max + 1, best = [];
+    for (const [vk, rec] of v) { if (Math.abs(vk.length - k.length) > max) continue; if (k.length <= 5 && vk[0] !== k[0]) continue; /* a short word with a different first letter is a different word (Nike, Bike), not a typo */ const d = typoDistance(k, vk, max); if (d > max) continue; if (d < bd) { bd = d; best = [rec]; } else if (d === bd) best.push(rec); }
+    if (!best.length) return null;
+    let uniq = [...new Set(best.map((r) => r.w))];
+    if (uniq.length > 1 && new Set(best.map((r) => r.fam)).size === 1) { uniq = [uniq.sort((a, b) => Math.abs(fold(a).length - k.length) - Math.abs(fold(b).length - k.length) || a.length - b.length)[0]]; best = best.filter((r) => r.w === uniq[0]); }   // singular and plural of the same word: the one of the same length (a swapped letter), else the shorter
+    if (uniq.length > 1) return { ambiguous: uniq.slice(0, 3).map((w) => keepCase(t, w)), dist: bd };
+    return { to: keepCase(t, uniq[0]), lang: best[0].lang, dist: bd };
+  };
+  // A whole name: fixes the typos that are clear (one wrong letter, a word of 5+ letters, one candidate) and lists the ones it is not sure about.
+  // fixes: what the owner already answered { typo: 'correct word' | null (keep it as typed) }.
+  const fixText = (desc, words, fixes) => {
+    const text = String(desc == null ? '' : desc), out = [], changes = [], pending = [];
+    const fx = fixes || {};
+    text.split(/(\s+)/).forEach((part) => {
+      if (!part || /^\s+$/.test(part)) { out.push(part); return; }
+      const core = clean(part), k = fold(core);
+      if (Object.prototype.hasOwnProperty.call(fx, k)) { if (fx[k]) { const to = keepCase(core, fx[k]); out.push(part.replace(core, to)); changes.push({ from: core, to, lang: (suggest(to, words) || {}).lang || '', learned: true }); } else out.push(part); return; }
+      const sg = suggest(core, words);
+      if (!sg) { out.push(part); return; }
+      if (sg.to && sg.dist === 1 && k.length >= 5) { out.push(part.replace(core, sg.to)); changes.push({ from: core, to: sg.to, lang: sg.lang }); }
+      else { out.push(part); pending.push(sg.to ? { from: core, to: sg.to, lang: sg.lang } : { from: core, ambiguous: sg.ambiguous }); }
+    });
+    return { text: out.join(''), changes, pending };
+  };
+
   const VERSION = 8;   // raise it when the starter list grows: the app then adds the new words to every saved list (nothing the owner typed is changed)
-  const api = { VERSION, norm, STARTER, TYPES, typeOf, translate, spanish, publishable, put, drop, seed, toEnglish, english };
+  const api = { suggest, fixText, typoDistance, fold, VERSION, norm, STARTER, TYPES, typeOf, translate, spanish, publishable, put, drop, seed, toEnglish, english };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Words = api;
 })(typeof window !== 'undefined' ? window : globalThis);

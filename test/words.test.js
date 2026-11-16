@@ -111,5 +111,15 @@ console.log('words tests passed: ' + CASES.length + ' example names');
   assert.strictEqual(W.translate('Fanny pack', words).es, 'Koala'); assert.strictEqual(en('Koala').en, 'Fanny pack'); assert.strictEqual(en('Franela koala').en, 'Koala t-shirt');
   assert.strictEqual(W.translate('Phone case', words).es, 'Forro de celular'); assert.strictEqual(W.translate('Pendant', words).es, 'Dije'); assert.strictEqual(W.translate('Zipper', words).es, 'Cierre'); assert.strictEqual(W.translate('Bow tie', words).es, 'Corbatín');
   assert.strictEqual(en('Zarcillos pequeños').en, 'Studs'); assert.strictEqual(en('Cobija').en, 'Blanket'); assert.strictEqual(en('Riñonera').en, 'Fanny pack'); assert.strictEqual(en('Short de jean').en, 'Jean shorts');
+  // spelling: a typo is matched to the closest known word, in whichever language it is closest to
+  const sg = (x) => W.suggest(x, words);
+  assert.deepStrictEqual([sg('Pulsers').to, sg('Pulsers').lang], ['Pulsera', 'es']); assert.deepStrictEqual([sg('Braclet').to, sg('Braclet').lang], ['Bracelet', 'en']);
+  assert.strictEqual(sg('Zapatoz').to, 'Zapatos'); assert.strictEqual(sg('Vestdio').to, 'Vestido'); assert.strictEqual(sg('Tobilera').to, 'Tobillera'); assert.strictEqual(sg('Zarcilos').to, 'Zarcillos');
+  assert.strictEqual(sg('Pantalon'), null); assert.strictEqual(sg('Nike'), null); assert.strictEqual(sg('Cholas'), null); assert.strictEqual(sg('Xyz'), null);   // known words, brands, short words are left alone
+  assert.ok(sg('Dres') === null || sg('Dres').ambiguous || sg('Dres').to === 'Dress'); assert.ok(sg('Blosa').ambiguous, 'two equally close words: ask, do not guess');
+  assert.strictEqual(W.fixText('Falda y Pulsers', words, {}).text, 'Falda y Pulsera'); assert.strictEqual(W.fixText('Braclet black', words, {}).text, 'Bracelet black');
+  assert.strictEqual(W.fixText('Pulsers', words, { pulsers: null }).text, 'Pulsers');   // "keep it as typed" is remembered
+  assert.strictEqual(W.fixText('Pulsers', words, { pulsers: 'pulseras' }).text, 'Pulseras');   // and so is a confirmed correction
+  assert.strictEqual(W.typoDistance('pulsers', 'pulsera', 2), 1); assert.strictEqual(W.typoDistance('braclet', 'bracelet', 2), 1); assert.strictEqual(W.typoDistance('vestdio', 'vestido', 2), 1);   // a swap of two letters is one typo
   console.log('Spanish names tests passed');
 }
