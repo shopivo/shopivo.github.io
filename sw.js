@@ -26,6 +26,7 @@ const savedKey = (req) => {
 };
 self.addEventListener('fetch', (e) => {
   if (e.request.method !== 'GET' || new URL(e.request.url).origin !== location.origin) return;
+  if (new URL(e.request.url).pathname.endsWith('/version.json')) return;   // the version question always goes straight to the server and is never saved
   if (new URL(e.request.url).pathname.includes('/vendor/')) {
     e.respondWith(caches.open(VENDOR).then((c) => c.match(e.request).then((m) => m || fetch(e.request).then((r) => { if (r.ok) c.put(e.request, r.clone()); return r; }))));
     return;
