@@ -103,3 +103,12 @@ input[type=range]{touch-action:pan-y}
 .ihtop.ststudio .stpromo{border-radius:10px;box-shadow:var(--sh-c)}
 .ihtop.ststudio .stbar{margin-top:6px}
 .ststrip button{padding:8px 12px}
+/* invoice table styles (on screen and in print) */
+.inv.tbl-outline .inv-t th{background:transparent;color:var(--ih,#741b47);border-bottom:3px solid var(--ih,#741b47)}
+.inv.tbl-outline .inv-t tbody tr:nth-child(even) td{background:none}
+.inv.tbl-outline .inv-tot .due{background:none;border:2px solid var(--ih,#741b47)}.inv.tbl-outline .inv-tot .due span,.inv.tbl-outline .inv-tot .due b{color:var(--ih,#741b47)}
+.inv.tbl-outline .inv-foot{height:8px;background:var(--ih,#741b47)}
+.inv.tbl-minimal .inv-t th{background:none;color:#555;border-bottom:1px solid #bdbdbd;text-transform:uppercase;letter-spacing:.05em}
+.inv.tbl-minimal .inv-t tbody tr:nth-child(even) td{background:none}
+.inv.tbl-minimal .inv-tot .due{background:none;border-top:2px solid var(--ih,#741b47)}.inv.tbl-minimal .inv-tot .due span,.inv.tbl-minimal .inv-tot .due b{color:#000}
+.inv.tbl-minimal .inv-foot{height:3px;background:#ddd}

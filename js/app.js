@@ -1615,6 +1615,7 @@
   function frameBlockHTML() {
     const fr = invFrame(), frames = [['tint', t('invd.frameTint')], ['soft', t('invd.frameSoft')], ['shadow', t('invd.frameShadow')], ['custom', t('invd.frameCustom')], ['none', t('invd.frameNone')]];
     return `<div class="invset"><h3>${t('invd.frame')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.frame')}" style="margin:0">${frames.map(([k, l]) => `<button type="button" class="chip ${fr === k ? 'on' : ''}" role="radio" aria-checked="${fr === k}" data-act="inv-frame" data-id="${k}">${l}</button>`).join('')}</div><p class="muted small" style="margin:8px 0 0">${t('invd.frameNote')}</p>${frameExtraHTML(fr)}</div>
+      <div class="invset"><h3>${t('invd.table')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.table')}" style="margin:0">${[['filled', t('invd.tFilled')], ['outline', t('invd.tOutline')], ['minimal', t('invd.tMinimal')]].map(([k, l]) => `<button type="button" class="chip ${invTable() === k ? 'on' : ''}" role="radio" aria-checked="${invTable() === k}" data-act="inv-table" data-id="${k}">${l}</button>`).join('')}</div></div>
       <div class="invset"><h3>${t('invd.corners')}</h3><div class="chiprow" role="radiogroup" aria-label="${t('invd.corners')}" style="margin:0">${[['round', t('invd.cRound')], ['square', t('invd.cSquare')]].map(([k, l]) => `<button type="button" class="chip ${(invSquare() ? 'square' : 'round') === k ? 'on' : ''}" role="radio" aria-checked="${(invSquare() ? 'square' : 'round') === k}" data-act="inv-corners" data-id="${k}">${l}</button>`).join('')}</div></div>`;
   }
   function InvDesignPage() {
@@ -1991,7 +1992,7 @@
   const invRefresh = () => (ihOn ? ihRefresh() : stOn ? stRefresh() : render());
   const stTitleMemo = new Map();
   const stTitleSrc = (color, look) => { const key = color + '|' + look + '|' + bizName(); if (stTitleMemo.has(key)) return stTitleMemo.get(key); const out = stTitleMake(color, look); stTitleMemo.set(key, out); if (stTitleMemo.size > 24) stTitleMemo.delete(stTitleMemo.keys().next().value); return out; };
-  const stTitleMake = (color, look) => { const c = TM.norm(null, bizName(), color), bold = look === 'bold'; c.name.col = bold ? '#ffffff' : '#333333'; c.line.col = bold ? InvHeader.mix(color, '#ffffff', 0.7) : color; c.sub.col = c.line.col; const cv = ttScaled(TM.draw(c), 720); return cv ? cv.toDataURL('image/png') : ''; };
+  const stTitleMake = (color, look) => { const c = TM.norm(null, bizName(), color), bold = look === 'bold' || look === 'duo'; c.name.col = bold ? '#ffffff' : '#333333'; c.line.col = bold ? InvHeader.mix(color, '#ffffff', 0.7) : color; c.sub.col = c.line.col; const cv = ttScaled(TM.draw(c), 720); return cv ? cv.toDataURL('image/png') : ''; };
   // the header settings a design would give right now (nothing saved; used for the pictures and the live preview)
   function stCfgFor(tplId, color) {
     const c = Studio.apply(ihCfg(), tplId, color, InvHeader);
@@ -3217,7 +3218,7 @@
     const withPhoto = state.items.filter((x) => x.invoice === v.no && x.photo);
     const thumbs = withPhoto.length ? `<div class="thumbs"><h4>${t('inv.itemsOn')}</h4><div class="trow">${withPhoto.map((x) => { const d = L.photoDaysLeft(state, x, Date.now()); return `<button class="tb" data-act="edit-item" data-back="inv" data-inv="${v.no}" data-id="${x.id}" aria-label="${esc(dn(x) || x.id)}"><span class="im"><img data-ph="${x.photo.id}" data-kind="thumb" alt="">${offStrip(x)}${d != null && d > 0 ? `<span class="bd">${tn('inv.daysLeft', d)}</span>` : ''}</span><span class="nm">${esc(dn(x) || x.id)}</span></button>`; }).join('')}</div></div>` : '';
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${v.no}</b><small>${esc(clabel(v.client))}</small></div></div>${voidBanner(v0)}${v0.returnNote ? `<div class="voidbar soft">↩ ${tn('inv.returnedFrom', v0.returnNote.items.length, { no: v0.returnNote.from })}${v0.returnNote.fee > 0 ? ' · ' + t('inv.feeIn', { amount: money(v0.returnNote.fee) }) : ''}</div>` : ''}${isLatest ? '' : `<div class="earlier"><span>${t('inv.earlier')}</span><button class="chip" data-act="inv-swap" data-id="${latest.no}">${t('inv.backLatest')}</button></div>`}<div class="seg three small" role="radiogroup" aria-label="${t('invUI.lang')}" style="margin-bottom:10px"><button class="${autoActive() ? 'on' : ''}" role="radio" aria-checked="${autoActive()}" data-act="inv-lang" data-id="auto" data-no="${v.no}">${t('inv.auto')}</button>${Object.keys(I.LANGS).map((l) => `<button class="${lg === l && !autoActive() ? 'on' : ''}" role="radio" aria-checked="${lg === l && !autoActive()}" data-act="inv-lang" data-id="${l}" data-no="${v.no}">${I.LANGS[l]['lang.name']}</button>`).join('')}</div>
-      <div class="printable"><button class="fsbtn" data-act="inv-full" data-id="${v.no}" aria-label="${t('invd.full')}">⤢</button><div class="inv" style="${invSquare() ? 'border-radius:0;' : ''}--ih:${invDesign().head};--it:${invDesign().tint || 'transparent'};--ib:${invDesign().band}"><img class="inv-banner" src="${invDesignId() === 'classic' ? bannerSrc() : headerURL(invDesignId())}" alt="${ti('doc.bannerAlt')}">
+      <div class="printable"><button class="fsbtn" data-act="inv-full" data-id="${v.no}" aria-label="${t('invd.full')}">⤢</button><div class="inv tbl-${invTable()}" style="${invSquare() ? 'border-radius:0;' : ''}--ih:${invDesign().head};--it:${invDesign().tint || 'transparent'};--ib:${invDesign().band}"><img class="inv-banner" src="${invDesignId() === 'classic' ? bannerSrc() : headerURL(invDesignId())}" alt="${ti('doc.bannerAlt')}">
       <div class="inv-body">
         <div class="inv-top"><div><div class="lbl">${ti('doc.billTo')}</div><div class="client">${esc(cdisp(v.client))}</div></div>
           <div class="inv-meta"><div><span class="lbl">${ti('doc.invoiceNo')}</span><span>${v.no}</span></div><div><span class="lbl">${ti('doc.date')}</span><span>${invDate(v.date)}</span></div><div><span class="lbl">${ti('doc.due')}</span><span>${dueOnDelivery(v) ? ti('doc.dueDelivery') : invDate(v.due)}</span></div></div></div>
@@ -3239,6 +3240,7 @@
   const invBg = () => Object.assign({ c1: '#ffffff', c2: '#f4e6ec', grad: false, angle: 135 }, state.settings.invoiceBg || {});
   const invShadow = () => { const n = Number(state.settings.invoiceShadow); return Number.isFinite(n) ? Math.min(100, Math.max(0, n)) : 50; };   // 0 = no shadow, 50 = the normal one, 100 = twice as strong
   const invBgCss = (b) => (b.grad ? `linear-gradient(${b.angle}deg, ${b.c1}, ${b.c2})` : b.c1);
+  const invTable = () => ['outline', 'minimal'].includes(state.settings.invoiceTable) ? state.settings.invoiceTable : 'filled';   // how the item table and totals look: filled bars, outlined, or minimal lines
   const invSquare = () => state.settings.invoiceCorners === 'square';   // 90 degree corners instead of rounded ones
   function framedCanvas(card, mode, S, brand) {
     const M = 56 * S, R = invSquare() ? 0 : 26 * S, w = card.width + 2 * M, h = card.height + 2 * M, o = document.createElement('canvas'); o.width = w; o.height = h;
@@ -3277,12 +3279,13 @@
           F('400', 19); x.fillStyle = '#000'; x.fillText(val, R0, y + i * 26);
         });
         y += 74;
-        x.fillStyle = D.head; x.fillRect(L0 - 8, y, W - 2 * (L0 - 8), 38);
-        F('700', 16); x.fillStyle = '#fff'; x.textAlign = 'left'; x.fillText(ti('doc.desc'), L0, y + 25);
+        const TB = invTable(), tw = W - 2 * (L0 - 8);
+        if (TB === 'filled') { x.fillStyle = D.head; x.fillRect(L0 - 8, y, tw, 38); } else if (TB === 'outline') { x.fillStyle = D.head; x.fillRect(L0 - 8, y + 35, tw, 3); } else { x.fillStyle = '#bdbdbd'; x.fillRect(L0 - 8, y + 37, tw, 1); }
+        F('700', 16); x.fillStyle = TB === 'filled' ? '#fff' : TB === 'outline' ? D.head : '#555'; x.textAlign = 'left'; x.fillText(ti('doc.desc'), L0, y + 25);
         x.textAlign = 'right'; x.fillText(ti('doc.qty'), R0 - 250, y + 25); x.fillText(ti('doc.price'), R0 - 130, y + 25); x.fillText(ti('doc.amount'), R0, y + 25);
         y += 38;
         lines.forEach((l, li) => {
-          if (D.tint && li % 2) { x.fillStyle = D.tint; x.fillRect(L0 - 8, y, W - 2 * (L0 - 8), rowH); }
+          if (D.tint && li % 2 && TB === 'filled') { x.fillStyle = D.tint; x.fillRect(L0 - 8, y, W - 2 * (L0 - 8), rowH); }
           F('400', 19); x.fillStyle = '#000'; x.textAlign = 'left';
           const ld = lineName(l, LG); let d = String(ld); while (x.measureText(d).width > 330 && d.length > 4) d = d.slice(0, -2); if (d !== String(ld)) d = d.trim() + '…';
           x.fillText(d, L0, y + 24);
@@ -3294,8 +3297,8 @@
         totRows(v, sub).map(([k, val]) => [ti(k), val]).forEach(([k, val]) => {
           F('400', 19); x.fillStyle = INV.mid; x.textAlign = 'right'; x.fillText(k, R0 - 130, y); x.fillStyle = '#000'; x.fillText(invMoney(val), R0, y); y += 33;
         });
-        x.fillStyle = D.head; x.fillRect(W - 360, y - 14, 360 - (L0 - 8), 36);
-        F('700', 19); x.fillStyle = '#fff'; x.textAlign = 'right'; x.fillText(ti('doc.balance'), R0 - 130, y + 10); x.fillText(invMoney(v.balance), R0, y + 10);
+        if (TB === 'filled') { x.fillStyle = D.head; x.fillRect(W - 360, y - 14, 360 - (L0 - 8), 36); } else if (TB === 'outline') { x.strokeStyle = D.head; x.lineWidth = 3; x.strokeRect(W - 360 + 1.5, y - 14 + 1.5, 360 - (L0 - 8) - 3, 33); } else { x.fillStyle = D.head; x.fillRect(W - 360, y - 14, 360 - (L0 - 8), 2); }
+        F('700', 19); x.fillStyle = TB === 'filled' ? '#fff' : TB === 'outline' ? D.head : '#000'; x.textAlign = 'right'; x.fillText(ti('doc.balance'), R0 - 130, y + 10); x.fillText(invMoney(v.balance), R0, y + 10);
         if (stampKind(v) && !v.void) {
           x.save(); x.globalCompositeOperation = 'multiply';
           x.drawImage(stampCanvasFor(v, LG), W - L0 - 350, y + 34, 340, 152); x.restore();
@@ -3304,7 +3307,7 @@
         y = H - 62;   // Terms stay at the bottom, as in the sheet; the empty space above them is where the stamp sits
         F('700', 19); x.fillStyle = '#000'; x.textAlign = 'left'; x.fillText(ti('doc.terms'), L0, y);
         F('400', 17); x.fillStyle = INV.grey; x.fillText(ti('doc.thanks'), L0, y + 26);
-        x.fillStyle = D.band; x.fillRect(0, H - 26, W, 26);   // the footer bar runs edge to edge of the sheet
+        x.fillStyle = TB === 'minimal' ? '#dddddd' : TB === 'outline' ? D.head : D.band; x.fillRect(0, H - (TB === 'filled' ? 26 : TB === 'outline' ? 12 : 4), W, TB === 'filled' ? 26 : TB === 'outline' ? 12 : 4);   // the footer bar runs edge to edge of the sheet
         const out = frame && invFrame() !== 'none' ? framedCanvas(c, invFrame(), S, Theme.brand()) : c;
         out.toBlob((b) => (b ? ok(b) : fail(new Error(ti('doc.imgErr')))), type || 'image/png', quality || 0.92);
       };
@@ -5328,6 +5331,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       }
       case 'inv-bgcol': return openColorPick({ get: () => invBg()[id], set: (v) => { state.settings.invoiceBg = Object.assign({}, invBg(), { [id]: v }); save(); } }, () => setTimeout(invRefresh, 0));
       case 'inv-bggrad': state.settings.invoiceBg = Object.assign({}, invBg(), { grad: !invBg().grad }); save(); return invRefresh();
+      case 'inv-table': state.settings.invoiceTable = ['outline', 'minimal'].includes(id) ? id : 'filled'; save(); return invRefresh();
       case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); document.documentElement.classList.toggle('invsq', invSquare()); return invRefresh();
       case 'inv-sample': {   // a made-up invoice in your design, so you can see the whole thing without a real sale
         const d = new Date(), sample = { no: 'INV00123', client: ti('doc.sampleClient'), date: d.toISOString(), due: new Date(d.getTime() + 6048e5).toISOString(), lines: [{ desc: ti('doc.sampleItem'), qty: 1, price: 250 }, { desc: ti('doc.sampleItem2'), qty: 2, price: 60 }, { desc: ti('doc.sampleItem3'), qty: 1, price: 95 }], delivery: 30, total: 495, amountPaid: 200, previouslyPaid: 0, balance: 295 };
