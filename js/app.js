@@ -1669,7 +1669,7 @@
   // The parts that need the phone to measure something (build id, browser storage, photos, offline tools).
   function fillAbout() {
     const put = (id, v) => { const e = document.getElementById(id); if (e) e.innerHTML = v; };
-    if (window.caches) caches.keys().then((ks) => { const k = ks.find((x) => /^buy-sell-/.test(x)); put('ab-build', k ? esc(k.replace('buy-sell-', '')) : '—'); }).catch(() => put('ab-build', '—'));
+    { const mv = document.querySelector('meta[name=app-version]'), mb = document.querySelector('meta[name=app-built]'); if (mv && mv.content && mv.content !== 'dev') put('ab-build', esc(mv.content) + (mb && mb.content ? ' · ' + esc(mb.content.replace('T', ' ').replace('Z', ' UTC')) : '')); else if (window.caches) caches.keys().then((ks) => { const k = ks.find((y) => /^buy-sell-/.test(y)); put('ab-build', k ? esc(k.replace('buy-sell-', '')) : '—'); }).catch(() => put('ab-build', '—')); else put('ab-build', '—'); }   // the build this page itself belongs to
     const rec = new Blob([localStorage.getItem(KEY) || '']).size;
     const tools = window.caches ? caches.open('vendor-v1').then((c) => c.keys().then((rs) => Promise.all(rs.map((r) => c.match(r).then((x) => (x ? x.clone().blob().then((b) => b.size) : 0)))))).then((a) => a.reduce((x, y) => x + y, 0)).catch(() => 0) : Promise.resolve(0);
     Promise.all([PhotoStore.stats().catch(() => ({ count: 0, bytes: 0 })), tools, navigator.storage && navigator.storage.estimate ? navigator.storage.estimate().catch(() => null) : null]).then(([ph, tl, est]) => {
