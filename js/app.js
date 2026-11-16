@@ -3410,7 +3410,7 @@
         <div class="inv-sum">${stampKind(v) && !v0.void ? `<img class="stamp" src="${stampURL(v)}" alt="${ti('doc.stampAlt')}">` : ''}<div class="inv-tot">${totRows(v, sub).map(([k, val]) => `<div><span>${ti(k)}</span><b>${invMoney(val)}</b></div>`).join('')}<div class="due"><span>${ti('doc.balance')}</span><b>${invMoney(v.balance)}</b></div></div>${(() => { const nt = invNote(v); return nt ? `<div class="inv-note"><b>${esc(nt[0])}</b><span>${esc(nt[1])}</span></div>` : ''; })()}</div>
         <div class="inv-terms"><b>${ti('doc.terms')}</b><span>${ti('doc.thanks')}</span></div></div><div class="inv-foot"></div></div></div>
       <div class="muted small" style="margin-top:8px">${t('invUI.status')} <span class="pill ${st}">${invStLabel(st)}</span>${v.by ? ` · ${t('inv.by', { name: esc(v.by) })}` : ''}${v.refundDue > 0 ? ` <b class="bad">${t('ret.refundDue', { amount: money(v.refundDue) })}</b>` : ''}${v.balance > 0 && !v.updatedBy && !v0.void ? ` <button class="pay-btn" data-act="pay-inv" data-id="${v.no}" data-back="inv" style="margin-left:6px">${t('pay.btn')}</button>` : ''}${!v0.void && v.profit ? `<span class="costonly"> · ${t('invUI.profit')} ${money(v.profit)}</span>` : ''}${!v0.void && v.loss ? `<span class="costonly"> · ${t('invUI.loss')} ${money(v.loss)}</span>` : ''}${!v0.void && v.tip ? `<span class="costonly"> · ${t('invUI.tip')} ${money(v.tip)}</span>` : ''}</div>
-      ${isLatest && !v0.void && !L.dueStarted(v) && !orderOfInvoice(v0.no) && v.balance > 0.004 ? `<div class="hdue"><p class="muted small">${t('ih.onDeliveryNote')}</p><button class="btn primary" data-act="inv-handed" data-id="${v.no}" style="width:100%">📦 ${t('ih.markHanded')}</button></div>` : ''}
+      ${isLatest && !v0.void && !L.dueStarted(v) && !orderOfInvoice(v0.no) && v.balance > 0.004 ? `<div class="hdue"><p class="muted small">${t('ih.onDeliveryNote')}</p><div class="hdbtns"><button class="btn primary" data-act="inv-handed" data-id="${v.no}" data-how="delivery">${t('mo.delivered')}</button><button class="btn primary" data-act="inv-handed" data-id="${v.no}" data-how="pickup">${t('mo.pickedUp')}</button></div></div>` : ''}
       ${hist}${thumbs}${spotRow}
       ${(() => { const who = esc(clabel(v.client || '')), k = autoActive() ? knownLang(v.no, v.client) : invoiceLang(); return `<p class="muted small sendnote">${autoActive() ? (k ? t('inv.sendAuto', { lang: I.LANGS[k]['lang.name'], who }) : t('inv.sendAsk', { who })) : t('inv.sendFixed', { lang: I.LANGS[k]['lang.name'] })}</p>`; })()}<div class="b22"><button class="btn primary" data-act="share-pdf" data-id="${v.no}">${t('invUI.shareBtn')}</button><button class="btn primary" data-act="download-pdf" data-id="${v.no}">${t('invUI.download')}</button>
       ${(() => { const rr = isLatest && !v0.void && state.items.some((x) => x.invoice === v.no), cc = isLatest && !v0.void; return (rr ? `<button class="btn rs ${cc ? '' : 'span2'}" data-act="return-open" data-id="${v.no}">↩ ${t('ret.btn')}</button>` : '') + (cc ? `<button class="btn rs ${rr ? '' : 'span2'}" data-act="del-inv" data-id="${v.no}">${t('invUI.cancel')}</button>` : ''); })()}<button class="btn slim span2" data-act="close">${t('btn.close')}</button></div>`, null, true);
@@ -4177,21 +4177,22 @@
   }
   // One hand-over for every order: online and My orders ask the same thing (how much did you receive now?) in the same pop-up
   function handInfo(kind, id, how) {
+    if (kind === 'inv') { const v = state.invoices.find((x) => x.no === id); if (!v) return null; return { code: v.no, name: clabel(v.client), total: v.total, paid: Math.round((v.total - v.balance) * 100) / 100, owing: v.balance, how: how || 'delivery' }; }
     if (kind === 'mine') { const o = MO.byId(state, id); if (!o) return null; const p = MO.pay(state, o); return { code: o.code, name: clabel(o.client), total: p.total, paid: p.paid, owing: p.owing, how: how || o.option }; }
     const po = Store.orders().find((x) => x.id === id); if (!po) return null; const p = L.orderPay(state, orderInvoice(po)) || { total: Number(po.total) || 0, paid: 0, owing: Number(po.total) || 0 };
     return { code: po.code || SCore.orderCode(po.id), name: po.name, total: p.total, paid: p.paid, owing: p.owing, how: how || po.option };
   }
   // "If something is left to pay, it is due Mon 23 Nov (7 days, today is day one)": what the hand-over starts
   const dueNoteHTML = () => `<p class="muted small" style="margin:0 0 8px">${t('hand.dueNote', { n: L.dueDays(state), d: esc(L.dueFrom(state, new Date()).toLocaleDateString(I.locale(I.getLang()), { weekday: 'short', day: 'numeric', month: 'short' })) })}</p>`;
-  // A sale from Stock of an item that has not arrived: the invoice says On delivery until you hand it over; then the due date starts that day.
-  function sheetInvHanded(no) {
+  // A sale from Stock of an item that has not arrived: the invoice says On delivery until you tap Delivered or Picked up (the same pop-up as an order); then the due date starts that day.
+  function sheetInvHanded(no, how) {
     const v = state.invoices.find((x) => x.no === no); if (!v || v.updatedBy || v.void) return;
     if (state.items.some((x) => x.invoice === no && itemArriving(x))) return toast(t('ih.notArrived'));
-    openSmall(`<h3>${t('ih.handedTitle', { no })}</h3><p style="margin:0 0 6px;font-weight:700">${esc(clabel(v.client))}</p><p class="muted">${t('mo.handBody', { total: moneyText(v.total), dep: moneyText(v.total - v.balance), bal: moneyText(v.balance) })}</p>${dueNoteHTML()}<label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${v.balance || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="inv-handed-ok" data-id="${no}">✅ ${t('ih.markHanded')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet');
+    handSheet('inv', no, how);
   }
   function invHandedOk(no) {
     const v = state.invoices.find((x) => x.no === no); if (!v || v.updatedBy || v.void) return; const amt = parseAmt(($('#hand-recv') || {}).value), now = new Date();
-    try { v.dueStart = now.toISOString(); v.due = L.dueFrom(state, now).toISOString(); let last = v; if (amt > 0) { last = L.recordPayment(state, no, amt); if (sharedBusiness()) last.by = myName(); } save(); closeSheet(); render(); toast(t('ih.handedDone', { d: new Date(last.due).toLocaleDateString(I.locale(I.getLang()), { day: 'numeric', month: 'short' }) })); setTimeout(() => sheetInvoice(last.no), 80); }
+    try { v.dueStart = now.toISOString(); v.due = L.dueFrom(state, now).toISOString(); let last = v; if (amt > 0) { last = L.recordPayment(state, no, amt); if (sharedBusiness()) last.by = myName(); } save(); closeSheet(); render(); toast(last.balance > 0.004 ? t('ih.handedDone', { d: new Date(last.due).toLocaleDateString(I.locale(I.getLang()), { day: 'numeric', month: 'short' }) }) : t('ih.handedPaid')); setTimeout(() => sheetInvoice(last.no), 80); }
     catch (e) { return toast('⚠️ ' + errMsg(e)); }
   }
   function handSheet(kind, id, how) {
@@ -4199,6 +4200,7 @@
     openSmall(`<h3>${t(dl ? 'hand.tDel' : 'hand.tCol', { code: esc(h.code) })}</h3><p style="margin:0 0 6px;font-weight:700">${esc(h.name || '')}</p><p class="muted">${t('mo.handBody', { total: moneyText(h.total), dep: moneyText(h.paid), bal: moneyText(h.owing) })}</p>${dueNoteHTML()}<label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${h.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="hand-ok" data-kind="${kind}" data-id="${id}" data-how="${h.how}">${t(dl ? 'hand.okDel' : 'hand.okCol')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
   }
   function handOk(kind, id, how) {
+    if (kind === 'inv') return invHandedOk(id);
     const amt = parseAmt(($('#hand-recv') || {}).value);
     if (kind === 'mine') { try { const inv = MO.handOver(state, id, { how, paidNow: amt }); if (sharedBusiness()) inv.by = myName(); closeSheet(); toast(t('mo.handDone', { no: inv.no })); save(); render(); return setTimeout(() => sheetMyOrder(id), 80); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
     const po = Store.orders().find((x) => x.id === id); if (!po) return; let got = 0;
@@ -5436,8 +5438,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mo-pay': return moAmountSheet(t('mo.addPay'), 'mo-pay-ok', id, '', '');
       case 'mo-pay-ok': { try { MO.addPayment(state, id, $('#mo-amt').value); closeSheet(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
       case 'mo-hand': return handSheet('mine', id, t_.dataset.how);
-      case 'inv-handed': return sheetInvHanded(id);
-      case 'inv-handed-ok': return invHandedOk(id);
+      case 'inv-handed': return sheetInvHanded(id, t_.dataset.how);
       case 'hand-ok': return handOk(t_.dataset.kind, id, t_.dataset.how);
       case 'mo-send': { const o = MO.byId(state, id); if (!o) return; const lat = o.invoice ? L.invoiceForward(state, o.invoice).slice(-1)[0] : null; return lat ? shareInvoicePdf(lat.no, false) : o.pre ? shareInvoicePdf(o.pre.no, false) : null; }
       case 'mo-pre': { try { MO.makePre(state, id); save(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }

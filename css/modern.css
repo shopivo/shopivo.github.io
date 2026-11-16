@@ -214,3 +214,4 @@ body.ed-open #tabbar,body.ed-open #actionbar{display:none!important}
 .chiprow+input[name=dueDays]{margin-top:12px}
 
 .hdue{margin:12px 0}.hdue p{margin:0 0 8px}
+.hdbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
