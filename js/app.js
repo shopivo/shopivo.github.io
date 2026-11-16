@@ -381,7 +381,7 @@
     closeTopMenu();
     const row = (act, ic, label, on) => `<button type="button" class="tmi" data-act="${act}"><span class="tmic" aria-hidden="true">${ic}</span><span class="tml">${label}</span>${on ? '<i class="dot on"></i>' : ''}</button>`;
     const ss = row('store-settings', '🏪', t('hub.settings'), !dset().home);   // Store settings (with Store location) from the Store page and every log
-    const rows = kind === 'inv' ? row('filter', '☰', t('tool.filter'), filtered()) + ss : kind === 'ord' ? ss : kind === 'dlv' ? row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + ss + row('pickup-open', '🛵', t('hub.delivery'), false) + row('dlv-settings', '🚚', t('dlv.settings'), false) : kind === 'bl' ? row('bl-filter-open', '☰', t('tool.filter'), blCount(blF) > 0) + ss : (tab === 'promote' ? '' : row('filter', '☰', t('tool.filter'), filtered())) + row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + (tab === 'sell' && !moreView ? ss : '') + (tab === 'people' && peopleOn ? row('fix-open', '🛠️', t('fx.title'), PE.missingNumber(state).length > 0) : '');
+    const rows = kind === 'inv' ? row('filter', '☰', t('tool.filter'), filtered()) + ss : kind === 'ord' ? ss + (ordSource === 'mine' && MO.adoptedCount(state) ? row('ad-undo', '🔄', t('ad.undoMenu', { n: MO.adoptedCount(state) }), false) : '') : kind === 'dlv' ? row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + ss + row('pickup-open', '🛵', t('hub.delivery'), false) + row('dlv-settings', '🚚', t('dlv.settings'), false) : kind === 'bl' ? row('bl-filter-open', '☰', t('tool.filter'), blCount(blF) > 0) + ss : (tab === 'promote' ? '' : row('filter', '☰', t('tool.filter'), filtered())) + row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + (tab === 'sell' && !moreView ? ss : '') + (tab === 'people' && peopleOn ? row('fix-open', '🛠️', t('fx.title'), PE.missingNumber(state).length > 0) : '');
     const sc = document.createElement('div'); sc.id = 'tmscrim'; sc.className = 'tmscrim'; sc.dataset.close = '1';
     const m = document.createElement('div'); m.id = 'tmenu'; m.className = 'tmenu'; m.setAttribute('role', 'menu'); m.innerHTML = rows + (cloud.signedIn ? row('acct-out', '🚪', t('acct.signOut'), false) : '');
     const hd = document.querySelector('.appbar').getBoundingClientRect(); m.style.top = (hd.bottom - 6) + 'px';
@@ -1038,7 +1038,7 @@
     enterPage('split', pid, () => sheetSplit(pid));
     const invs = L.latestInvoices(state, p.key).sort((a, b) => new Date(b.date) - new Date(a.date));
     const row = (v) => { const o = orderOfInvoice(v.no); return `<label class="tkr"><input type="checkbox" data-split="${v.no}"><span>${esc(v.no)} · ${money(v.total)}${v.balance > 0 ? ' <span class="cu-ow">(' + t('cust.owingLabel').toLowerCase() + ')</span>' : ''}<small class="muted"> ${esc(dayMon(new Date(v.date)))}${o && o.phone ? ' · ' + esc(PE.fmt(o.phone)) : ''}</small></span></label>`; };
-    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('sp.title', { name: esc(p.name) })}</b><small>${t('sp.sub')}</small></div></div><div class="ap"><h4>${t('sp.tick')}</h4><div class="card pkc">${invs.map(row).join('') || `<p class="muted small">${t('cust.none')}</p>`}</div>
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('sp.title', { name: esc(p.name) })}</b><small>${t('stp.sub')}</small></div></div><div class="ap"><h4>${t('sp.tick')}</h4><div class="card pkc">${invs.map(row).join('') || `<p class="muted small">${t('cust.none')}</p>`}</div>
       <div class="card"><label for="sp-name">${t('sp.name')}</label><input id="sp-name" value="${esc(p.name)}" autocomplete="off"><label for="sp-phone">${t('sp.phone')}</label><input id="sp-phone" type="text" inputmode="tel" autocomplete="off" placeholder="${t('pp.number')}"></div>
       <div class="sum" id="sp-sum" hidden></div><div class="btns"><button class="btn primary" data-act="split-go" data-id="${pid}">${t('sp.go')}</button></div></div>`, null, true);
   }
@@ -4434,9 +4434,14 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   let adBk = false;
   const adOpts = () => ({ skip: window.Store ? Store.orders().map(orderInvoice).filter(Boolean) : [], phoneOf: (n) => { try { const p = peopleOn ? PE.list(state).find((x) => x.name === n) : null; return p ? p.phone : ''; } catch (e) { return ''; } } });
   function moAdoptCard() {
-    const pl = MO.adoptPlan(state, adOpts()), n = MO.adoptedCount(state); if (!pl.count && !n) return '';
-    if (!pl.count) return `<div class="adslim"><span>${tn('ad.done', n)}</span><button type="button" data-act="ad-undo">${t('ad.undo', { n })}</button></div>`;   // already converted: one quiet line
-    return `<div class="card adcard"><b>${t('ad.title')}</b><small>${pl.count ? tn('ad.have', pl.count) : tn('ad.done', n)}</small><div class="btns">${pl.count ? `<button class="btn primary" data-act="ad-open">${t('ad.btn')}</button>` : ''}${n ? `<button class="btn" data-act="ad-undo">${t('ad.undo', { n })}</button>` : ''}</div></div>`;
+    const pl = MO.adoptPlan(state, adOpts()); if (!pl.count) return '';   // once converted this is gone; Undo lives in the three-dots menu
+    return `<div class="card adcard"><b>${t('ad.title')}</b><small>${tn('ad.have', pl.count)}</small><div class="btns"><button class="btn primary" data-act="ad-open">${t('ad.btn')}</button></div></div>`;
+  }
+  // The store as your customers see it, shown inside the app: Back comes back here and never leaves the app.
+  function sheetStorePreview() {
+    const c = storeCfg(); if (!c.id) return sheetStore();
+    enterPage('storeprev', '', () => sheetStorePreview());
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('stp.title')}</b><small>${t('stp.sub')}</small></div><button type="button" class="fb-edit" data-act="store-open-ext">${t('stp.ext')}</button></div><div class="spwrap"><iframe class="spframe" src="${esc(Store.link(c))}" title="${t('stp.title')}" loading="eager"></iframe></div>`, null, true);
   }
   function sheetAdopt() {
     const pl = MO.adoptPlan(state, adOpts()), c = pl.counts; if (!pl.count) return closeSheet();
@@ -4997,7 +5002,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'select-close': { const it = state.items.find((x) => x.id === id); if (it && L.isLocked(it)) return lockToast(it); if (it) { L.prefillSold(it); save(); } selected.add(id); closeSheet(); } return toast(t('item.added'));
       case 'unselect-close': selected.delete(id); closeSheet(); return;
       case 'store-share': { const c = storeCfg(); if (!c.id) return sheetStore(); const url = Store.link(c), name = c.name || bizName(); if (navigator.share) return navigator.share({ title: name, text: t('store.shareText', { name }), url }).catch(() => {}); return copyText(url).then((ok) => toast(ok ? t('store.copied') : url)); }
-      case 'store-preview': { const c = storeCfg(); if (!c.id) return sheetStore(); window.open(Store.link(c), '_blank', 'noopener'); return; }
+      case 'store-preview': { const c = storeCfg(); if (!c.id) return sheetStore(); return sheetStorePreview(); }
+      case 'store-open-ext': { const c = storeCfg(); if (c.id) window.open(Store.link(c), '_blank', 'noopener'); return; }
       case 'store-link': { const c = storeCfg(); if (!c.id) return sheetStore(); return copyText(Store.link(c)).then((ok) => toast(ok ? t('store.copied') : Store.link(c))); }
       case 'store-open': return sheetStore();
       case 'store-settings': closeSheet(); return sheetStoreSettings();
@@ -5264,7 +5270,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ad-open': return sheetAdopt();
       case 'ad-bk': return confirmDownload('buy-sell-backup.json', () => { download('buy-sell-backup.json', JSON.stringify(state, null, 2)); adBk = true; sheetAdopt(); });
       case 'ad-go': { if (!adBk) return; const r = MO.adopt(state, adOpts()); adBk = false; closeSheet(); save(); render(); return toast(tn('ad.converted', r.count)); }
-      case 'ad-undo': return askCard(t('ad.undoAsk'), { title: t('ad.undoT'), ok: t('ad.undoOk') }).then((ok) => { if (!ok) return; MO.undoAdopt(state); closeSheet(); save(); render(); toast(t('ad.undone')); });
+      case 'ad-undo': closeTopMenu(); return askCard(tn('ad.undoAsk', MO.adoptedCount(state)), { title: t('ad.undoT'), ok: t('ad.undoOk') }).then((ok) => { if (!ok) return; MO.undoAdopt(state); closeSheet(); save(); render(); toast(t('ad.undone')); });
       case 'fab-batch': closeSheet(); return setTimeout(() => sheetNewBatch(), 60);
       case 'fab-sell': closeSheet(); return setTimeout(() => sellItemSheet(), 60);
       case 'fab-order': case 'order-new': { const go2 = () => { moDraft = moDraftNew(); ordSource = 'mine'; sheetMyNew(); }; if (t_.dataset.act === 'fab-order') { closeSheet(); return setTimeout(go2, 60); } return go2(); }
