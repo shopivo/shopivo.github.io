@@ -94,3 +94,13 @@ console.log('words tests passed: ' + CASES.length + ' example names');
   assert.strictEqual(W.english({ desc: 'Mi blusa', enSet: true, enFor: 'Vestido azul', nameEs: 'Vestido azul', esSet: true, esFor: 'Mi blusa' }, words).en, 'Mi blusa', 'an English name you confirmed stays');
   console.log('Spanish → English: ' + same + ' of ' + CASES.length + ' round trips unchanged');
 }
+
+// Spanish names the owner types that an English invoice should understand
+{
+  const en = (es) => W.toEnglish(es, words);
+  assert.deepStrictEqual(en('Cholas').missing, []); assert.strictEqual(en('Cholas').en, 'Flip flops');
+  assert.strictEqual(en('Franela oso').en, 'Bear t-shirt'); assert.strictEqual(en('Franela perrito').en, 'Puppy t-shirt'); assert.strictEqual(en('Franela limon').en, 'Lemon t-shirt'); assert.strictEqual(en('Pijama de franela').en, 'Flannel pajamas'); assert.deepStrictEqual(en('Franelas').missing, []);
+  
+  assert.strictEqual(W.translate('Flip flops', words).es.toLowerCase(), 'chancletas');   // the English-to-Spanish side is unchanged
+  console.log('Spanish names tests passed');
+}
