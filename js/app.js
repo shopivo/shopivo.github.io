@@ -1887,26 +1887,45 @@
     } finally { URL.revokeObjectURL(url); }
   }
 
-  /* ---------- logo maker (initials) ---------- */
-  let lm = null;
-  const lmFonts = { bold: '800 {s}px Inter, Arial, sans-serif', serif: 'italic 700 {s}px Georgia, Caladea, serif', round: '700 {s}px "Trebuchet MS", Inter, sans-serif', slim: '300 {s}px Inter, Arial, sans-serif' };
-  function lmCanvas(size) {
-    const c = document.createElement('canvas'); c.width = c.height = size; const g = c.getContext('2d'), n = Math.max(1, lm.text.length);
-    g.fillStyle = lm.bg; if (lm.shape === 'circle') { g.beginPath(); g.arc(size / 2, size / 2, size / 2, 0, Math.PI * 2); g.fill(); } else if (lm.shape === 'rounded') { g.beginPath(); if (g.roundRect) g.roundRect(0, 0, size, size, size * 0.24); else g.rect(0, 0, size, size); g.fill(); } else g.fillRect(0, 0, size, size);
-    const fs = Math.round(size * (n === 1 ? 0.56 : n === 2 ? 0.44 : 0.34)); g.fillStyle = lm.fg; g.textAlign = 'center'; g.textBaseline = 'middle'; g.font = lmFonts[lm.style].replace('{s}', fs);
-    g.fillText(lm.text, size / 2, size / 2 + fs * 0.04); return c;
+  /* ---------- Logo creator: a logo from your letters (six styles, nine letter styles, three shapes, a border, brand colours).
+     A full page like the Title creator: sections stay open, sliders have undo, same colour picker. The drawing and checks live in js/logomaker.js. ---------- */
+  const LMK = window.LogoMaker;
+  let lkOn = false, lkRaf = 0;
+  const lkCfg = () => LMK.norm(state.settings.logoCfg, initials(bizName()), Theme.brand());
+  const lkSave = (c) => { state.settings.logoCfg = LMK.norm(c, initials(bizName()), Theme.brand()); save(); };
+  const lkSet = (path, v) => { const c = lkCfg(); LMK.setPath(c, path, v); lkSave(c); lkPaintSoon(); };
+  function lkPaint() {
+    const c = lkCfg(), put = (cv, cfg, px) => { const src = LMK.draw(cfg, px); if (src) { cv.width = cv.height = px; cv.getContext('2d').drawImage(src, 0, 0); } };
+    document.querySelectorAll('canvas[data-lkshape]').forEach((cv) => put(cv, Object.assign({}, c, { shape: cv.dataset.lkshape }), 220));
+    document.querySelectorAll('canvas[data-lkst]').forEach((cv) => put(cv, Object.assign({}, LMK.recolor(Object.assign({}, c, { style: cv.dataset.lkst }), c.bg), { style: cv.dataset.lkst, text: c.text, font: c.font, shape: c.shape, ring: c.ring }), 160));
   }
-  function lmPaint() { const cv = $('#lm-cv'); if (!cv || !lm) return; cv.width = cv.height = 240; cv.getContext('2d').drawImage(lmCanvas(240), 0, 0); }
-  function sheetLogoMaker(keep) {
-    const brand = Theme.brand(); lm = keep || { text: initials(bizName()).replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || 'B', style: 'bold', shape: 'circle', bg: brand, fg: '#ffffff' };
-    const chips = (k, opts) => `<div class="chiprow">${opts.map(([v, l]) => `<button type="button" class="chip ${lm[k] === v ? 'on' : ''}" data-act="lm-set" data-id="${k}=${v}">${l}</button>`).join('')}</div>`;
-    openSmall(`<h3>${t('lm.title')}</h3><p class="muted small">${t('lm.sub')}</p><canvas id="lm-cv" width="240" height="240" style="width:150px;height:150px;display:block;margin:6px auto 10px;border-radius:12px;background:repeating-conic-gradient(#e9e4e8 0 25%,#fff 0 50%) 0 0/14px 14px"></canvas>
-      <div class="ihr"><label>${t('lm.letters')}</label><input type="text" id="lm-text" value="${esc(lm.text)}" maxlength="3" autocomplete="off" style="text-transform:uppercase"></div>
-      <div class="ihr"><label>${t('lm.style')}</label>${chips('style', [['bold', t('lm.st.bold')], ['serif', t('lm.st.serif')], ['round', t('lm.st.round')], ['slim', t('lm.st.slim')]])}</div>
-      <div class="ihr"><label>${t('lm.shape')}</label>${chips('shape', [['circle', t('ih.sh.circle')], ['rounded', t('ih.sh.rounded')], ['square', t('ih.sh.square')]])}</div>
-      <div class="ihr col"><label>${t('lm.bg')}</label><button type="button" class="ihsw" data-act="lm-colpick" data-id="bg" style="background:${lm.bg}" aria-label="${t('ih.pickColor')}"></button></div><div class="ihr col"><label>${t('lm.fg')}</label><button type="button" class="ihsw" data-act="lm-colpick" data-id="fg" style="background:${lm.fg}" aria-label="${t('ih.pickColor')}"></button></div>
-      <div class="btns"><button class="btn primary" data-act="lm-use">${t('lm.use')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet', () => { lm = null; });
-    lmPaint();
+  function lkPaintSoon() { if (!lkOn) return; cancelAnimationFrame(lkRaf); lkRaf = requestAnimationFrame(lkPaint); }
+  const lkRng = (path, label, key, step) => { const v = LMK.getPath(lkCfg(), path), [min, max] = LMK.LIMITS[key]; return `<div class="ihr"><label>${label}<b class="v">${Math.round(v * 100) / 100}</b></label><input type="range" min="${min}" max="${max}" step="${step || 1}" value="${v}" data-lk="${path}"></div>`; };
+  const lkCol = (path, label) => `<div class="ihr col"><label>${label}</label><button type="button" class="ihsw" data-act="lk-colpick" data-id="${path}" style="background:${LMK.getPath(lkCfg(), path)}" aria-label="${t('ih.pickColor')}"></button></div>`;
+  function lkBodyHTML() {
+    const c = lkCfg();
+    const gal = `<div class="lkgal">${LMK.STYLES.map((s) => `<button type="button" class="lkst ${c.style === s ? 'on' : ''}" data-act="lk-style" data-id="${s}"><canvas data-lkst="${s}" width="160" height="160"></canvas><span>${t('lk.st.' + s)}</span></button>`).join('')}</div>`;
+    const fonts = `<div class="ihr"><label>${t('lm.style')}</label><div class="chiprow">${LMK.FONTS.map((k) => `<button type="button" class="chip ${c.font === k ? 'on' : ''}" data-act="lk-set" data-id="font=${k}">${t('tt.f.' + k)}</button>`).join('')}</div></div>`;
+    const letters = `<div class="ihr"><label>${t('lm.letters')}</label><input type="text" data-lk="text" value="${esc(c.text)}" maxlength="3" autocomplete="off" autocapitalize="characters" style="text-transform:uppercase"></div>${fonts}${lkRng('size', t('ih.size'), 'size')}${lkRng('lift', t('lk.lift'), 'lift')}${lkRng('spacing', t('tt.spacing'), 'spacing')}`;
+    const sw = (h) => `<button type="button" class="stsw ${h.toLowerCase() === c.bg ? 'on' : ''}" data-act="lk-brand" data-id="${h}" style="background:${h}" aria-label="${h}"></button>`;
+    const two = ['gradient', 'duo', 'ring', 'soft'].includes(c.style);
+    const colours = `<div class="stsws">${[Theme.brand()].concat(Studio.SWATCHES).map(sw).join('')}</div><p class="muted small" style="margin:8px 2px 4px">${t('lk.brandSub')}</p>${lkCol('bg', t('lm.bg'))}${two ? lkCol('bg2', t('lk.second')) : ''}${lkCol('fg', t('lm.fg'))}`;
+    const border = `<div class="ihr tgl"><span>${t('lk.border')}</span>${swt('lk-tog', 'ring.on', c.ring.on)}</div>${c.ring.on ? lkRng('ring.width', t('tt.thick'), 'ringw') + lkCol('ring.col', t('ih.color')) : ''}`;
+    return `${ihSec('lk:style', t('lk.s.style'), gal)}${ihSec('lk:letters', t('lk.s.letters'), letters)}${ihSec('lk:colors', t('lk.s.colors'), colours)}${ihSec('lk:border', t('lk.s.border'), border)}<div class="btns" style="margin-top:14px"><button type="button" class="btn" data-act="lk-reset">${t('tt.reset')}</button></div>`;
+  }
+  function lkRefresh() { const b = $('#lk-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = lkBodyHTML(); $('#sheet').scrollTop = sc; lkPaint(); }
+  function sheetLogoStudio() {
+    enterPage('logomaker', '', () => sheetLogoStudio());
+    lkOn = true; ['lk:style', 'lk:letters'].forEach((k) => { if (ihOpenSecs[k] === undefined) ihOpenSecs[k] = true; });
+    const c = lkCfg();
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('lk.title')}</b><small>${t('lk.sub')}</small></div></div>
+      <div class="ihtop"><div class="lkpv">${LMK.SHAPES.map((s) => `<button type="button" class="${c.shape === s ? 'on' : ''}" data-act="lk-set" data-id="shape=${s}" aria-label="${t('ih.sh.' + s)}"><canvas data-lkshape="${s}" width="220" height="220"></canvas></button>`).join('')}</div><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>
+      <div class="pd" id="lk-body">${lkBodyHTML()}</div>`, () => { lkOn = false; render(); }, true);
+    lkPaint();
+  }
+  function lkUse() {
+    const c = lkCfg(), cv = LMK.draw(c, 256); if (!cv) return; state.settings.bizLogo = cv.toDataURL('image/png'); state.settings.bizLogoShape = c.shape; state.settings.bizLogoPick = 'auto';
+    save(); Store.publish && Store.publish(true); toast(t('logo.saved')); refreshLogoUI(); if (gdOn()) gdDraw(false);
   }
 
   // ---- Title creator: builds the "B-RUIZ / ONLINE STORE" name picture (name, a line, a small line under it). Sections stay open when you tap inside them;
@@ -2021,10 +2040,6 @@
       <div class="ihtop"><canvas id="st-pv" width="1600" height="380" aria-label="${t('st.title')}"></canvas><div class="stbar"><button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button><button type="button" class="btn primary" id="st-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div></div>
       <p class="strest" id="st-rest" ${stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="st-body">${stBodyHTML()}</div>`, () => { stOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
     stPaint();
-  }
-  function lmUse() {
-    if (!lm) return; const cv = lmCanvas(256); state.settings.bizLogo = cv.toDataURL('image/png'); state.settings.bizLogoShape = lm.shape === 'circle' ? 'circle' : lm.shape === 'rounded' ? 'rounded' : 'square'; state.settings.bizLogoPick = 'auto';
-    save(); Store.publish && Store.publish(true); toast(t('logo.saved')); closeSheet(); render(); refreshLogoUI(); if (gdOn()) gdDraw(false);
   }
 
   /* ---------- default places for a new business: the same places, no prices; the high-risk areas come marked ---------- */
@@ -4860,9 +4875,14 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'gd-logo-pick': { const f = $('#logo-file'); if (f) f.click(); return; }
       case 'gd-store': return gdCreateStore();
       case 'gd-look': { const [l, p] = id.split('|'); state.settings.invoiceDesign = 'custom'; ihSave(InvHeader.applyPreset(InvHeader.applyLayout(ihCfg(), l), p)); gdDraw(false); return; }
-      case 'lm-open': return sheetLogoMaker();
-      case 'lm-set': { if (!lm) return; const i = id.indexOf('='); lm[id.slice(0, i)] = id.slice(i + 1); const keepT = $('#lm-text'); document.querySelectorAll('[data-act=lm-set]').forEach((b) => { const j = b.dataset.id.indexOf('='); b.classList.toggle('on', lm[b.dataset.id.slice(0, j)] === b.dataset.id.slice(j + 1)); }); return lmPaint(); }
-      case 'lm-use': return lmUse();
+      case 'lm-open': case 'lk-open': return sheetLogoStudio();
+      case 'lk-style': { const c = lkCfg(); c.style = id; lkSave(LMK.recolor(c, c.bg)); return lkRefresh(); }
+      case 'lk-set': { const i = id.indexOf('='); lkSet(id.slice(0, i), id.slice(i + 1)); document.querySelectorAll('.lkpv button').forEach((b0) => b0.classList.toggle('on', b0.dataset.id === 'shape=' + lkCfg().shape)); return lkRefresh(); }
+      case 'lk-brand': { const c = lkCfg(); lkSave(LMK.recolor(c, id)); return lkRefresh(); }
+      case 'lk-tog': { lkSet(id, !LMK.getPath(lkCfg(), id)); return lkRefresh(); }
+      case 'lk-colpick': return openColorPick({ get: () => LMK.getPath(lkCfg(), id), set: (v) => lkSet(id, v) }, () => setTimeout(lkRefresh, 0));
+      case 'lk-use': return lkUse();
+      case 'lk-reset': return askCard(t('lk.resetAsk'), { danger: true, ok: t('tt.reset') }).then((y) => { if (!y) return; delete state.settings.logoCfg; save(); lkRefresh(); document.querySelectorAll('.lkpv button').forEach((b0) => b0.classList.toggle('on', b0.dataset.id === 'shape=' + lkCfg().shape)); });
       case 'bc-open': return sheetCard();
       case 'bc-auto': { const c = bcCfg(); c.fv = (c.fv + 1) % CardMaker.FRONT_N; c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
       case 'bc-arrreset': { const c = bcCfg(); c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
@@ -4934,7 +4954,6 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ihsa-pick': { ihsaSlot = Number(id); document.querySelectorAll('[data-act=ihsa-pick]').forEach((b) => b.classList.toggle('on', Number(b.dataset.id) === ihsaSlot)); return; }
       case 'ihsa-go': { const el = $('#ihsa-name'), nm = (el && el.value.trim()) || ''; if (!nm) return toast(t('ih.needName')); svSave('inv', ihsaSlot, nm); toast(t('ih.savedOk')); return closeSheet(); }
       case 'ih-colpick': return openColorPick({ get: () => ihVal(id), set: (v) => ihSet(id, v), eye: id });
-      case 'lm-colpick': { if (!lm) return; const keep = lm, k = id, tx = $('#lm-text'); if (tx) keep.text = tx.value.toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 3) || keep.text; return openColorPick({ get: () => keep[k], set: (v) => { keep[k] = v; } }, () => setTimeout(() => sheetLogoMaker(keep), 0)); }
       case 'bc-colpick': return openColorPick({ get: () => bcPath(id), set: (v) => bcSet(id, v) });
       case 'inv-colpick': return openColorPick({ get: () => invStyle(invDesignId()).color || Theme.brand(), set: (v) => setInvStyle({ color: v }) });
       case 'cp-set': { const hx = id; [cpH, cpS, cpV] = hex2hsv(hx); const vr = $('#cp-val'); if (vr) vr.value = Math.round(cpV * 100); cpWheel(); cpUpdate(true); return; }
@@ -5381,10 +5400,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (el.id === 'cr-zoom' && ihCr) { const ar = InvHeader.W / InvHeader.H, maxW = Math.min(ihCr.iw, ihCr.ih * ar), cx = ihCr.fx + ihCr.fw / 2, cy = ihCr.fy + ihCr.fw / ar / 2; ihCr.fw = maxW * Number(el.value) / 100; ihCr.fx = cx - ihCr.fw / 2; ihCr.fy = cy - ihCr.fw / ar / 2; ihCrClamp(); ihCrDraw(); return; }
     if (el.dataset.invsh) { state.settings.invoiceShadow = Number(el.value); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; const pv = document.querySelector('.frprev i'); if (pv) pv.style.boxShadow = frShadowCss(); save(); return; }
     if (el.dataset.invbg) { state.settings.invoiceBg = Object.assign({}, invBg(), { angle: Number(el.value) }); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; const pv = document.querySelector('.frprev'); if (pv) pv.style.background = invBgCss(invBg()); save(); return; }
+    if (el.dataset.lk) { const p = el.dataset.lk; let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = Math.round(v * 100) / 100; } else if (p === 'text') { v = v.toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 3); } lkSet(p, v || (p === 'text' ? 'B' : v)); return; }
     if (el.dataset.tt) { const p = el.dataset.tt; let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = Math.round(v * 100) / 100; } ttSet(p, v); return; }
     if (el.dataset.ttname !== undefined) { const d = (state.settings.titleSaved || []).find((x) => x.slot === Number(el.dataset.ttname)); if (d) { d.name = el.value.slice(0, 30); save(); } return; }
-    if (lm && el.id === 'lm-text') { lm.text = el.value.toUpperCase().replace(/\s/g, '').slice(0, 3) || 'B'; lmPaint(); return; }
-    if (lm && (el.id === 'lm-bg' || el.id === 'lm-fg')) { lm[el.id === 'lm-bg' ? 'bg' : 'fg'] = el.value; lmPaint(); return; }
     if (el.dataset.svname) { const [k, n] = el.dataset.svname.split(':'), d = svSlot(k, Number(n)); if (d) { d.name = el.value.slice(0, 30); save(); } return; }
     if (el.dataset.bc) { let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.dataset.pct ? Math.round(v * 100) + '%' : Math.round(v * 100) / 100; } bcSet(el.dataset.bc, v); return; }
     if (el.dataset.ih) { const p = el.dataset.ih; let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = Math.round(v * 100) / 100; } ihSet(p, v); return; }
