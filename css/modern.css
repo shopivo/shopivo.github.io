@@ -151,3 +151,11 @@ body.ed-open #tabbar,body.ed-open #actionbar{display:none!important}
 #toast.act{pointer-events:auto;display:flex;align-items:center;gap:14px}
 #toast .toast-undo{background:none;border:0;color:#ffd27a;font:inherit;font-weight:700;padding:6px 4px;min-height:36px}
 
+
+/* Home: one-row greeting, "Sales this month" card with the owing line and Summary button, four fixed shortcuts, "see more" under Needs you today */
+.hgreet.one{display:flex;align-items:baseline;gap:6px;margin:2px 2px 10px}.hgreet.one span{font-size:21px;font-weight:600;color:var(--mute)}.hgreet.one b{font-size:21px;font-weight:800}
+.hhero .hsub{display:flex;align-items:center;justify-content:space-between;gap:10px;margin-top:8px}.hhero .hsub span{font-weight:600;font-size:14px;opacity:.95;min-width:0}
+.hhero .hsum{flex:none;border:0;background:rgba(255,255,255,.22);color:#fff;border-radius:99px;padding:7px 14px;min-height:0;font-weight:700;font-size:13px;box-shadow:none}
+.hact.four{margin-top:14px;gap:6px}.hact.four button{min-width:0;text-align:center;line-height:1.2}
+.hnr.hmoreb{justify-content:center;color:var(--brand);font-weight:800;font-size:14px;gap:6px}
+.rplist .row{margin-bottom:6px}

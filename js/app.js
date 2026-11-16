@@ -105,7 +105,9 @@
   let sheetClose = null, toastTimer;
   let syncHistory = () => {};
   let syncKeyboard = () => {};
-  let hideAmounts = pref('hideAmounts', false);
+  let hideAmounts = true;   // amounts are blurred every time the app opens (and again when you leave it); the eye shows them
+  let homeNeedsAll = false;   // 'Needs you today' shows 6 things, then a button for the rest
+  document.addEventListener('visibilitychange', () => { if (document.hidden && !hideAmounts) { hideAmounts = true; document.body.classList.add('hide-amounts'); } });
   let theme = pref('theme', 'auto');
   let flt = pref('filter', { period: 'all', batch: 'all' });
   function pref(k, d) { try { const v = localStorage.getItem('buy-sell-pref:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -387,7 +389,7 @@
     closeTopMenu();
     const row = (act, ic, label, on) => `<button type="button" class="tmi" data-act="${act}"><span class="tmic" aria-hidden="true">${ic}</span><span class="tml">${label}</span>${on ? '<i class="dot on"></i>' : ''}</button>`;
     const ss = row('store-settings', '🏪', t('hub.settings'), !dset().home);   // Store settings (with Store location) from the Store page and every log
-    const rows = kind === 'inv' ? row('filter', '☰', t('tool.filter'), filtered()) + ss : kind === 'ord' ? ss + (ordSource === 'mine' && MO.adoptedCount(state) ? row('ad-undo', '🔄', t('ad.undoMenu', { n: MO.adoptedCount(state) }), false) : '') : kind === 'dlv' ? row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + ss + row('pickup-open', '🛵', t('hub.delivery'), false) + row('dlv-settings', '🚚', t('dlv.settings'), false) : kind === 'bl' ? row('bl-filter-open', '☰', t('tool.filter'), blCount(blF) > 0) + ss : (tab === 'promote' ? '' : row('filter', '☰', t('tool.filter'), filtered())) + row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + (tab === 'sell' && !moreView ? ss : '') + (tab === 'people' && peopleOn ? row('fix-open', '🛠️', t('fx.title'), PE.missingNumber(state).length > 0) : '');
+    const rows = kind === 'inv' ? row('filter', '☰', t('tool.filter'), filtered()) + ss : kind === 'ord' ? ss + (ordSource === 'mine' && MO.adoptedCount(state) ? row('ad-undo', '🔄', t('ad.undoMenu', { n: MO.adoptedCount(state) }), false) : '') : kind === 'dlv' ? row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + ss + row('pickup-open', '🛵', t('hub.delivery'), false) + row('dlv-settings', '🚚', t('dlv.settings'), false) : kind === 'bl' ? row('bl-filter-open', '☰', t('tool.filter'), blCount(blF) > 0) + ss : (tab === 'promote' ? '' : row('filter', '☰', t('tool.filter'), filtered())) + row('settings', '⚙️', t(isSettings() ? 'tm.closeSet' : 'tool.settings'), false) + (tab === 'sell' && !moreView ? ss : '') + (tab === 'stock' && !moreView ? row('batch-log', '📒', t('tm.batchLog'), false) : '') + (tab === 'people' && peopleOn ? row('fix-open', '🛠️', t('fx.title'), PE.missingNumber(state).length > 0) : '');
     const sc = document.createElement('div'); sc.id = 'tmscrim'; sc.className = 'tmscrim'; sc.dataset.close = '1';
     const m = document.createElement('div'); m.id = 'tmenu'; m.className = 'tmenu'; m.setAttribute('role', 'menu'); m.innerHTML = rows + (cloud.signedIn ? row('acct-out', '🚪', t('acct.signOut'), false) : '');
     const hd = document.querySelector('.appbar').getBoundingClientRect(); m.style.top = (hd.bottom - 6) + 'px';
@@ -597,26 +599,29 @@
     const noPrice = state.items.filter(isNoPrice).length;
     const orders = window.Store && storeCfg().id ? Store.newCount() : 0, oweTotal = owingAll.reduce((n, c) => n + c.owing, 0);
     const need = (icon, bg, title, sub, n, act, hot) => `<button class="hnr" data-act="${act}"><span class="hic" style="background:${bg}">${icon}</span><div class="t"><b>${title}</b><small>${sub}</small></div><span class="hcnt${hot ? ' hot' : ''}">${n}</span><span class="chev">›</span></button>`;
-    const rows = [];
-    const wayDays = (b) => Math.max(0, Math.floor((Date.now() - new Date(b.datePurchased).getTime()) / 864e5)), oldest = inTransit.slice().sort((a, b) => wayDays(b) - wayDays(a))[0];   // always shown while a batch is on the way; red once the oldest has been on the way 14 days or more
+    const rows = [];   // most urgent first: publish, who owes you, store orders, your orders, deliveries, batches on the way, then the nudges
+    const wayDays = (b) => Math.max(0, Math.floor((Date.now() - new Date(b.datePurchased).getTime()) / 864e5)), oldest = inTransit.slice().sort((a, b) => wayDays(b) - wayDays(a))[0];   // red once the oldest has been on the way 14 days or more
     const wayTxt = (b) => (wayDays(b) < 1 ? t('hm.wayToday', { b: blShort(b.id) }) : t(inTransit.length === 1 ? 'hm.wayOne' : 'hm.wayMany', { b: blShort(b.id), n: wayDays(b) }));
-    if (inTransit.length) rows.push(need('📦', 'var(--infobg)', t('hm.wayTitle'), wayTxt(oldest), inTransit.length, 'goto-transit', wayDays(oldest) >= TRANSIT_LATE_DAYS));
-    { const pi = planInfo(); if (pi.today.length || pi.over.length) rows.push(need('🚚', 'var(--infobg)', t('hm.dlvTitle'), (pi.over.length ? t('hm.dlvOver', { n: pi.over.length }) + ' · ' : '') + pi.names(pi.today.length ? pi.today : pi.over), pi.today.length + pi.over.length, 'goto-dlv', !!pi.over.length)); }
-    { const mc = MO.counts(state), mn = (mc.ordered || 0) + (mc.arrived || 0) + (mc.handed || 0); if (mn) rows.push(need('🧾', 'var(--infobg)', t('st.myOrders'), t('hm.moSub', { a: mc.ordered || 0, b: mc.arrived || 0, c: mc.handed || 0 }), mn, 'mo-go', false)); }
-    if (orders) rows.push(need('🛒', 'var(--warnbg)', t('hm.ordTitle'), t('hm.ordSub'), orders, 'orders-open', true));
+    if (window.Store && Store.needsPublish && Store.needsPublish()) rows.push(need('📤', 'var(--warnbg)', t('hm.pubTitle'), t('hm.pubSub'), '!', 'goto-publish', true));
     if (owingAll.length) rows.push(need('💰', 'var(--warnbg)', t('hm.oweTitle'), t('hm.oweSub', { amt: money(oweTotal) }), owingAll.length, 'goto-owing', true));
-    if (!state.settings.bizLogo && state.settings.businessName && state.settings.setupDone && !pref('logoNudgeOff', false)) rows.push(need('🖼️', 'var(--infobg)', t('hm.logoTitle'), t('hm.logoSub'), '+', 'logo-go', false));   // goes away once a logo is added (or once the page has been opened)
-    if (peopleOn && PE.missingNumber(state).length) rows.push(need(PHONE_ICO, 'var(--infobg)', t('hm.phoneTitle'), t('hm.phoneSub'), PE.missingNumber(state).length, 'phones-open', false));
-    if (window.Store && Store.needsPublish && Store.needsPublish()) rows.unshift(need('📤', 'var(--warnbg)', t('hm.pubTitle'), t('hm.pubSub'), '!', 'goto-publish', true));
+    if (orders) rows.push(need('🛒', 'var(--warnbg)', t('hm.ordTitle'), t('hm.ordSub'), orders, 'orders-open', true));
+    { const mc = MO.counts(state), mn = (mc.ordered || 0) + (mc.arrived || 0) + (mc.handed || 0); if (mn) rows.push(need('🧾', 'var(--infobg)', t('st.myOrders'), t('hm.moSub', { a: mc.ordered || 0, b: mc.arrived || 0, c: mc.handed || 0 }), mn, 'mo-go', false)); }
+    { const pi = planInfo(); if (pi.today.length || pi.over.length) rows.push(need('🚚', 'var(--infobg)', t('hm.dlvTitle'), (pi.over.length ? t('hm.dlvOver', { n: pi.over.length }) + ' · ' : '') + pi.names(pi.today.length ? pi.today : pi.over), pi.today.length + pi.over.length, 'goto-dlv', !!pi.over.length)); }
+    if (inTransit.length) rows.push(need('📦', 'var(--infobg)', t('hm.wayTitle'), wayTxt(oldest), inTransit.length, 'goto-transit', wayDays(oldest) >= TRANSIT_LATE_DAYS));
     if (noPrice) rows.push(need('🏷️', 'var(--okbg)', t('hm.noPriceTitle'), t('hm.noPriceSub'), noPrice, 'goto-nopr', false));
-    const needs = `<div class="hsec"><h3>${t('hm.needs')}</h3></div><div class="hneeds">${rows.join('') || `<div class="hnr done"><span class="hic" style="background:var(--okbg)">✅</span><div class="t"><b>${t('hm.caught')}</b><small>${t('hm.caughtSub')}</small></div></div>`}</div>`;
+    if (peopleOn && PE.missingNumber(state).length) rows.push(need(PHONE_ICO, 'var(--infobg)', t('hm.phoneTitle'), t('hm.phoneSub'), PE.missingNumber(state).length, 'phones-open', false));
+    if (!state.settings.bizLogo && state.settings.businessName && state.settings.setupDone && !pref('logoNudgeOff', false)) rows.push(need('🖼️', 'var(--infobg)', t('hm.logoTitle'), t('hm.logoSub'), '+', 'logo-go', false));   // goes away once a logo is added (or once the page has been opened)
+    const NEEDS_SHOWN = 6, shownRows = homeNeedsAll ? rows : rows.slice(0, NEEDS_SHOWN);
+    const moreBtn = rows.length > NEEDS_SHOWN ? `<button class="hnr hmoreb" data-act="needs-more">${homeNeedsAll ? t('hm.showLess') : tn('hm.seeMore', rows.length - NEEDS_SHOWN)} <span class="chev">${homeNeedsAll ? '‹' : '›'}</span></button>` : '';
+    const needs = `<div class="hsec"><h3>${t('hm.needs')}</h3></div><div class="hneeds">${shownRows.join('') || `<div class="hnr done"><span class="hic" style="background:var(--okbg)">✅</span><div class="t"><b>${t('hm.caught')}</b><small>${t('hm.caughtSub')}</small></div></div>`}${moreBtn}</div>`;
+    const moSales = L.totals(state, { period: 'thisMonth', batch: 'all' }).sales, first = (who || '').split(/[\s._-]+/)[0];
     const batches = L.filterBatches(state, flt).slice().sort((a, b) => b.num - a.num).slice(0, 3);
     return `${filtered() ? `<button class="row tap" data-act="filter" style="margin-bottom:10px;background:var(--tint)"><div class="grow"><b>${t('home.filtered', { label: esc(filterLabel()) })}</b><small>${t('home.filteredHint')}</small></div><span class="chev">›</span></button>` : ''}
-    <div class="hgreet"><small>${greet}</small>${who ? `<b>${esc(who)}</b>` : ''}</div>
-    <div class="hhero"><small>${t(can('costs') ? 'home.profit' : 'home.sales')}</small><b>${money(can('costs') ? tot.profit : tot.sales)}</b><button class="eyeb" data-act="view" aria-label="${hideAmounts ? t('tool.show') : t('tool.hide')}"><svg viewBox="0 0 24 24">${ICONS[hideAmounts ? 'eyeoff' : 'eye']}</svg></button></div>
-    <div class="hkp"><div class="costonly"><small>${t('hm.salesPaid')}</small><b>${money(tot.sales)}</b></div><div class="ow"><small>${t('hm.owingTile')}</small><b>${money(tot.owing)}</b></div><div class="costonly"><small>${t('hm.expTile')}</small><b>${money(tot.expense)}</b></div></div>
+    <div class="hgreet one"><span>${greet}${first ? ',' : ''}</span>${first ? ` <b>${esc(first)}</b>` : ''}</div>
+    <div class="hhero"><small>${t('hm.salesMonth')}</small><b>${money(moSales)}</b><button class="eyeb" data-act="view" aria-label="${hideAmounts ? t('tool.show') : t('tool.hide')}"><svg viewBox="0 0 24 24">${ICONS[hideAmounts ? 'eyeoff' : 'eye']}</svg></button>
+      <div class="hsub"><span>${t('hm.owingLine')} ${money(tot.owing)}</span>${can('costs') ? `<button class="hsum" data-act="more" data-id="summary">${t('hm.summary')} ›</button>` : ''}</div></div>
+    <div class="hact four"><button data-act="pay-clearing"><i>💳</i>${t('home.payClearing')}</button><button data-act="receive" ${inTransit.length ? '' : 'disabled'}><i>📦</i>${t('home.receive')}</button><button data-act="goto-stock"><i>🏷️</i>${t('home.priceItems')}</button><button data-act="rec-pay" ${owingAll.length ? '' : 'disabled'}><i>💵</i>${t('home.recPay')}</button></div>
     ${needs}
-    <div class="hact"><button data-act="pay-clearing"><i>💳</i>${t('home.payClearing')}</button><button data-act="receive" ${inTransit.length ? '' : 'disabled'}><i>📦</i>${t('home.receive')}</button><button data-act="goto-stock"><i>🏷️</i>${t('home.priceItems')}</button></div>
     ${owing.length ? `<div class="hsec"><h3>${t('home.whoOwes')}</h3><button class="hall" data-act="goto-owing">${t('hm.seeAll')}</button></div><div class="list">${owing.map((c) => `<button class="row tap" data-act="customer" data-id="${esc(c.name)}"><div class="grow"><b>${esc(clabel(c.name))}</b><small>${tn('home.itemsOwing', c.itemsOwing)}</small></div><div class="end"><b class="bad">${money(c.owing)}</b></div><span class="chev">›</span></button>`).join('')}</div>` : ''}
     <div class="hsec"><h3>${t('hm.latest')}</h3><button class="hall" data-act="more" data-id="batches">${t('hm.seeAll')}</button></div>
     <div class="hbs">${batches.map((b) => { const st = L.batchStats(state, b), pct = st.count ? Math.round(st.sold / st.count * 100) : 0; return `<button class="hbc" data-act="batch" data-id="${b.id}"><b>${esc(blShort(b.id))}</b><small>${esc(b.store)} · ${t('home.soldOf', { sold: st.sold, count: st.count })}</small><div class="bar"><i style="width:${pct}%"></i></div><span class="costonly ${st.profit < 0 ? 'neg' : 'pos'}">${st.profit < 0 ? '−' : '+'}${fmt2(Math.abs(st.profit))}</span></button>`; }).join('')}</div>
@@ -4821,7 +4826,15 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'xfer-pick': closeSheet(); return xferSteps(id);
       case 'xfer-go': { const to = xferTo; closeSheet(); return Cloud.transfer(to).then(() => { dropPages('team|'); toast(t('xfer.done')); }).catch(() => toast(t('store.pubError'))); }
       case 'close': return pageBack();
-      case 'view': hideAmounts = !hideAmounts; setPref('hideAmounts', hideAmounts); return render();
+      case 'batch-log': closeTopMenu(); go({ tab: 'more', moreView: 'batches' }); window.scrollTo(0, 0); return render();
+      case 'needs-more': homeNeedsAll = !homeNeedsAll; return render();
+      case 'rec-pay': {   // Record payment: the invoices that still have a balance, newest first; pick one and the payment page opens
+        const open = state.invoices.filter((v) => !v.updatedBy && !v.void && v.balance > 0.004).sort((a, b) => new Date(b.date) - new Date(a.date));
+        if (!open.length) return toast(t('rp.none'));
+        return openSmall(`<h3>${t('rp.title')}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${open.map((v) => `<button type="button" class="row tap" data-act="rec-go" data-id="${v.no}"><div class="grow"><b>${esc(clabel(v.client))}</b><small>${v.no}</small></div><div class="end"><b>${money(v.balance)}</b></div></button>`).join('')}</div>`, 'sheet');
+      }
+      case 'rec-go': closeSheet(); return setTimeout(() => sheetPay(id), 60);
+      case 'view': hideAmounts = !hideAmounts; return render();
       case 'set-theme': theme = id; setPref('theme', theme); applyTheme(); closeSheet(); return render();
       case 'set-lang': I.setLang(id, true); applyStaticText(); closeSheet(); return render();
       case 'inv-swap': return sheetInvoice(id, true);
