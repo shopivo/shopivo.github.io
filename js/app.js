@@ -1614,6 +1614,9 @@
         ${trow('⚠️', t('more.erase'), t('more.eraseSub'), 'data-act="reset"', true)}</div>`;
   }
   // A small pop-up with the choices for one setting; tapping a choice applies it.
+  // The language list: English, then Spanish in each region (Venezuela is the one the app started with)
+  const langKey = () => (I.getLang() === 'es' ? 'es:' + I.getRegion() : I.getLang());
+  const langOptions = () => [['en', I.LANGS.en['lang.name']]].concat(I.REGIONS.map((r) => ['es:' + r, I.regionLabel(r) + (r === 've' ? '' : ' \u00b7 Beta')]));
   function sheetChoice(title, act, cur, opts, note) {
     openSmall(`<h3>${title}</h3><div class="list" style="margin-top:12px">${opts.map(([k, l]) => `<button class="row tap" data-act="${act}" data-id="${k}"><div class="grow"><b>${l}</b></div><span style="font-weight:900;color:var(--brand)">${cur === k ? '✓' : ''}</span></button>`).join('')}</div>${note ? `<p class="note">${note}</p>` : ''}
       <div class="btns"><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet');
@@ -2852,6 +2855,8 @@
     if (state.settings.wordsSeeded !== Wd.VERSION) { state.settings.words = Wd.seed(state.settings.words || []); state.settings.wordsSeeded = Wd.VERSION; save(); }   // the starter list is added to the saved list again whenever it grows (your own words stay as they are)
     return state.settings.words || [];
   }
+  // The list as the chosen Spanish region writes it (read-only, for showing Spanish; editing still uses wordList())
+  const wordsES = () => Wd.forRegion(wordList(), I.getRegion());
   // "Did you mean pulsera?": under the name box, one tap fixes it; "keep" is remembered so the question is not asked again for that word
   function dymUpdate(input) {
     if (!input || !input.closest) return; const row = input.closest('.dscrow'); if (!row) return;
@@ -2867,12 +2872,12 @@
   document.addEventListener('focusin', (e) => { const el = e.target; if (el && el.dataset && (el.dataset.f === 'desc' || el.dataset.f === 'descS')) dymUpdate(el); });
   const dymSave = (from, to) => { state.settings.wordFixes = Object.assign({}, wordFixes(), { [Wd.fold(from)]: to }); save(); };
   const nameFixedMark = (i) => { try { return Wd.fixText(i.desc || '', wordList(), wordFixes()).changes.some((c) => !c.learned) ? ` <i class="fixq" title="${esc(t('dym.mark'))}">?</i>` : ''; } catch (e) { return ''; } };   // shown corrected on invoices: tap the item to confirm or keep
-  const esBadge = (i) => { const sp = Wd.spanish(i, wordList()); return sp.state === 'none' ? '' : `<u class="${sp.state === 'ok' ? 'ok' : ''}">${sp.state === 'ok' ? '✓' : '!'}</u>`; };
+  const esBadge = (i) => { const sp = Wd.spanish(i, wordsES()); return sp.state === 'none' ? '' : `<u class="${sp.state === 'ok' ? 'ok' : ''}">${sp.state === 'ok' ? '✓' : '!'}</u>`; };
   // On an English phone the description is the English name and 🇪🇸 is the Spanish name; on a Spanish phone it is the other way round.
   const esMode = () => I.getLang() === 'es';
   const enBadge = (i) => { const e = Wd.english(i, wordList()); return e.state === 'none' ? '' : `<u class="${e.state === 'ok' ? 'ok' : ''}">${e.state === 'ok' ? '✓' : '!'}</u>`; };
   const flagInner = (i) => (esMode() ? '🇬🇧' + enBadge(i) : '🇪🇸' + esBadge(i));
-  const descShown = (i) => (esMode() ? Wd.spanish(i, wordList()).es : i.desc);
+  const descShown = (i) => (esMode() ? Wd.spanish(i, wordsES()).es : i.desc);
   const esBtn = (i) => `<button type="button" class="fl2" data-act="${esMode() ? 'en-open' : 'es-open'}" data-id="${i.id}" aria-label="${t(esMode() ? 'en.aria' : 'es.aria')}">${flagInner(i)}</button>`;
   function refreshEs(i) { const b = document.querySelector(`.fl2[data-id="${i.id}"]`); if (b) b.innerHTML = flagInner(i); }
   // a name typed or spoken in Spanish: it is the Spanish name, and the English one is worked out from it (unless you confirmed an English one)
@@ -2906,7 +2911,7 @@
   }
   function sheetSpanish(id) {
     const i = state.items.find((x) => x.id === id); if (!i) return;
-    const sp = Wd.spanish(i, wordList());
+    const sp = Wd.spanish(i, wordsES());
     openSmall(`<h3>🇪🇸 ${t('es.label')}</h3><p>${t('es.sub')}</p><label>${t('es.label')}</label>
       <div class="esrow"><input id="es-name" value="${esc(sp.es)}" placeholder="${t('es.ph')}" autocomplete="off" enterkeyhint="done">${micBtn('mic-es')}</div>
       ${sp.missing.length ? `<div class="warn">⚠️ <span>${t('es.missing', { words: sp.missing.map((w) => '“' + esc(w) + '”').join(', ') })}</span><button type="button" data-act="es-addwords" data-id="${id}">${t('es.add')}</button></div>` : ''}
@@ -2916,7 +2921,7 @@
   const typeSelect = (id, cur, attrs) => `<select ${id ? `id="${id}"` : ''} ${attrs || ''} aria-label="${t('words.type')}">${['nm', 'nf', 'npm', 'npf', 'a', 'ai', 'm', 'p', 'c', 'x'].map((k) => `<option value="${k}" ${k === cur ? 'selected' : ''}>${t('words.t.' + k)}</option>`).join('')}</select>`;
   function sheetAddWords(id) {
     const i = state.items.find((x) => x.id === id); if (!i) return;
-    const miss = Wd.spanish(i, wordList()).missing; if (!miss.length) return sheetSpanish(id);
+    const miss = Wd.spanish(i, wordsES()).missing; if (!miss.length) return sheetSpanish(id);
     openSmall(`<h3>${t('es.addTitle')}</h3><p>${t('es.addSub')}</p>
       ${miss.map((w) => `<div class="wb"><div class="w"><b>${esc(w)}</b><i>→</i><input data-w="${esc(w)}" placeholder="${t('words.spanish')}" autocomplete="off"></div>${typeSelect('', 'a', 'data-wt')}</div>`).join('')}
       <div class="btns"><button class="btn primary" data-act="es-savewords" data-id="${id}">${t('es.save')}</button></div><a class="lnk" data-act="es-lib">${t('es.openLib')}</a>`, 'sheet');
@@ -2946,7 +2951,7 @@
   function tryName() {
     const f = $('#w-try'), out = $('#w-tryout'); if (!f || !out) return; const v = f.value.trim();
     if (!v) { out.textContent = t('words.tryHelp'); return; }
-    const r = Wd.translate(v, wordList()); out.innerHTML = `<b>${esc(r.es)}</b>${r.missing.length ? `<small>${t('es.missing', { words: r.missing.map((x) => '“' + esc(x) + '”').join(', ') })}</small>` : ''}`;
+    const r = Wd.translate(v, wordsES()); out.innerHTML = `<b>${esc(r.es)}</b>${r.missing.length ? `<small>${t('es.missing', { words: r.missing.map((x) => '“' + esc(x) + '”').join(', ') })}</small>` : ''}`;
   }
   const wordsRefresh = () => { const l = $('#wlist'); if (l) l.innerHTML = wordsListHTML(); const c = $('#wchips'); if (c) c.innerHTML = wordsChips(); const n = $('#wcount'); if (n) n.textContent = t('words.count', { n: wordList().length }); };
   // How the store works (sizes, identical items as one card): both languages, tabs.
@@ -2966,7 +2971,7 @@
   let whLang = null;
   function sheetWordsHelp(swap) {
     enterPage('wordshelp', '', () => sheetWordsHelp(), swap);
-    const L2 = whLang || (I.getLang() === 'es' ? 'es' : 'en'), tt = (k, v) => t(k, v, L2), list = wordList();
+    const L2 = whLang || (I.getLang() === 'es' ? 'es' : 'en'), tt = (k, v) => t(k, v, L2), list = wordsES();
     const ex = ['Blue dress', 'Red top', 'Red and blue jacket', 'Red, white and blue dress', 'Long sleeve shirt', 'Long sleeve jacket', 'Short sleeve shirt', 'Short pants', 'Blue short pants', 'Black dresses', 'Blue linen set'];
     const para = (k) => `<p>${tt(k)}</p>`, li = (k) => tt(k).split('|').map((x) => `<li>${x}</li>`).join('');
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${tt('wh.title')}</b><small>English · Español</small></div></div>
@@ -3351,7 +3356,7 @@
   const invMoney = (n) => 'TT$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const invDate = (d) => new Date(d).toLocaleDateString('en-GB');
   const esName = (it) => {
-    const w = wordList(), sp = Wd.spanish(it, w); if (sp.state === 'ok' || !String(it.desc || '').trim()) return sp.es || it.desc;
+    const w = wordsES(), sp = Wd.spanish(it, w); if (sp.state === 'ok' || !String(it.desc || '').trim()) return sp.es || it.desc;
     const fx = Wd.fixText(it.desc, w, wordFixes()); if (fx.changes.length) { const sp2 = Wd.spanish(Object.assign({}, it, { desc: fx.text }), w); if (sp2.state === 'ok') return sp2.es; if (fx.changes.every((c) => c.lang === 'es')) return fx.text; }
     return sp.es || it.desc;
   };   // the Spanish name of an item (the saved one, or the word list's best translation)
@@ -5002,7 +5007,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'rec-go': closeSheet(); return setTimeout(() => sheetPay(id), 60);
       case 'view': hideAmounts = !hideAmounts; render(); return syncEyes();
       case 'set-theme': theme = id; setPref('theme', theme); applyTheme(); closeSheet(); return render();
-      case 'set-lang': I.setLang(id, true); applyStaticText(); closeSheet(); return render();
+      case 'set-lang': { const [lg, rg] = String(id).split(':'); if (rg) I.setRegion(rg, true); I.setLang(lg, true); } applyStaticText(); closeSheet(); return render();
       case 'inv-swap': return sheetInvoice(id, true);
       case 'inv-lang': { if (id === 'auto') { invLangSession = null; invLangAuto = true; } else { invLangSession = id; invLangAuto = false; } return sheetInvoice(t_.dataset.no); }
       case 'cl-pick': { const f = window.__clLang; if (f) f(id); closeSheet(); return; }
@@ -5052,7 +5057,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
         if (isSettings()) { themeDraft = null; while (places.length > 1 && isSettings()) placeBack(); if (isSettings()) go({ tab: 'home', moreView: null }); }   // the gear closes Settings again: back to where you were
         else go({ tab: 'more', moreView: 'settings' });
         window.scrollTo(0, 0); return render();
-      case 'pick-lang': return sheetChoice(t('set.language'), 'set-lang', I.getLang(), Object.keys(I.LANGS).map((l) => [l, I.LANGS[l]['lang.name']]));
+      case 'pick-lang': return sheetChoice(t('set.language'), 'set-lang', langKey(), langOptions(), t('set.regionNote'));
       case 'pick-appearance': return sheetChoice(t('set.appearance'), 'set-theme', theme, [['light', t('set.light')], ['dark', t('set.dark')], ['auto', t('set.auto')]]);
       case 'share-lang': { const f = window.__shareLang; if (f) f(id); closeSheet(); return; }     // answer first: closing the pop-up counts as 'cancel'
       case 'pick-custlang': return sheetChoice(t('set.custLang'), 'set-custlang', custMode(), [['auto', t('cust.auto')], ...Object.keys(I.LANGS).map((l) => [l, I.LANGS[l]['lang.name']]), ['app', t('cust.same')], ['ask', t('cust.ask')]], t('cust.note'));
@@ -5117,11 +5122,11 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'en-open': return sheetEnglish(id);
       case 'en-addwords': return sheetAddWordsEn(id);
       case 'en-savewords': { let words = wordList(); document.querySelectorAll('#sheet [data-ws]').forEach((inp) => { const en = inp.value.trim(); if (en) words = Wd.put(words, en, inp.dataset.ws, '', (inp.closest('.wb').querySelector('[data-wt]') || {}).value || 'a'); }); state.settings.words = words; save(); return sheetEnglish(id); }
-      case 'en-done': { const i = state.items.find((x) => x.id === id), v = ($('#en-name').value || '').trim(); if (i && v) { const es = Wd.spanish(i, wordList()).es; i.desc = v; i.enSet = true; i.enFor = es; if (i.esSet) i.esFor = i.desc; L.applyToGroup(state, i, ['desc', 'esFor', 'enSet', 'enFor']); save(); refreshEs(i); refreshAfterEdit(i); } return closeSheet(); }
+      case 'en-done': { const i = state.items.find((x) => x.id === id), v = ($('#en-name').value || '').trim(); if (i && v) { const es = Wd.spanish(i, wordsES()).es; i.desc = v; i.enSet = true; i.enFor = es; if (i.esSet) i.esFor = i.desc; L.applyToGroup(state, i, ['desc', 'esFor', 'enSet', 'enFor']); save(); refreshEs(i); refreshAfterEdit(i); } return closeSheet(); }
       case 'es-open': return sheetSpanish(id);
       case 'es-addwords': return sheetAddWords(id);
       case 'es-savewords': { document.querySelectorAll('.sheet .wb').forEach((row) => { const inp = row.querySelector('[data-w]'), sel = row.querySelector('[data-wt]'); if (inp.value.trim()) state.settings.words = Wd.put(wordList(), inp.dataset.w, inp.value, '', sel ? sel.value : 'a'); }); save(); toast(t('words.saved')); return closeSheet(); }
-      case 'es-done': { const i = state.items.find((x) => x.id === id), v = ($('#es-name').value || '').trim(); if (i) { const auto = Wd.translate(i.desc, wordList()); if (!v || (v === auto.es && !auto.missing.length)) { i.esSet = false; delete i.nameEs; delete i.esFor; } else { i.nameEs = v; i.esSet = true; i.esFor = i.desc; } L.applyToGroup(state, i, ['nameEs', 'esSet', 'esFor']); save(); } return closeSheet(); }
+      case 'es-done': { const i = state.items.find((x) => x.id === id), v = ($('#es-name').value || '').trim(); if (i) { const auto = Wd.translate(i.desc, wordsES()); if (!v || (v === auto.es && !auto.missing.length)) { i.esSet = false; delete i.nameEs; delete i.esFor; } else { i.nameEs = v; i.esSet = true; i.esFor = i.desc; } L.applyToGroup(state, i, ['nameEs', 'esSet', 'esFor']); save(); } return closeSheet(); }
       case 'es-lib': closeSheet(); return sheetWords();
       case 'size-set': { const i = state.items.find((x) => x.id === id); if (!i) return; if (L.isLocked(i)) return lockToast(i); const v = t_.dataset.v; i.size = String(i.size || '').toLowerCase() === v.toLowerCase() ? '' : v; save(); return refreshSize(i); }
       case 'qty-inc': case 'qty-dec': { const it = state.items.find((x) => x.id === id); if (!it) return; const g = grpOf(it).length; return setQty(it, g + (t_.dataset.act === 'qty-inc' ? 1 : -1)); }

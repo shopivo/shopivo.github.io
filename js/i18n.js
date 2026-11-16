@@ -13,6 +13,7 @@
  */
 (function (root) {
   const EN = {
+    'set.regionNote': 'Spanish regions change the Spanish words (item names, menus). Colombia, Dominican Republic and Spain are in Beta. Invoices still use Auto / English / Español.',
     'lang.name': 'English',
     /* navigation + top bar */
     'nav.home': 'Home', 'nav.stock': 'Stock', 'nav.sell': 'Store', 'nav.people': 'Customers', 'nav.more': 'More',
@@ -789,6 +790,7 @@
   };
 
   const ES = {
+    'set.regionNote': 'Las regiones cambian las palabras en español (nombres de artículos, menús). Colombia, República Dominicana y España están en Beta. Las facturas siguen usando Auto / English / Español.',
     'lang.name': 'Español',
     'nav.home': 'Inicio', 'nav.stock': 'Inventario', 'nav.sell': 'Tienda', 'nav.people': 'Clientes', 'nav.more': 'Más',
     'title.invoices': 'Facturas', 'title.items': 'Artículos', 'title.summary': 'Resumen', 'title.settings': 'Ajustes',
@@ -1551,6 +1553,22 @@
   const LANGS = { en: EN, es: ES };
   const KEY = 'buy-sell-pref:lang';
   let lang = 'en';
+  // Spanish regions: the written Spanish is Venezuelan; Colombia, República Dominicana and España change the few words that differ.
+  const REGION_KEY = 'buy-sell-pref:region', REGIONS = ['ve', 'co', 'do', 'es'];
+  const REGION_NAMES = { ve: 'Venezuela', co: 'Colombia', do: 'República Dominicana', es: 'España' };
+  const REGION_FIX = {
+    co: [[/\bcomputadora\b/g, 'computador']],
+    do: [],
+    es: [[/\bToca\b/g, 'Pulsa'], [/\btoca\b/g, 'pulsa'], [/\bTócalo\b/g, 'Púlsalo'], [/\bPresiona\b/g, 'Pulsa'], [/\bpresiona\b/g, 'pulsa'], [/\bcomputadora\b/g, 'ordenador'], [/\bcelulares\b/g, 'móviles'], [/\bcelular\b/g, 'móvil'], [/\bhaz clic\b/g, 'haz clic']],
+  };
+  let region = 've';
+  try { const r = typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(REGION_KEY)); if (REGIONS.includes(r)) region = r; } catch (e) { /* default */ }
+  function setRegion(r, remember) {
+    region = REGIONS.includes(r) ? r : 've';
+    if (remember) { try { localStorage.setItem(REGION_KEY, JSON.stringify(region)); } catch (e) { /* ignore */ } }
+    return region;
+  }
+  const regionize = (s, l) => { const fx = l === 'es' && REGION_FIX[region]; return fx && fx.length ? fx.reduce((a, [re, to]) => a.replace(re, to), s) : s; };
 
   // First run: follow the phone's language (Spanish if any preferred language is Spanish). After the user picks one, theirs wins.
   function detect() {
@@ -1567,7 +1585,7 @@
   // t(key, vars, forceLang): a missing key falls back to English, then to the key itself so a gap is visible rather than blank.
   function t(key, vars, forceLang) {
     const dict = LANGS[forceLang || lang] || EN;
-    const s = key in dict ? dict[key] : key in EN ? EN[key] : key;
+    const s = regionize(key in dict ? dict[key] : key in EN ? EN[key] : key, forceLang || lang);
     return vars ? s.replace(/\{(\w+)\}/g, (m, k) => (k in vars ? vars[k] : m)) : s;
   }
   const tn = (key, n, vars, forceLang) => t(key + (n === 1 ? '.one' : '.other'), Object.assign({ n }, vars || {}), forceLang);
@@ -1577,6 +1595,6 @@
   const monthShort = (i, l) => {
     if ((l || lang) !== 'es') return EN_MONTHS[i]; const m = new Date(2000, i, 1).toLocaleDateString(locale(l), { month: 'short' }).replace('.', ''); return m.charAt(0).toUpperCase() + m.slice(1); };
 
-  const api = { t, tn, setLang, getLang: () => lang, detect, locale, monthShort, LANGS };
+  const api = { t, tn, setLang, setRegion, getRegion: () => region, REGIONS, REGION_NAMES, regionLabel: (r) => 'Español (' + REGION_NAMES[r || region] + ')', getLang: () => lang, detect, locale, monthShort, LANGS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.I18n = api;
 })(typeof window !== 'undefined' ? window : globalThis);

@@ -135,6 +135,40 @@
   VEN.forEach(([en, old, nu, g]) => { STARTER.forEach((w) => { if (w.en === en && norm(w.es) === norm(old)) { w.es = nu; if (g) w.g = g; } }); });
   const VENMAP = {}; VEN.forEach(([en, old, nu, g]) => { VENMAP[norm(en)] = [old, nu, g]; });
 
+  // ---- Spanish regions ----------------------------------------------------------------------------------------------------------
+  // The list above is Venezuelan Spanish. A region pack lists only the words that DIFFER: [English, Spanish, gender, plural-only?].
+  // forRegion() gives the words as that region writes them; a word the owner changed themselves is never touched. Typing any region's word is still understood.
+  const REGIONS = ['ve', 'co', 'do', 'es'];
+  const PACKS = {
+    co: [['t-shirt', 'camiseta', 'f'], ['tee', 'camiseta', 'f'], ['tank top', 'camisilla', 'f'], ['earrings', 'aretes', 'm'], ['flip flops', 'chancletas', 'f'], ['slides', 'chancletas tipo slide', 'f'], ['phone case', 'funda de celular', 'f'],
+      ['sneakers', 'tenis', 'm'], ['trainers', 'tenis', 'm'], ['fanny pack', 'canguro', 'm'], ['belt bag', 'canguro', 'm'], ['studs', 'topos', 'm'], ['polo shirt', 'camiseta tipo polo', 'f'], ['camisole', 'camisilla', 'f'], ['undershirt', 'camiseta interior', 'f'],
+      ['zipper', 'cremallera', 'f'], ['hoodie', 'buzo con capucha', 'm'], ['sweatshirt', 'buzo', 'm'], ['bra', 'brasier', 'm'], ['panties', 'pantis', 'f'], ['backpack', 'morral', 'm'], ['bag', 'bolso', 'm'], ['handbag', 'bolso', 'm'], ['blanket', 'cobija', 'f'],
+      ['swimsuit', 'vestido de baño', 'm'], ['headband', 'balaca', 'f'], ['hair clip', 'gancho para el cabello', 'm'], ['pen', 'esfero', 'm'], ['sunglasses', 'gafas de sol', 'f'], ['glasses', 'gafas', 'f'], ['sweatpants', 'pantalones de sudadera', 'm'], ['hair tie', 'caucho para el cabello', 'm']],
+    do: [['t-shirt', 'camiseta', 'f'], ['tee', 'camiseta', 'f'], ['tank top', 'camiseta sin mangas', 'f'], ['earrings', 'aretes', 'm'], ['flip flops', 'chancletas', 'f'], ['slides', 'chancletas tipo slide', 'f'], ['belt', 'cinto', 'm'], ['phone case', 'funda de celular', 'f'],
+      ['sneakers', 'tenis', 'm'], ['trainers', 'tenis', 'm'], ['hair tie', 'liga para el cabello', 'f'], ['fanny pack', 'canguro', 'm'], ['belt bag', 'canguro', 'm'], ['hoops', 'aros', 'm'], ['studs', 'aretes pequeños', 'm'], ['polo shirt', 'camisa polo', 'f'],
+      ['camisole', 'camiseta de tirantes', 'f'], ['undershirt', 'camiseta interior', 'f'], ['zipper', 'zíper', 'm'], ['bra', 'brasier', 'm'], ['panties', 'pantis', 'f'], ['blanket', 'frazada', 'f'], ['headband', 'cintillo', 'm'], ['hair clip', 'presilla', 'f'], ['body spray', 'body splash', 'm']],
+    es: [['t-shirt', 'camiseta', 'f'], ['tee', 'camiseta', 'f'], ['tank top', 'camiseta de tirantes', 'f'], ['earrings', 'pendientes', 'm'], ['flip flops', 'chanclas', 'f'], ['slides', 'chanclas tipo slide', 'f'], ['belt', 'cinturón', 'm'], ['phone case', 'funda de móvil', 'f'],
+      ['sneakers', 'zapatillas deportivas', 'f'], ['trainers', 'zapatillas deportivas', 'f'], ['hair tie', 'goma del pelo', 'f'], ['socks', 'calcetines', 'm'], ['tights', 'leotardos', 'm'], ['fanny pack', 'riñonera', 'f'], ['belt bag', 'riñonera', 'f'], ['hoops', 'aros', 'm'],
+      ['studs', 'pendientes pequeños', 'm'], ['bow tie', 'pajarita', 'f'], ['jean shorts', 'short vaquero', 'm'], ['dungarees', 'peto vaquero', 'm'], ['jeans', 'vaqueros', 'm'], ['denim', 'vaquero'], ['polo shirt', 'polo', 'm'], ['camisole', 'camiseta de tirantes', 'f'],
+      ['undershirt', 'camiseta interior', 'f'], ['zipper', 'cremallera', 'f'], ['bra', 'sujetador', 'm'], ['panties', 'bragas', 'f'], ['sweater', 'jersey', 'm'], ['pullover', 'jersey', 'm'], ['sweatpants', 'pantalones de chándal', 'm'], ['tracksuit', 'chándal', 'm'],
+      ['bag', 'bolso', 'm'], ['handbag', 'bolso', 'm'], ['purse', 'monedero', 'm'], ['wallet', 'cartera', 'f'], ['blanket', 'manta', 'f'], ['swimsuit', 'bañador', 'm'], ['flats', 'bailarinas', 'f'], ['sunglasses', 'gafas de sol', 'f'], ['glasses', 'gafas', 'f'], ['headband', 'diadema', 'f'],
+      ['hair clip', 'pinza del pelo', 'f'], ['straw', 'pajita'], ['hanger', 'percha', 'f'], ['jumpsuit', 'mono', 'm'], ['overalls', 'peto', 'm'], ['lipstick', 'pintalabios', 'm'], ['nail polish', 'pintauñas', 'm'], ['phone charger', 'cargador de móvil', 'm'],
+      ['teddy bear', 'osito de peluche'], ['pacifier', 'chupete', 'm'], ['stroller', 'carrito', 'm']],
+  };
+  const SBY = {}; STARTER.forEach((w) => { SBY[norm(w.en)] = w; });
+  const regCache = new WeakMap();
+  const forRegion = (words, region) => {
+    const pack = PACKS[region]; if (!pack || !words) return words;
+    let c = regCache.get(words); if (!c) { c = {}; regCache.set(words, c); } if (c[region]) return c[region];
+    const by = {}; pack.forEach(([en, es, g]) => { by[norm(en)] = [es, g]; });
+    const out = words.map((w) => { const p = by[norm(w.en)], s = SBY[norm(w.en)];
+      if (!p || !s || norm(w.es) !== norm(s.es)) return w;   // not in the pack, or the owner changed it: leave it
+      const r = Object.assign({}, w, { es: p[0] }); if (p[1]) r.g = p[1]; delete r.pe; return r; });
+    c[region] = out; return out;
+  };
+  // every region's words, so a word typed in any Spanish is understood: [Spanish, English]
+  const REGION_ALIASES = []; Object.keys(PACKS).forEach((r) => PACKS[r].forEach(([en, es]) => REGION_ALIASES.push([es, en])));
+
   // ---- the Spanish grammar bits --------------------------------------------------------------------------------------------------
   const NUM = { two: 'dos', three: 'tres', four: 'cuatro', five: 'cinco', six: 'seis', seven: 'siete', eight: 'ocho', nine: 'nueve', ten: 'diez', eleven: 'once', twelve: 'doce', thirteen: 'trece', fourteen: 'catorce', fifteen: 'quince', sixteen: 'dieciséis', seventeen: 'diecisiete', eighteen: 'dieciocho', nineteen: 'diecinueve', twenty: 'veinte' };
   const NUMV = { one: 1, two: 2, three: 3, four: 4, five: 5, six: 6, seven: 7, eight: 8, nine: 9, ten: 10, eleven: 11, twelve: 12, thirteen: 13, fourteen: 14, fifteen: 15, sixteen: 16, seventeen: 17, eighteen: 18, nineteen: 19, twenty: 20 };
@@ -295,6 +329,7 @@
     });
     // other Spanish names for a thing the list already has ("vestido de baño" is also a swimsuit)
     ALIASES.forEach(([es, en, pe]) => { const w = arr.find((x) => norm(x.en) === norm(en) && kindOf(x) === 'n'); if (!w) return; add(es, { w, kind: 'n', pl: false }); add(pe || pluralPhrase(es), { w, kind: 'n', pl: true }); });
+    REGION_ALIASES.forEach(([es, en]) => { const w = arr.find((x) => norm(x.en) === norm(en)); if (!w) return; const k = kindOf(w); if (k === 'n') { add(es, { w, kind: 'n', pl: false }); add(pluralPhrase(es), { w, kind: 'n', pl: true }); } else if (k === 'm') add(es, { w, kind: 'm' }); });   // another region's word for the same thing
     MAT.forEach(([es, en]) => { const w = arr.find((x) => norm(x.en) === norm(en)); if (w) add(es, { w, kind: 'm' }); });   // "de plata" is a material
     // In the owner's shop "franela" is a T-shirt ("franela oso" = bear t-shirt); "de franela" is still the fabric ("pijama de franela" = flannel pajamas)
     { const ts = arr.find((x) => norm(x.en) === norm('t-shirt') && kindOf(x) === 'n'), fl = arr.find((x) => norm(x.en) === 'flannel');
@@ -388,6 +423,7 @@
       if (kind === 'a' && x.inv !== 'all') { try { [['m', true], ['f', false], ['f', true]].forEach(([g, pl]) => add(agree(x, g, pl), 'es')); } catch (e) { /* forms that cannot be made are skipped */ } }
     });
     ALIASES.forEach(([es, en, pe]) => { fam = norm(en); add(es, 'es'); add(pe, 'es'); });
+    REGION_ALIASES.forEach(([es, en]) => { fam = norm(en); add(es, 'es'); });
     vocabCache.set(arr, m); return m;
   };
   // edit distance with swaps of neighbouring letters counted as one typo; gives up above `max`
@@ -435,6 +471,6 @@
   };
 
   const VERSION = 8;   // raise it when the starter list grows: the app then adds the new words to every saved list (nothing the owner typed is changed)
-  const api = { suggest, fixText, typoDistance, fold, VERSION, norm, STARTER, TYPES, typeOf, translate, spanish, publishable, put, drop, seed, toEnglish, english };
+  const api = { suggest, fixText, forRegion, REGIONS, typoDistance, fold, VERSION, norm, STARTER, TYPES, typeOf, translate, spanish, publishable, put, drop, seed, toEnglish, english };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Words = api;
 })(typeof window !== 'undefined' ? window : globalThis);

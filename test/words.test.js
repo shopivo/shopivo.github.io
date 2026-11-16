@@ -123,3 +123,16 @@ console.log('words tests passed: ' + CASES.length + ' example names');
   assert.strictEqual(W.typoDistance('pulsers', 'pulsera', 2), 1); assert.strictEqual(W.typoDistance('braclet', 'bracelet', 2), 1); assert.strictEqual(W.typoDistance('vestdio', 'vestido', 2), 1);   // a swap of two letters is one typo
   console.log('Spanish names tests passed');
 }
+
+// Spanish regions: each region writes its own words; any region's word is understood; the owner's own edits are never overwritten
+{
+  const base = W.seed([]), item = { desc: 'Black t-shirt' }, item2 = { desc: 'Earrings' };
+  const out = (r) => W.spanish(item, W.forRegion(base, r)).es;
+  const out2 = (r) => W.spanish(item2, W.forRegion(base, r)).es;
+  assert.strictEqual(out('ve'), 'Franela negra'); assert.strictEqual(out('co'), 'Camiseta negra'); assert.strictEqual(out('es'), 'Camiseta negra');
+  assert.strictEqual(out2('ve'), 'Zarcillos'); assert.strictEqual(out2('co'), 'Aretes'); assert.strictEqual(out2('es'), 'Pendientes');
+  assert.strictEqual(W.toEnglish('pendientes', base).en.toLowerCase(), 'earrings');
+  const owner = base.map((w) => (w.en === 't-shirt' ? Object.assign({}, w, { es: 'playera' }) : w));
+  assert.strictEqual(W.spanish({ desc: 'Black t-shirt' }, W.forRegion(owner, 'es')).es, 'Playera negra');
+  console.log('regions tests passed');
+}
