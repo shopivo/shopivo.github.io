@@ -608,7 +608,7 @@
   function sheetRecCust(client, ctx) {
     const due = new Map(L.dueItems(state).map((x) => [x.no, x])), pr = PE.byKey(state, client);
     const list = state.invoices.filter((v) => v.client === client && !v.updatedBy && !v.void && v.balance > 0.004).map((v) => Object.assign({ date: v.date, desc: v.desc }, due.get(v.no) || { no: v.no, client, balance: v.balance, days: null })).sort((a, b) => (a.days == null ? 1e9 : a.days) - (b.days == null ? 1e9 : b.days) || new Date(b.date) - new Date(a.date));
-    openSmall(`<h3>${esc(pr ? pr.name : client)}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${list.map((x) => `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${x.no}"><div class="grow"><b class="rpdesc">${esc(x.desc || x.no)}</b><small>${x.no} · ${payDay(x.date)}${x.days != null ? ' · ' + dueText(x) : ''}</small></div><div class="end"><b>${money(x.balance)}</b></div></button>`).join('')}</div>`, 'sheet');
+    openSmall(`<h3>${esc(pr ? pr.name : client)}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${list.map((x) => `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${x.no}"><div class="grow"><b class="rpdesc">${esc(descEn(x.desc) || x.no)}</b><small>${x.no} · ${payDay(x.date)}${x.days != null ? ' · ' + dueText(x) : ''}</small></div><div class="end"><b>${money(x.balance)}</b></div></button>`).join('')}</div>`, 'sheet');
   }
   function sheetDue() {
     const D = dueCounts(), byNo = (x) => Object.assign({ date: (state.invoices.find((v) => v.no === x.no) || {}).date }, x);
@@ -659,7 +659,7 @@
 
   function invoiceRow(v0) {
     const st = L.invoiceStatus(v0), v = v0.void ? Object.assign({}, v0, v0.void.was) : v0;
-    return `<button class="row tap" data-act="view-inv" data-id="${v0.no}"${v0.void ? ' style="opacity:.75"' : ''}><div class="grow"><b>${v0.no} · ${esc(clabel(v0.client))}</b><small>${esc(I.getLang() === 'es' ? (() => { try { return invLines(v0).map((l) => lineName(l, 'es')).join(', ') || v0.desc; } catch (e) { return v0.desc; } })() : v0.desc)}${v0.void ? ' · ' + t(v0.void.kind === 'cancelled' ? 'inv.voidCancelled' : 'inv.voidReturned', { date: dayMon(new Date(v0.void.date)) }) : ''}</small></div>
+    return `<button class="row tap" data-act="view-inv" data-id="${v0.no}"${v0.void ? ' style="opacity:.75"' : ''}><div class="grow"><b>${v0.no} · ${esc(clabel(v0.client))}</b><small>${esc((() => { try { return invLines(v0).map((l) => lineName(l, I.getLang())).join(', ') || descEn(v0.desc); } catch (e) { return descEn(v0.desc); } })())}${v0.void ? ' · ' + t(v0.void.kind === 'cancelled' ? 'inv.voidCancelled' : 'inv.voidReturned', { date: dayMon(new Date(v0.void.date)) }) : ''}</small></div>
       <div class="end"><b${v0.void ? ' style="text-decoration:line-through"' : ''}>${money(v.total)}</b><span class="pill ${st}">${invStLabel(st)}</span></div></button>`;
   }
 
@@ -1561,7 +1561,7 @@
     const person = (c) => { const pr = PE.byKey(state, c), who = esc(pr ? pr.name : clabel(c)); return who; };
     const sec = (title, n, body) => (n ? `<h2 class="smsub">${title} <span class="smday">${n}</span></h2><div class="list smlist">${body}</div>` : '');
     const dueRows = E.due.map((x) => `<button class="row tap" data-act="rec-go" data-id="${x.no}"><div class="grow"><b>${person(x.client)}</b><small>${x.no}</small></div><div class="end"><b>${money(x.balance)}</b>${pill(x.overdue ? 'Owing late' : 'Owing', x.overdue ? t('due.overdue') : x.today ? t('due.today') : t('sm.dueLbl'))}</div></button>`).join('');
-    const saleRows = E.sales.map((x) => `<button class="row tap" data-act="view-inv" data-id="${x.no}"><div class="grow"><b>${person(x.client)}</b><small>${x.no} · ${esc(x.desc || '')}</small></div><div class="end"><b>${money(x.total)}</b>${x.balance > 0.004 ? pill('Owing', t('sm.owesN', { amt: moneyText(x.balance) })) : pill('Paid', t('status.Paid'))}</div></button>`).join('');
+    const saleRows = E.sales.map((x) => `<button class="row tap" data-act="view-inv" data-id="${x.no}"><div class="grow"><b>${person(x.client)}</b><small>${x.no} · ${esc(descEn(x.desc))}</small></div><div class="end"><b>${money(x.total)}</b>${x.balance > 0.004 ? pill('Owing', t('sm.owesN', { amt: moneyText(x.balance) })) : pill('Paid', t('status.Paid'))}</div></button>`).join('');
     const payRows = E.payments.map((x) => `<button class="row tap" data-act="view-inv" data-id="${x.no}"><div class="grow"><b>${person(x.client)}</b><small>${t('sm.paidOn', { no: x.ref })}</small></div><div class="end"><b>${money(x.paid)}</b>${x.balance <= 0.004 ? pill('Paid', t('sm.paidOff')) : pill('Owing', t('sm.owesN', { amt: moneyText(x.balance) }))}</div></button>`).join('');
     const batRows = E.ordered.map((b) => `<button class="row tap" data-act="batch" data-id="${b.id}"><div class="grow"><b>${esc(blShort(b.id))} · ${esc(b.store)}</b><small>${t('sm.orderedDay')} · ${tn('sm.itemsN', b.count)}</small></div><b>${money(b.total)}</b></button>`).join('') + E.received.map((b) => `<button class="row tap" data-act="batch" data-id="${b.id}"><div class="grow"><b>${esc(blShort(b.id))} · ${esc(b.store)}</b><small>${t('sm.receivedDay')} · ${tn('sm.itemsN', b.count)}</small></div></button>`).join('');
     return `<h2>${esc(new Date(y, m, d).toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' }))}</h2>
@@ -2848,7 +2848,7 @@
   /* Word library and the Spanish name of an item (shown to Spanish-speaking visitors of the store). */
   const Wd = window.Words;
   function wordList() {
-    if (state.settings.wordsSeeded !== 3) { state.settings.words = Wd.seed(state.settings.words || []); state.settings.wordsSeeded = 3; save(); }   // 3 = the big starter list that knows grammar
+    if (state.settings.wordsSeeded !== Wd.VERSION) { state.settings.words = Wd.seed(state.settings.words || []); state.settings.wordsSeeded = Wd.VERSION; save(); }   // the starter list is added to the saved list again whenever it grows (your own words stay as they are)
     return state.settings.words || [];
   }
   const esBadge = (i) => { const sp = Wd.spanish(i, wordList()); return sp.state === 'none' ? '' : `<u class="${sp.state === 'ok' ? 'ok' : ''}">${sp.state === 'ok' ? '✓' : '!'}</u>`; };
@@ -3335,7 +3335,17 @@
   const invMoney = (n) => 'TT$' + (Number(n) || 0).toLocaleString('en-US', { minimumFractionDigits: 2, maximumFractionDigits: 2 });
   const invDate = (d) => new Date(d).toLocaleDateString('en-GB');
   const esName = (it) => { const sp = Wd.spanish(it, wordList()); return sp.es || it.desc; };   // the Spanish name of an item (the saved one, or the word list's best translation)
-  const dn = (i) => (I.getLang() === 'es' ? esName(i) : (i.desc || ''));   // an item's name on screen: Spanish when the app is in Spanish (the saved Spanish name, or the word list's translation)
+  // On an English phone, a name that was typed in Spanish is shown in English wherever the word list understands every word of it (otherwise it stays as typed).
+  let enCache = new Map(), enCacheFor = null;
+  const enName = (str) => {
+    const base0 = String(str == null ? '' : str); if (!base0.trim()) return base0;
+    const w = wordList(); if (enCacheFor !== w) { enCache = new Map(); enCacheFor = w; }
+    if (enCache.has(base0)) return enCache.get(base0);
+    let out = base0; try { const m = base0.split(' · '), e = Wd.toEnglish(m[0].trim(), w); if (e.en && !e.missing.length) out = e.en + (m.length > 1 ? ' · ' + m.slice(1).join(' · ') : ''); } catch (err) { /* keep the name as typed */ }
+    enCache.set(base0, out); return out;
+  };
+  const descEn = (text) => (I.getLang() === 'es' ? String(text || '') : String(text || '').split(/\s*,\s*/).filter(Boolean).map(enName).join(', '));   // an invoice's item list ("Franela oso, Cholas") in the language of the phone
+  const dn = (i) => (I.getLang() === 'es' ? esName(i) : enName(i.desc || ''));   // an item's name on screen: Spanish when the app is in Spanish (the saved Spanish name, or the word list's translation)
   const lineName = (l, lg) => {
     if ((lg || invoiceLang()) !== 'es') {   // an English invoice: a name that was written in Spanish (an imported sheet, say) is shown in English when the word list understands every word of it
       const m = String(l.desc).split(' · '), base = m[0].trim(); if (!base) return l.desc;
@@ -3648,7 +3658,7 @@
   function payHistoryHTML(name) {
     const H = L.payHistory(state, name, state.settings.lateSince), S = H.summary; if (!H.purchases.length) return '';
     const loc = I.locale(I.getLang()), day = (d) => new Date(d).toLocaleDateString(loc, { day: 'numeric', month: 'short' });
-    const row = (p) => `<div class="hwrow"><div class="hwh"><b>${esc(p.desc || p.no)}</b><small>${p.no} · ${day(p.date)}${p.due ? ' · ' + t('ph.due', { d: day(p.due) }) : ''}</small></div>${p.payments.map((x) => `<div class="hwp"><span>${day(x.date)}</span><span>${money(x.amount)}</span><em class="${x.daysLate > 0 ? 'late' : x.daysLate === 0 ? 'ok' : ''}">${x.daysLate == null ? '' : x.daysLate > 0 ? tn('ph.daysLate', x.daysLate) : t('ph.onTimeW')}</em></div>`).join('')}${p.balance > 0.004 ? `<div class="hwp open"><span>${t('ph.owing')}</span><span>${money(p.balance)}</span><em class="${p.overdue ? 'late' : ''}">${p.overdue ? tn('ph.overdueDays', p.overdue) : p.due ? '' : t('ph.notDue')}</em></div>` : ''}</div>`;
+    const row = (p) => `<div class="hwrow"><div class="hwh"><b>${esc(descEn(p.desc) || p.no)}</b><small>${p.no} · ${day(p.date)}${p.due ? ' · ' + t('ph.due', { d: day(p.due) }) : ''}</small></div>${p.payments.map((x) => `<div class="hwp"><span>${day(x.date)}</span><span>${money(x.amount)}</span><em class="${x.daysLate > 0 ? 'late' : x.daysLate === 0 ? 'ok' : ''}">${x.daysLate == null ? '' : x.daysLate > 0 ? tn('ph.daysLate', x.daysLate) : t('ph.onTimeW')}</em></div>`).join('')}${p.balance > 0.004 ? `<div class="hwp open"><span>${t('ph.owing')}</span><span>${money(p.balance)}</span><em class="${p.overdue ? 'late' : ''}">${p.overdue ? tn('ph.overdueDays', p.overdue) : p.due ? '' : t('ph.notDue')}</em></div>` : ''}</div>`;
     const top = H.purchases.slice(0, 4), rest = H.purchases.slice(4);
     return `<h2>${t('ph.howTitle')}${S.label ? `<span class="hwl ${S.label}">${t('ph.l.' + S.label)}</span>` : ''}</h2><div class="hwbox">
       ${S.judged ? `<div class="hwg"><div><b>${S.onTime}</b><small>${t('ph.onTime')}</small></div><div><b class="${S.late ? 'bad' : ''}">${S.late}</b><small>${t('ph.late')}</small></div><div><b>${S.lateDays}</b><small>${t('ph.lateDays')}</small></div><div><b>${S.maxLate}</b><small>${t('ph.longest')}</small></div></div>${S.late ? `<p class="muted small" style="margin:6px 2px 0">${t('ph.avg', { n: S.avgLate })}</p>` : ''}` : `<p class="muted small" style="margin:2px">${t('ph.noJudged')}</p>`}
@@ -4731,10 +4741,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   // Opens WhatsApp to the customer with the message already written (the owner taps Send). In the customer's own language when the order carries it.
   function waOpen(o, key, inv) {
     const lang = o.lang === 'es' || o.lang === 'en' ? o.lang : (knownLang('', o.name) || undefined), plain = (n) => 'TT$ ' + (Number(n) || 0).toFixed(2);
-    const names = (inv ? state.items.filter((i) => i.invoice === inv.no) : []).map((i) => (lang === 'es' ? esName(i) : i.desc) + (i.size ? ' (' + i.size + ')' : '')).join(', ') || tn('notif.items', (o.items || []).length, {}, lang);
+    const names = (inv ? state.items.filter((i) => i.invoice === inv.no) : []).map((i) => (lang === 'es' ? esName(i) : enName(i.desc)) + (i.size ? ' (' + i.size + ')' : '')).join(', ') || tn('notif.items', (o.items || []).length, {}, lang);
     let where = (o.option === 'delivery' ? t('store.delivery', {}, lang) : t('store.pickup', {}, lang)) + ' · ' + o.location;
     const pin = o.option === 'delivery' ? SCore.geo(o.lat, o.lng) : null; if (pin) where += ' 📍 ' + SCore.mapLinks(pin.lat, pin.lng).view + ' ';   // the space keeps the full stop out of the link
-    const lines = (inv ? state.items.filter((i) => i.invoice === inv.no) : []).map((i) => '• ' + (lang === 'es' ? esName(i) : i.desc) + (i.size ? ' (' + i.size + ')' : '') + ' · ' + (itemArriving({ id: i.id }) ? '⏳ ' + t('wa.soon', {}, lang) : t('wa.ready', {}, lang))).join('\n') || names;
+    const lines = (inv ? state.items.filter((i) => i.invoice === inv.no) : []).map((i) => '• ' + (lang === 'es' ? esName(i) : enName(i.desc)) + (i.size ? ' (' + i.size + ')' : '') + ' · ' + (itemArriving({ id: i.id }) ? '⏳ ' + t('wa.soon', {}, lang) : t('wa.ready', {}, lang))).join('\n') || names;
     const tot = plain(inv ? inv.total : o.total), fees = o.option === 'delivery' && o.feeChanged && Number(o.deliveryPrice) > 0 ? t('wa.feeChanged', { fee: plain(o.deliveryPrice), total: tot }, lang) : o.option === 'pickup' && Number(o.deliveryPrice) > 0 ? t('wa.feesSpot', { fee: plain(o.deliveryPrice), total: tot }, lang) : o.option === 'delivery' && Number(o.deliveryPrice) > 0 ? t('wa.feesDel', { fee: plain(o.deliveryPrice), total: tot }, lang) : o.option === 'delivery' ? t('wa.feesTotal', { total: tot }, lang) : t('wa.feesPick', { total: tot }, lang);
     const msg = t(key, { name: o.name, code: o.code || SCore.orderCode(o.id), items: names, list: lines, fees, where, total: tot, how: t(o.option === 'delivery' ? 'ord.howDel' : 'ord.howPick', {}, lang), store: storeCfg().name || bizName() }, lang);
     const w = window.open(SCore.waLink(o.phone, msg), '_blank'); if (!w) toast(t('ord.waBlocked'));

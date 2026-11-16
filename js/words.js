@@ -354,6 +354,7 @@
     return { en: r.en, state: r.missing.length ? 'check' : 'ok', missing: r.missing };
   };
 
-  const api = { norm, STARTER, TYPES, typeOf, translate, spanish, publishable, put, drop, seed, toEnglish, english };
+  const VERSION = 4;   // raise it when the starter list grows: the app then adds the new words to every saved list (nothing the owner typed is changed)
+  const api = { VERSION, norm, STARTER, TYPES, typeOf, translate, spanish, publishable, put, drop, seed, toEnglish, english };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.Words = api;
 })(typeof window !== 'undefined' ? window : globalThis);
