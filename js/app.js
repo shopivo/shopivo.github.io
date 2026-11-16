@@ -107,7 +107,8 @@
   let syncKeyboard = () => {};
   let hideAmounts = true;   // amounts are blurred every time the app opens (and again when you leave it); the eye shows them
   let homeNeedsAll = false;   // 'Needs you today' shows 6 things, then a button for the rest
-  document.addEventListener('visibilitychange', () => { if (document.hidden && !hideAmounts) { hideAmounts = true; document.body.classList.add('hide-amounts'); } });
+  let leftAt = 0;   // amounts stay shown while you use the app; if you were away for 30 seconds or more it counts as closed and reopened, and they are hidden again
+  document.addEventListener('visibilitychange', () => { if (document.hidden) leftAt = Date.now(); else if (leftAt && Date.now() - leftAt >= 30000 && !hideAmounts) { hideAmounts = true; leftAt = 0; render(); syncEyes(); } });
   let theme = pref('theme', 'auto');
   let flt = pref('filter', { period: 'all', batch: 'all' });
   function pref(k, d) { try { const v = localStorage.getItem('buy-sell-pref:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } }
@@ -361,7 +362,7 @@
     const el = $('#appbar-right'); if (!el) return;
     const btn = (act, label, icon, extra, id) => `<button class="round" data-act="${act}"${id ? ` data-id="${id}"` : ''} aria-label="${label}"><svg viewBox="0 0 24 24">${ICONS[icon]}</svg>${extra || ''}</button>`;
     const n = ($('#back').hidden || isSettings()) ? notifCount() : 0, sel = pageSearchSel(), active = sel === '.oq' ? (moMine() ? moQ : ordQ).trim() : sel === '.dq' ? dlvQ.trim() : sel === '.iq' ? invQ.trim() : sel === '.itq' ? itQ.trim() : sel === '.cq' ? cuQ.trim() : '';
-    const sbtn = sel ? btn('tsearch-open', t('tool.search'), 'search', active ? '<i class="dot"></i>' : '') : '';
+    const sbtn = (sel ? btn('tsearch-open', t('tool.search'), 'search', active ? '<i class="dot"></i>' : '') : '') + btn('view', hideAmounts ? t('tool.show') : t('tool.hide'), hideAmounts ? 'eyeoff' : 'eye');   // the eye is on every page, so amounts can be shown without going Home
     if (tab === 'more' && moreView === 'batches') { const k = blCount(blF); el.innerHTML = `<div class="tools">${sbtn}${k ? btn('bl-filter-open', t('tool.filter'), 'filter', `<b class="nb">${k}</b>`) : ''}${btn('tmenu', t('tool.more'), 'dots', '', 'bl')}</div>`; return; }   // the funnel shows only while a filter is on
     if (tab === 'more' && moreView === 'deliveries') { el.innerHTML = `<div class="tools">${sbtn}${btn('tmenu', t('tool.more'), 'dots', !dset().home ? '<i class="dot"></i>' : '', 'dlv')}</div>`; return; }   // same ⋮ menu as the other logs, plus a Delivery settings shortcut
     if (tab === 'more' && moreView === 'orders') { el.innerHTML = `<div class="tools">${sbtn}${btn('tmenu', t('tool.more'), 'dots', !dset().home ? '<i class="dot"></i>' : '', 'ord')}</div>`; return; }
@@ -2640,6 +2641,10 @@
   let sheetHook = null;
   const capture = (fn) => { const prev = sheetHook; let out = ''; sheetHook = (h) => { out = h; }; try { fn(); } finally { sheetHook = prev; } return out; };
   const bodyOf = (h) => { const i = h.search(/<div class="(pd|ap)[ "]/); return i < 0 ? h : h.slice(i); };
+  // Full-screen pages cover the top bar, so they get their own eye (same switch as everywhere); not on pages that show no money.
+  const eyeSvg = () => `<svg viewBox="0 0 24 24">${ICONS[hideAmounts ? 'eyeoff' : 'eye']}</svg>`;
+  function addSheetEye() { const fb = document.querySelector('#sheet .fullbar'); if (!fb || fb.querySelector('.fbeye') || !document.querySelector('#sheet .amt')) return; const b = document.createElement('button'); b.type = 'button'; b.className = 'fbeye'; b.dataset.act = 'view'; b.setAttribute('aria-label', hideAmounts ? t('tool.show') : t('tool.hide')); b.innerHTML = eyeSvg(); fb.appendChild(b); }
+  function syncEyes() { document.querySelectorAll('#sheet .fbeye').forEach((b) => { b.innerHTML = eyeSvg(); b.setAttribute('aria-label', hideAmounts ? t('tool.show') : t('tool.hide')); }); document.body.classList.toggle('hide-amounts', hideAmounts); }
   function openSheet(html, onClose, full) {
     if (sheetHook) { sheetHook(html); return; }
     voiceStop(); removeItemPill();
@@ -2649,6 +2654,7 @@
     $('#sheet').classList.toggle('card', kind === 'card'); $('#sheet').classList.toggle('small', !!kind); $('#sheet').classList.remove('pick', 'hdr');
     sheetClose = onClose || null; $('#sheet').classList.toggle('full', !!full); document.body.classList.toggle('page-open', !!full);   // full-screen pages keep the bottom tab bar
     $('#sheet').innerHTML = `<div class="grab"></div>${html}`; $('#sheet').hidden = false; $('#scrim').hidden = false; $('#sheet').scrollTop = 0;
+    if (full) addSheetEye();
     document.body.style.overflow = 'hidden';
     syncKeyboard();
     syncHistory();
@@ -4926,7 +4932,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
           return `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${v.no}"><div class="grow"><b>${esc(pr ? pr.name : v.client)}${same(v.client) ? `<span class="rptag">${t('rp.same')}</span>` : ''}</b><small class="rpc">${esc(contact)}</small><small>${v.no} · ${day(v.date)}</small></div><div class="end"><b>${money(v.balance)}</b></div></button>`; }).join('')}</div>`, 'sheet');
       }
       case 'rec-go': closeSheet(); return setTimeout(() => sheetPay(id), 60);
-      case 'view': hideAmounts = !hideAmounts; return render();
+      case 'view': hideAmounts = !hideAmounts; render(); return syncEyes();
       case 'set-theme': theme = id; setPref('theme', theme); applyTheme(); closeSheet(); return render();
       case 'set-lang': I.setLang(id, true); applyStaticText(); closeSheet(); return render();
       case 'inv-swap': return sheetInvoice(id, true);
