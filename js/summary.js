@@ -49,9 +49,17 @@
   };
 
   // One month: money, a day-by-day calendar, who paid, who still owes, the invoices and the batches ordered.
-  S.month = (s, y, m) => {
+  // Balances still owed whose due date is running (an order not yet delivered has no running date).
+  const started = (v) => !(Object.prototype.hasOwnProperty.call(v, 'dueStart') && !v.dueStart);
+  const dueInvoices = (s) => s.invoices.filter((v) => live(v) && !v.updatedBy && num(v.balance) > 0.004 && v.due && started(v));
+  const dayKey = (d) => d.getFullYear() * 10000 + (d.getMonth() + 1) * 100 + d.getDate();
+
+  S.month = (s, y, m, now) => {
+    now = now || new Date();
     const days = new Date(y, m + 1, 0).getDate(), cal = Array.from({ length: days }, (_, i) => ({ d: i + 1, sales: 0, n: 0 }));
     const inM = (d) => d && d.getFullYear() === y && d.getMonth() === m;
+    const todayKey = dayKey(now);
+    dueInvoices(s).forEach((v) => { const d = dt(v.due); if (!inM(d)) return; const c = cal[d.getDate() - 1]; c.due = (c.due || 0) + 1; if (dayKey(d) < todayKey) c.over = true; });
     const invs = []; let sales = 0, profit = 0, tips = 0;
     s.invoices.filter(live).forEach((v) => {
       const d = dt(v.date); if (!inM(d)) return;
@@ -67,7 +75,19 @@
     const sold = cal.filter((c) => c.sales > 0), bestDay = sold.length ? sold.reduce((a, c) => (c.sales > a.sales ? c : a)) : null;
     const paidList = Object.values(paidBy).map((x) => ({ client: x.client, paid: r2(x.paid), n: x.n })).sort((a, b) => b.paid - a.paid);
     const oweList = Object.values(oweBy).map((x) => ({ client: x.client, owing: r2(x.owing), n: x.n })).sort((a, b) => b.owing - a.owing);
-    return { y, m, days, firstWeekday: new Date(y, m, 1).getDay(), cal: cal.map((c) => ({ d: c.d, sales: r2(c.sales), n: c.n })), sales: r2(sales), expense, profit: r2(profit), tips: r2(tips), nSales: paidList.reduce((a, x) => a + x.n, 0), avgSale: paidList.length ? r2(sales / paidList.reduce((a, x) => a + x.n, 0)) : 0, bestDay, invoices: invs, paidList, oweList, owingTotal: r2(oweList.reduce((a, x) => a + x.owing, 0)), batches, activeDays: sold.length };
+    return { y, m, days, firstWeekday: new Date(y, m, 1).getDay(), cal: cal.map((c) => ({ d: c.d, sales: r2(c.sales), n: c.n, due: c.due || 0, over: !!c.over })), sales: r2(sales), expense, profit: r2(profit), tips: r2(tips), nSales: paidList.reduce((a, x) => a + x.n, 0), avgSale: paidList.length ? r2(sales / paidList.reduce((a, x) => a + x.n, 0)) : 0, bestDay, invoices: invs, paidList, oweList, owingTotal: r2(oweList.reduce((a, x) => a + x.owing, 0)), batches, activeDays: sold.length };
+  };
+
+  // Everything that happened on one day: sales made, payments received on older sales, what was due, batches ordered and received.
+  S.day = (s, y, m, d, now) => {
+    now = now || new Date(); const same = (x) => { const t = dt(x); return !!t && t.getFullYear() === y && t.getMonth() === m && t.getDate() === d; };
+    const invs = s.invoices.filter((v) => live(v) && same(v.date));
+    const sales = invs.filter((v) => !v.ref).map((v) => ({ no: v.no, client: v.client, desc: v.desc, total: r2(v.total), paid: r2(v.amountPaid), balance: r2(v.balance), latest: !v.updatedBy }));
+    const payments = invs.filter((v) => v.ref && num(v.amountPaid) > 0).map((v) => ({ no: v.no, ref: v.ref, client: v.client, paid: r2(v.amountPaid), balance: r2(v.balance), latest: !v.updatedBy }));
+    const todayKey = dayKey(now), due = dueInvoices(s).filter((v) => same(v.due)).map((v) => ({ no: v.no, client: v.client, balance: r2(v.balance), overdue: dayKey(dt(v.due)) < todayKey, today: dayKey(dt(v.due)) === todayKey }));
+    const ordered = s.batches.filter((b) => same(b.datePurchased)).map((b) => ({ id: b.id, store: b.store, count: b.count, total: r2(expOf(b)) }));
+    const received = s.batches.filter((b) => b.dateReceived && same(b.dateReceived)).map((b) => ({ id: b.id, store: b.store, count: b.count }));
+    return { y, m, d, paidTotal: r2(invs.reduce((a, v) => a + num(v.amountPaid), 0)), creditTotal: r2(sales.reduce((a, v) => a + v.balance, 0)), sales, payments, due, ordered, received, empty: !(sales.length || payments.length || due.length || ordered.length || received.length) };
   };
 
   if (typeof module !== 'undefined' && module.exports) module.exports = S; else root.Summary = S;

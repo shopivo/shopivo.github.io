@@ -39,3 +39,19 @@ const oc = S.month(s, 2026, 9); assert.deepStrictEqual(oc.oweList.map((x) => x.c
 // an empty month and a cancelled invoice change nothing
 const em = S.month(s, 2026, 0); near(em.sales, 0); assert.equal(em.invoices.length, 0);
 console.log('summary tests passed');
+
+// due markers on the calendar, and one day's events
+(() => {
+  const s2 = L.defaultState(); s2.settings.rates.USD = 7;
+  L.createBatch(s2, { store: 'SHEIN', count: 3, totalCost: 100, currency: 'USD', margin: 100, date: new Date(2026, 9, 3) });
+  s2.items.forEach((i, n) => { i.cost = 30; i.desc = 'D' + n; i.sold = 100; i.status = 'Available'; });
+  const a = L.createInvoice(s2, { itemIds: [s2.items[0].id], client: 'Ann', paying: 40, date: new Date(2026, 9, 5, 9) });   // due 12 Oct
+  L.recordPayment(s2, a.no, 20, new Date(2026, 9, 8, 9));
+  const now = new Date(2026, 9, 10);
+  const mo = S.month(s2, 2026, 9, now); assert.equal(mo.cal[11].due, 1); assert.equal(mo.cal[11].over, false);
+  const later = S.month(s2, 2026, 9, new Date(2026, 9, 20)); assert.equal(later.cal[11].over, true);
+  const d5 = S.day(s2, 2026, 9, 5, now); assert.equal(d5.sales.length, 1); assert.equal(d5.payments.length, 0); near(d5.paidTotal, 40); near(d5.creditTotal, d5.sales[0].balance);
+  const d8 = S.day(s2, 2026, 9, 8, now); assert.equal(d8.sales.length, 0); assert.equal(d8.payments.length, 1); near(d8.payments[0].paid, 20);
+  const d12 = S.day(s2, 2026, 9, 12, now); assert.equal(d12.due.length, 1); assert.equal(d12.due[0].client, 'Ann'); assert.equal(d12.due[0].overdue, false);
+  assert.equal(S.day(s2, 2026, 9, 3, now).ordered.length, 1); assert.equal(S.day(s2, 2026, 9, 20, now).empty, true);
+})();

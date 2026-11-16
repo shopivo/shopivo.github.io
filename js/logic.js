@@ -390,16 +390,20 @@
 
   // How many days after the invoice date a balance is due: one setting for every invoice (7 unless the owner changed it)
   L.dueDays = (s) => { const n = Math.round(Number(s && s.settings && s.settings.dueDays)); return n >= 0 && n <= 365 ? n : 7; };
-  L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero, orderId, no }) => {
+  L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero, orderId, no, dueStart }) => {
     const p = L.previewInvoice(s, { itemIds, client, paying, allowZero, orderId });
     if (p.errors.length) throw fail(p.errors[0]);
     client = L.canonicalName(s, client);
     const d = date || new Date();
-    const due = new Date(d); due.setDate(due.getDate() + L.dueDays(s));
+    // The due date is set once, when the purchase starts (the invoice date, or the day of delivery for an order), and every later payment on it keeps that same date.
+    const old = p.ref ? s.invoices.find((v) => v.no === p.ref) : null, hasStart = (v) => !!v && Object.prototype.hasOwnProperty.call(v, 'dueStart');
+    let due, start;
+    if (old && old.due) { due = new Date(old.due); start = hasStart(old) ? old.dueStart : old.date; }   // an invoice from before this rule keeps its own date as the start
+    else { start = dueStart === undefined ? d.toISOString() : dueStart; due = new Date(start || d); due.setDate(due.getDate() + L.dueDays(s)); }
     const inv = {
       no: no || L.nextInvoiceNo(s), client, desc: p.lines.map((l) => l.desc).join(', '), lines: p.lines,
       total: r2(p.total), amountPaid: r2(p.paying), previouslyPaid: r2(p.prev), balance: r2(p.balance),
-      delivery: r2(p.delivery), date: d.toISOString(), due: due.toISOString(),
+      delivery: r2(p.delivery), date: d.toISOString(), due: due.toISOString(), dueStart: start,
       qty: p.items.length, ref: p.ref, profit: p.profit, loss: p.loss, tip: r2(p.tip), updatedBy: '',
     };
     if (p.ref) { const old = s.invoices.find((v) => v.no === p.ref); if (old) old.updatedBy = inv.no; }
@@ -408,6 +412,33 @@
     L.applyWaterfall(s, inv.no);
     if (!s.customers.includes(client)) s.customers.push(client);
     return inv;
+  };
+
+  // How a customer pays: every purchase with its due date and each payment marked on time or late (days after the due date).
+  // Only payments made on or after `since` are judged (older ones are listed without a verdict, because the old rule moved the due date on every payment).
+  const dayStart = (d) => { const x = new Date(d); return new Date(x.getFullYear(), x.getMonth(), x.getDate()); };
+  const daysBetween = (a, b) => Math.round((dayStart(a) - dayStart(b)) / 864e5);   // a - b in whole days
+  L.lateDays = (payDate, due) => Math.max(0, daysBetween(payDate, due));
+  L.dueStarted = (v) => !(Object.prototype.hasOwnProperty.call(v, 'dueStart') && !v.dueStart);   // an order not yet delivered has no running due date
+  L.payHistory = (s, client, since, now) => {
+    now = now || new Date(); const sinceT = since ? new Date(since).getTime() : 0;
+    const roots = s.invoices.filter((v) => v.client === client && !v.ref && !v.void);
+    const purchases = roots.map((r) => {
+      const chain = L.invoiceForward(s, r.no).filter((v) => !v.void), last = chain[chain.length - 1], started = L.dueStarted(last), due = started ? last.due : null;
+      const payments = chain.filter((v) => num(v.amountPaid) > 0).map((v) => { const judged = started && new Date(v.date).getTime() >= sinceT; return { no: v.no, date: v.date, amount: r2(v.amountPaid), daysLate: judged ? L.lateDays(v.date, due) : null }; });
+      const balance = r2(Math.max(0, num(last.balance))), overdue = started && balance > 0.004 && daysBetween(now, due) > 0 ? daysBetween(now, due) : 0;
+      return { no: r.no, desc: r.desc, date: r.date, due, total: r2(last.total), balance, payments, overdue, latest: last.no };
+    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+    const judged = purchases.flatMap((p) => p.payments).filter((x) => x.daysLate != null), late = judged.filter((x) => x.daysLate > 0), lateDays = late.reduce((a, x) => a + x.daysLate, 0);
+    const share = judged.length ? late.length / judged.length : 0;
+    const label = !judged.length ? '' : !late.length ? 'ontime' : share < 0.5 ? 'sometimes' : 'often';
+    return { purchases, summary: { judged: judged.length, onTime: judged.length - late.length, late: late.length, lateDays, avgLate: late.length ? Math.round(lateDays / late.length * 10) / 10 : 0, maxLate: late.reduce((m, x) => Math.max(m, x.daysLate), 0), overdueNow: purchases.filter((p) => p.overdue > 0).length, label } };
+  };
+  // Balances that are due: the latest invoice of every purchase that still owes money and whose due date is running.
+  L.dueItems = (s, now) => {
+    now = now || new Date();
+    return s.invoices.filter((v) => !v.updatedBy && !v.void && num(v.balance) > 0.004 && v.due && L.dueStarted(v)).map((v) => ({ no: v.no, client: v.client, due: v.due, balance: r2(v.balance), days: daysBetween(v.due, now) }))   // days > 0: still to come, 0: today, < 0: overdue
+      .sort((a, b) => a.days - b.days || b.balance - a.balance);
   };
 
   // An item that is sold but has no invoice (imported): put it back in stock.
