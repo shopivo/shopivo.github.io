@@ -102,5 +102,8 @@ console.log('words tests passed: ' + CASES.length + ' example names');
   assert.strictEqual(en('Franela oso').en, 'Bear t-shirt'); assert.strictEqual(en('Franela perrito').en, 'Puppy t-shirt'); assert.strictEqual(en('Franela limon').en, 'Lemon t-shirt'); assert.strictEqual(en('Pijama de franela').en, 'Flannel pajamas'); assert.deepStrictEqual(en('Franelas').missing, []);
   
   assert.strictEqual(W.translate('Flip flops', words).es.toLowerCase(), 'chancletas');   // the English-to-Spanish side is unchanged
+  assert.strictEqual(en('Franela león').en, 'Lion t-shirt'); assert.strictEqual(en('Franela mariposa').en, 'Butterfly t-shirt'); assert.strictEqual(en('Franela corazones').en, 'Hearts t-shirt'); assert.strictEqual(en('Franela unicornio').en, 'Unicorn t-shirt'); assert.strictEqual(en('Franela oso polar').en, 'Polar bear t-shirt');
+  assert.strictEqual(W.translate('Lion t-shirt', words).es, 'Camiseta león'); assert.strictEqual(W.translate('Butterfly top', words).es, 'Blusa mariposa');
+  assert.strictEqual(en('Franela fresas').en, 'Strawberries t-shirt'); assert.strictEqual(en('Franela leones').en, 'Lions t-shirt'); assert.strictEqual(en('Franela osos').en, 'Bears t-shirt');
   console.log('Spanish names tests passed');
 }
