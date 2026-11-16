@@ -4199,6 +4199,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   const adOpts = () => ({ skip: window.Store ? Store.orders().map(orderInvoice).filter(Boolean) : [], phoneOf: (n) => { try { const p = peopleOn ? PE.list(state).find((x) => x.name === n) : null; return p ? p.phone : ''; } catch (e) { return ''; } } });
   function moAdoptCard() {
     const pl = MO.adoptPlan(state, adOpts()), n = MO.adoptedCount(state); if (!pl.count && !n) return '';
+    if (!pl.count) return `<div class="adslim"><span>${tn('ad.done', n)}</span><button type="button" data-act="ad-undo">${t('ad.undo', { n })}</button></div>`;   // already converted: one quiet line
     return `<div class="card adcard"><b>${t('ad.title')}</b><small>${pl.count ? tn('ad.have', pl.count) : tn('ad.done', n)}</small><div class="btns">${pl.count ? `<button class="btn primary" data-act="ad-open">${t('ad.btn')}</button>` : ''}${n ? `<button class="btn" data-act="ad-undo">${t('ad.undo', { n })}</button>` : ''}</div></div>`;
   }
   function sheetAdopt() {
