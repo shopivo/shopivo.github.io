@@ -478,3 +478,21 @@ console.log('sale price tests passed');
   assert.strictEqual(L.monthlySummary(s, 2026)[7].profit, 40, 'profit is the live invoices only: 100 - 60');
   console.log('workbook import tests passed');
 }
+
+// remove a customer but keep every record (and put it back exactly)
+(() => {
+  const s = fresh();
+  const b = L.createBatch(s, { store: 'SHEIN', count: 2, totalCost: 100, currency: 'USD', margin: 100 });
+  s.items.forEach((i, n) => { i.cost = [40, 60][n]; i.desc = 'Dress ' + n; i.sold = 120; }); L.makeAvailable(s, b.id);
+  L.createInvoice(s, { itemIds: [s.items[0].id], client: 'Jane', paying: 500 });
+  s.settings.places = { Jane: 'Arima' }; s.settings.clientLang = { jane: 'es' };
+  const before = JSON.stringify(L.customerStats(s).find((c) => c.name === 'Jane'));
+  const invs = s.invoices.length, paid = s.invoices.reduce((t, v) => t + v.amountPaid, 0), profit = s.invoices.reduce((t, v) => t + v.profit, 0);
+  const snap = L.removeCustomer(s, 'Jane');
+  assert.ok(!L.customerStats(s).some((c) => c.name === 'Jane'));
+  assert.equal(s.invoices.length, invs); assert.equal(s.invoices.reduce((t, v) => t + v.amountPaid, 0), paid); assert.equal(s.invoices.reduce((t, v) => t + v.profit, 0), profit);
+  assert.ok(!s.settings.places.Jane && !s.settings.clientLang.jane);
+  L.restoreCustomer(s, snap);
+  assert.equal(JSON.stringify(L.customerStats(s).find((c) => c.name === 'Jane')), before);
+  assert.equal(s.settings.places.Jane, 'Arima'); assert.equal(s.settings.clientLang.jane, 'es');
+})();

@@ -442,6 +442,28 @@
     if (pl[from]) { const loc = pl[from]; s.settings.places = Object.assign({}, pl); delete s.settings.places[from]; if (!s.settings.places[final]) s.settings.places[final] = loc; }
     return final;
   };
+  // Remove a customer but keep every record: invoices and items stay (money, sales and profit do not change), they just no longer carry the name.
+  // Returns a snapshot that L.restoreCustomer puts back exactly.
+  L.removeCustomer = (s, name) => {
+    const cl = (o) => JSON.parse(JSON.stringify(o)), key = String(name || '').trim().toLowerCase(), pl = s.settings.places || {}, lg = s.settings.clientLang || {};
+    const snap = { name, items: s.items.filter((i) => i.customer === name).map((i) => i.id), invoices: s.invoices.filter((v) => v.client === name).map((v) => v.no),
+      customers: s.customers.includes(name), place: pl[name], lang: lg[key], people: (s.people || []).filter((p) => p.key === name || p.name === name).map(cl) };
+    s.items.forEach((i) => { if (i.customer === name) i.customer = ''; });
+    s.invoices.forEach((v) => { if (v.client === name) v.client = ''; });
+    s.customers = s.customers.filter((n) => n !== name);
+    if (pl[name] != null) { s.settings.places = Object.assign({}, pl); delete s.settings.places[name]; }
+    if (lg[key] != null) { s.settings.clientLang = Object.assign({}, lg); delete s.settings.clientLang[key]; }
+    if (s.people) { const ids = new Set(snap.people.map((p) => p.id)); s.people = s.people.filter((p) => !ids.has(p.id)); }
+    return snap;
+  };
+  L.restoreCustomer = (s, snap) => {
+    const n = snap.name; snap.items.forEach((id) => { const i = s.items.find((x) => x.id === id); if (i) i.customer = n; });
+    snap.invoices.forEach((no) => { const v = s.invoices.find((x) => x.no === no); if (v) v.client = n; });
+    if (snap.customers && !s.customers.includes(n)) s.customers.push(n);
+    if (snap.place != null) s.settings.places = Object.assign({}, s.settings.places, { [n]: snap.place });
+    if (snap.lang != null) s.settings.clientLang = Object.assign({}, s.settings.clientLang, { [String(n).trim().toLowerCase()]: snap.lang });
+    if (s.people) snap.people.forEach((p) => { if (!s.people.some((q) => q.id === p.id)) s.people.push(JSON.parse(JSON.stringify(p))); });
+  };
   // Does another customer already use this name (ignoring capitals and extra spaces)?
   L.otherCustomerNamed = (s, from, to) => { const n = L.cleanName(to).toLowerCase(); return !!n && n !== from.toLowerCase() && L.customerStats(s).some((c) => c.name.toLowerCase() === n); };
   // Where a customer is from (a general area, so you can recognise someone when you forget the name). Kept in settings so it syncs.

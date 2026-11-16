@@ -332,8 +332,14 @@
   function save() { if (!Plan.canWrite(planSt)) { planBlocked(); return; } if (peopleOn) { try { PE.ensure(state); } catch (e) { /* ignore */ } } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { toast(t('err.save')); } if (window.Cloud) Cloud.changed(); if (window.Store) Store.schedule(); }
   function toast(msg, ms) {
     if (planBlockAt && Date.now() - planBlockAt < 600 && !Plan.canWrite(planSt)) msg = t(planSt.state === 'locked' ? 'pl.blockedLocked' : 'pl.blocked');   // a 'saved' message right after a refused save would be a lie
-    const el = $('#toast'); el.textContent = plain(msg); el.classList.add('show');
+    const el = $('#toast'); el.classList.remove('act'); el.textContent = plain(msg); el.classList.add('show');
     clearTimeout(toastTimer); toastTimer = setTimeout(() => el.classList.remove('show'), ms || 3200);
+  }
+  // A message with an Undo button for a few seconds (for things that are easy to do by accident).
+  function toastUndo(msg, fn) {
+    const el = $('#toast'); el.innerHTML = ''; const sp = document.createElement('span'); sp.textContent = plain(msg); const b = document.createElement('button'); b.type = 'button'; b.className = 'toast-undo'; b.textContent = t('btn.undo');
+    b.onclick = () => { el.classList.remove('show'); clearTimeout(toastTimer); fn(); }; el.append(sp, b); el.classList.add('show', 'act'); clearTimeout(toastTimer);
+    toastTimer = setTimeout(() => { el.classList.remove('show', 'act'); }, 9000);
   }
   // Run a state change, save, report. Errors become a toast and leave the sheet open.
   function run(fn, ok, keepSheet) {
@@ -3525,6 +3531,7 @@
       <label>📍 ${t('cust.location')}</label>${cePlaceHTML(name, locv)}
       <div class="lg-field"><label>🗣️ ${t('cl.field')}</label><div class="lg-seg"><button type="button" class="${ceLang === '' ? 'on' : ''}" data-act="ce-lang" data-id="">${t('inv.auto')}</button><button type="button" class="${ceLang === 'en' ? 'on' : ''}" data-act="ce-lang" data-id="en">EN</button><button type="button" class="${ceLang === 'es' ? 'on' : ''}" data-act="ce-lang" data-id="es">ES</button></div></div>
       <p class="muted small" style="margin:10px 2px">${t('cust.renameNote')}</p>
+      <div class="btns"><button class="btn danger" data-act="cust-remove" data-id="${esc(name)}">${t('cust.remove')}</button></div>
       <div class="btns"><button class="btn primary" data-act="cust-save" data-id="${esc(name)}">${t('btn.save')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, () => { if (!$('#sheet') || $('#sheet').hidden || !pageStack.some((p) => p.key.startsWith('custedit|'))) ceDraft = null; }, true);
   }
   // Tap the Location field: every saved place to pick from (search at the top), or Add location (map circle that becomes a new saved place).
@@ -5415,6 +5422,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'cust-lang': { clName = id; return sheetChoice(t('cl.popTitle', { who: esc(id) }), 'cl-set', savedLang(id) || 'auto', [['auto', t('cl.optAuto')], ['en', I.LANGS.en['lang.name'] + ' · EN'], ['es', I.LANGS.es['lang.name'] + ' · ES']], t('cl.popNote', { who: esc(id) })); }
       case 'cl-set': { setClientLang(clName, id === 'auto' ? '' : id); closeSheet(); return; }
       case 'ce-lang': { ceLang = id; document.querySelectorAll('#sheet .lg-seg button').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return; }
+      case 'cust-remove': return askCard(t('cust.removeAsk', { name: esc(clabel(id)) }), { title: t('cust.removeT'), danger: true, ok: t('cust.removeOk') }).then((y) => {
+        if (!y) return; const snap = L.removeCustomer(state, id); ceDraft = null; save(); pageStack = pageStack.filter((p) => p.key !== 'custedit|' + id && p.key !== 'customer|' + id); dropPages('');
+        toastUndo(t('cust.removed'), () => { L.restoreCustomer(state, snap); save(); render(); toast(t('cust.restored')); });
+      });
       case 'cust-save': {
         const to = $('#ce-name').value, loc = $('#ce-loc').value; ceDraft = null;
         if (peopleOn) { const pr = PE.byKey(state, id), nm = L.cleanName(to); if (!pr || !nm) return toast(t('cust.saved')); pr.name = nm; L.setPlace(state, id, loc); setClientLang(id, ceLang); save(); pageStack = pageStack.filter((p) => p.key !== 'custedit|' + id && p.key !== 'customer|' + id); toast(t('cust.saved')); render(); return sheetCustomer(id); }
