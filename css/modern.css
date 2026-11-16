@@ -118,3 +118,12 @@ input[type=range]{touch-action:pan-y}
 .lkgen{display:flex;flex-direction:column;gap:6px;padding:14px;margin:0 0 12px}.lkgen small{color:var(--mute);font-size:12.5px}.lkgen .lkpv{margin:4px 0}
 .stwhat{margin:0 0 4px;font-weight:700;font-size:13px}.stinfo{margin:0 0 14px;padding-left:20px;display:flex;flex-direction:column;gap:7px;font-size:14px;line-height:1.4;color:var(--ink)}
 .stmulti{display:flex;align-items:center;justify-content:space-between;gap:12px;margin:4px 14px 10px;color:var(--ink)}.stmulti .t{flex:1;min-width:0}.stmulti b{display:block;font-size:13.5px}.stmulti small{display:block;color:var(--mute);font-size:12px}
+/* Studio: the pinned block runs edge to edge, hides the title bar completely when it reaches the top, and carries its own back button */
+.ihtop.ststudio{margin:0 -16px;padding:8px 16px 10px;border-radius:0;background:var(--bg);z-index:6;box-shadow:0 8px 14px -10px rgba(0,0,0,.38),0 1px 0 var(--ln)}
+.ststrip .stback{position:sticky;left:0;z-index:2;flex:none;width:40px;height:38px;min-height:0;padding:0 0 3px;border-radius:50%;font-size:28px;line-height:1;display:grid;place-items:center;color:var(--brand);background:var(--card);box-shadow:var(--sh-c)}
+.ststrip .stback{display:none}.ststudio.stuck .stback{display:grid}
+/* Studio, option C: the title bar slides away while you read down and returns when you pull back; the pinned block follows it */
+#sheet .fullbar{z-index:7;transition:transform .22s ease}
+#sheet.st-bar-hide .fullbar{transform:translateY(-110%)}
+.ihtop.ststudio{top:var(--fbh,60px);transition:top .22s ease}
+#sheet.st-bar-hide .ihtop.ststudio{top:0}
