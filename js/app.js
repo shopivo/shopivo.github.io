@@ -2119,6 +2119,17 @@
   function stAttachCard() { const cv = $('#bc-pv'); if (cv) { bcSide = 'front'; cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } }
   // keep the open tab in view inside the tab row (only the row moves, never the page)
   function stStripCenter() { const st = $('#st-strip'), on = st && st.querySelector('button.on'); if (st && on) st.scrollLeft = Math.max(0, on.offsetLeft - (st.clientWidth - on.offsetWidth) / 2); }
+  // The title bar slides away while you read down the page and comes back as soon as you pull back a little; the pinned block moves up and down with it (smoothly, nothing on the page jumps).
+  let stLastY = 0, stBarHidden = false;
+  function stBarWatch() {
+    const sh = $('#sheet'); if (!sh) return; stLastY = sh.scrollTop; stBarHidden = false; sh.classList.remove('st-bar-hide');
+    const fb = sh.querySelector('.fullbar'); if (fb) sh.style.setProperty('--fbh', Math.round(fb.getBoundingClientRect().height) + 'px');
+    sh.onscroll = () => {
+      const y = sh.scrollTop, d = y - stLastY; stLastY = y;
+      if (y < 40) stBarHidden = false; else if (d > 8) stBarHidden = true; else if (d < -8) stBarHidden = false; else return;
+      sh.classList.toggle('st-bar-hide', stBarHidden); const tp = $('#st-top'); if (tp) tp.classList.toggle('stuck', stBarHidden);
+    };
+  }
   function stRender() {
     const top = $('#st-top'), wrap = $('#st-bodywrap'); if (!top || !wrap) return;
     stFlags(); top.querySelector('.stcont').innerHTML = stTopHTML(); wrap.innerHTML = `${stMultiHTML()}<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div>`;
@@ -2136,7 +2147,7 @@
       <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`,
       () => { stOn = ihOn = bcOn = lkOn = ttOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
     stAttachCard(); stPaintAll(); stStripCenter();
-    const sh = $('#sheet'); sh.onscroll = () => { const tp = $('#st-top'); if (tp) tp.classList.toggle('stuck', tp.getBoundingClientRect().top <= 1); };   // the back button in the tab row only shows once the pinned block has covered the title bar
+    stBarWatch();
   }
   // Open the Studio on one tab with all its drop-downs closed (so the old Invoice / Card / Logo / Title entries all lead here).
   function openStudio(tab) {

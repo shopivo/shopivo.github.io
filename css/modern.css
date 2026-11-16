@@ -122,3 +122,8 @@ input[type=range]{touch-action:pan-y}
 .ihtop.ststudio{margin:0 -16px;padding:8px 16px 10px;border-radius:0;background:var(--bg);z-index:6;box-shadow:0 8px 14px -10px rgba(0,0,0,.38),0 1px 0 var(--ln)}
 .ststrip .stback{position:sticky;left:0;z-index:2;flex:none;width:40px;height:38px;min-height:0;padding:0 0 3px;border-radius:50%;font-size:28px;line-height:1;display:grid;place-items:center;color:var(--brand);background:var(--card);box-shadow:var(--sh-c)}
 .ststrip .stback{display:none}.ststudio.stuck .stback{display:grid}
+/* Studio, option C: the title bar slides away while you read down and returns when you pull back; the pinned block follows it */
+#sheet .fullbar{z-index:7;transition:transform .22s ease}
+#sheet.st-bar-hide .fullbar{transform:translateY(-110%)}
+.ihtop.ststudio{top:var(--fbh,60px);transition:top .22s ease}
+#sheet.st-bar-hide .ihtop.ststudio{top:0}
