@@ -504,20 +504,34 @@ console.log('sale price tests passed');
   s.items.forEach((i, n) => { i.cost = 30; i.desc = 'Dress ' + n; i.sold = 100; i.status = 'Available'; });
   const d0 = new Date(2026, 9, 1, 10);
   const a = L.createInvoice(s, { itemIds: [s.items[0].id], client: 'Ann', paying: 40, date: d0 });
-  near(new Date(a.due).getDate(), 15);   // 14 days from the 1st, from the setting (not a fixed 7)
+  near(new Date(a.due).getDate(), 14);   // 14 days with the 1st as day one = the 14th, from the setting (not a fixed 7)
   const p2 = L.recordPayment(s, a.no, 30, new Date(2026, 9, 10)); assert.equal(p2.due, a.due); assert.equal(p2.dueStart, a.dueStart);
-  const p3 = L.recordPayment(s, p2.no, 30, new Date(2026, 9, 19)); assert.equal(p3.due, a.due);   // paid 4 days after the 15th
-  s.settings.dueDays = 7; const b2 = L.createInvoice(s, { itemIds: [s.items[1].id], client: 'Ann', paying: 100, date: new Date(2026, 9, 20) }); near(new Date(b2.due).getDate(), 27);
+  const p3 = L.recordPayment(s, p2.no, 30, new Date(2026, 9, 19)); assert.equal(p3.due, a.due);   // paid 5 days after the 14th
+  s.settings.dueDays = 7; const b2 = L.createInvoice(s, { itemIds: [s.items[1].id], client: 'Ann', paying: 100, date: new Date(2026, 9, 20) }); near(new Date(b2.due).getDate(), 26);   // 7 days with the 20th as day one = the 26th
   const h = L.payHistory(s, 'Ann', new Date(2026, 9, 5), new Date(2026, 9, 25));
   assert.equal(h.purchases.length, 2);
   const first = h.purchases.find((p) => p.no === a.no);
   assert.equal(first.payments[0].daysLate, null);   // before the start day: listed, not judged
-  assert.equal(first.payments[1].daysLate, 0); assert.equal(first.payments[2].daysLate, 4);
-  assert.equal(h.summary.judged, 3); assert.equal(h.summary.late, 1); assert.equal(h.summary.lateDays, 4); assert.equal(h.summary.maxLate, 4); assert.equal(h.summary.label, 'sometimes');
+  assert.equal(first.payments[1].daysLate, 0); assert.equal(first.payments[2].daysLate, 5);
+  assert.equal(h.summary.judged, 3); assert.equal(h.summary.late, 1); assert.equal(h.summary.lateDays, 5); assert.equal(h.summary.maxLate, 5); assert.equal(h.summary.label, 'sometimes');
   // an order not delivered yet has no running due date, and an unpaid balance past it shows as overdue
   const c = L.createInvoice(s, { itemIds: [s.items[2].id], client: 'Bea', paying: 0, allowZero: true, date: new Date(2026, 9, 2), dueStart: '' });
   assert.equal(L.dueStarted(c), false); assert.equal(L.dueItems(s, new Date(2026, 9, 25)).some((x) => x.client === 'Bea'), false);
   c.due = new Date(2026, 9, 12).toISOString(); c.dueStart = new Date(2026, 9, 5).toISOString();
   const di = L.dueItems(s, new Date(2026, 9, 20)); assert.equal(di[0].client, 'Bea'); assert.equal(di[0].days, -8);
   assert.equal(L.payHistory(s, 'Bea', null, new Date(2026, 9, 20)).purchases[0].overdue, 8);
+})();
+
+// an item still on its way: no due date until it is handed over; then that day is day one
+(() => {
+  const s = fresh(); s.settings.dueDays = 7;
+  L.createBatch(s, { store: 'SHEIN', count: 2, totalCost: 50, currency: 'USD', margin: 100 });
+  s.items.forEach((i, n) => { i.cost = 30; i.desc = 'Dress ' + n; i.sold = 100; });
+  s.items[0].status = 'In Transit'; s.items[1].status = 'Available';
+  const a = L.createInvoice(s, { itemIds: [s.items[0].id], client: 'Cy', paying: 0, allowZero: true, date: new Date(2026, 10, 2) });
+  assert.equal(a.dueStart, ''); assert.equal(L.dueStarted(a), false);
+  const b = L.createInvoice(s, { itemIds: [s.items[1].id], client: 'Di', paying: 0, allowZero: true, date: new Date(2026, 10, 2) });
+  assert.equal(L.dueStarted(b), true); assert.equal(new Date(b.due).getDate(), 8);   // handed over on the 2nd: day one, due on the 8th
+  assert.equal(L.dueFrom(s, new Date(2026, 10, 10)).getDate(), 16);
+  s.settings.dueDays = 1; assert.equal(L.dueFrom(s, new Date(2026, 10, 10)).getDate(), 10);   // 1 day: due the same day
 })();
