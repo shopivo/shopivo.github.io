@@ -65,6 +65,7 @@
     shield: '<path d="M12 3l8 3v6c0 4.5-3.2 8-8 9-4.8-1-8-4.5-8-9V6l8-3z"/>',
     drop: '<path d="M12 3s6 6.5 6 11a6 6 0 0 1-12 0c0-4.5 6-11 6-11z"/>',
     id: '<rect x="3" y="5" width="18" height="14" rx="2.5"/><circle cx="9" cy="11" r="2"/><path d="M6 16a3 3 0 0 1 6 0M14.5 10h4M14.5 13h3"/>',
+    help: '<circle cx="12" cy="12" r="9"/><circle cx="12" cy="12" r="3.4"/><path d="M5.6 5.6l4 4M14.4 14.4l4 4M18.4 5.6l-4 4M9.6 14.4l-4 4"/>',
     alert: '<path d="M12 4l9 16H3L12 4z"/><path d="M12 10v4.5M12 17.5v.01"/>',
   };
   // emoji (without the variation mark) -> icon name
@@ -72,7 +73,7 @@
     '✏': 'edit', '📞': 'phone', '✨': 'sparkles', '🎉': 'sparkles', '⬇': 'download', '📥': 'inbox', '⬆': 'upload', '💬': 'message', '📦': 'box', '🖼': 'image', '👥': 'users', '👤': 'user', '🧭': 'compass', '🎨': 'palette', '📅': 'calendar',
     '⚙': 'sliders', '📋': 'clipboard', '📝': 'note', '🛒': 'cart', '🔗': 'link', '📏': 'ruler', '🏷': 'tag', '🔖': 'bookmark', '📷': 'camera', '🎁': 'gift', '🔤': 'type', '🗣': 'megaphone', '🔑': 'key', '📎': 'clip', '🗺': 'map',
     '💡': 'bulb', '🚪': 'out', '⚡': 'bolt', '🏢': 'building', '📊': 'chart', '📈': 'trend', '🎟': 'ticket', '🔄': 'refresh', '📖': 'book', '💰': 'wallet', '🌐': 'globe', '📄': 'file', '🌸': 'flower', '💲': 'dollar', '🔀': 'shuffle',
-    '📇': 'contact', '🔍': 'search', '🏦': 'bank', '🛡': 'shield', '💧': 'drop', '🪪': 'id', '⚠': 'alert', '📲': 'send', '📱': 'phone' };
+    '📇': 'contact', '🔍': 'search', '🏦': 'bank', '🛡': 'shield', '💧': 'drop', '🪪': 'id', '⚠': 'alert', '📲': 'send', '🛟': 'help', '📱': 'phone' };
   const key = (s) => String(s).replace(/️/g, '');
   I.has = (e) => !!M[key(e)];
   I.svg = (name) => (P[name] ? `<svg viewBox="0 0 24 24" aria-hidden="true">${P[name]}</svg>` : '');
