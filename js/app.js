@@ -5874,6 +5874,6 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   peopleCheck();
   ensureZonePlaces();
   ihTidy();
-  render();
+  render(); requestAnimationFrame(() => document.documentElement.classList.add('ready'));   // the start screen (logo) goes away once the first page is drawn
   setTimeout(() => PUI.sweep(photoKeep()), 3000);   // timers on screenshots and on sold items' photos run when the app opens
 })();
