@@ -1767,7 +1767,7 @@
   let bpOn = false, rePaint = null, ihOn = false, ihRaf = 0, ihSlotPick = '', ihPend = null, ihOpenSecs = { images: true, layout: true };
   const hdrImg = (src) => {
     if (!src) return null; let i = hdrImgs.get(src);
-    if (!i) { i = new Image(); i.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); ihPaintSoon(); if (stOn) stPaintSoon(); if (bpOn) bpPaint(); if (rePaint) rePaint(); if (invFsOn) invFsPreview(); }; i.src = src; hdrImgs.set(src, i); if (hdrImgs.size > 14) hdrImgs.delete(hdrImgs.keys().next().value); }
+    if (!i) { i = new Image(); i.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); ihPaintSoon(); if (stOn) stPaintSoon(); if (bpOn) bpPaint(); if (rePaint) rePaint(); if (invFsOn) invFsPreview(); invBannerRefresh(); }; i.src = src; hdrImgs.set(src, i); if (hdrImgs.size > 14) hdrImgs.delete(hdrImgs.keys().next().value); }
     return i;
   };
   const ihCfg = () => InvHeader.norm(InvHeader.fromKeys(state.settings.invHeader, state.settings.invPool));
@@ -3338,7 +3338,7 @@
   };
   // The business's own logo (a small picture kept in the settings): drawn on invoices once it has loaded.
   let bizLogoSrc = '', bizLogoImg = null;
-  const bizLogoImage = () => { const sx = state.settings.bizLogo || ''; if (!sx) return null; if (sx !== bizLogoSrc) { bizLogoSrc = sx; bizLogoImg = new Image(); bizLogoImg.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); }; bizLogoImg.src = sx; } return bizLogoImg; };
+  const bizLogoImage = () => { const sx = state.settings.bizLogo || ''; if (!sx) return null; if (sx !== bizLogoSrc) { bizLogoSrc = sx; bizLogoImg = new Image(); bizLogoImg.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); invBannerRefresh(); }; bizLogoImg.src = sx; } return bizLogoImg; };
   const invLogo = new Image(); invLogo.src = 'icons/bruiz-logo-512.png';
   const headCache = {};
   // Wait until the pictures a custom header uses (banner, title picture, logo) have loaded, so a drawing made right after the app opens is never missing them.
@@ -3349,6 +3349,12 @@
     if (id === 'custom') { const cfg = ihCfg(); InvHeader.draw(x, cfg, ihInfo(lg), ihImages(cfg)); return c; }
     InvDesign.drawHeader(x, id, W, { name: b.name, lines: b.lines, title: t('doc.invoiceWord', undefined, lg || invoiceLang()), logo: b.logo && b.logo.complete && b.logo.naturalWidth ? b.logo : null }, Theme.brand(), invStyle(id)); return c;
   }
+  // An invoice that is already on screen gets its proper banner as soon as a header picture (or the cloud's newest settings) arrives
+  function invBannerRefresh() { try { const id = invDesignId(); if (id === 'classic') return; const u = headerURL(id); document.querySelectorAll('img.inv-banner').forEach((im) => { if (im.getAttribute('src') !== u) im.src = u; }); } catch (e) { /* the next draw tries again */ } }
+  // Load the header pictures of the chosen design as soon as the app opens, so the banner is ready before any invoice is opened
+  function invWarm() { try { bizLogoImage(); const id = invDesignId(); if (id === 'custom') ihImages(ihCfg()); headerURL(id); } catch (e) { /* later */ } }
+  // After sign-in the newest settings arrive a moment later: wait for them (up to 4 s) so an invoice is never drawn with an older design
+  const cloudCatchUp = () => new Promise((ok) => { const t0 = Date.now(); (function chk() { if (!cloud.signedIn || cloud.status !== 'connecting' || Date.now() - t0 > 4000) return ok(); setTimeout(chk, 150); })(); });
   function headerURL(id) {
     const b = invBiz(), k = [id, invoiceLang(), b.name, b.lines.join('|'), Theme.brand(), JSON.stringify(invStyle(id)), b.logo && b.logo.complete ? 1 : 0, id === 'custom' ? JSON.stringify(state.settings.invHeader || '') + [state.settings.bizLogo].map((s) => (s ? s.length : 0)) + Object.values(ihImages(ihCfg())).map((im) => (im && im.complete ? 1 : 0)).join('') : ''].join('~');
     return headCache[k] || (headCache[k] = headerCanvas(id, 2).toDataURL('image/png'));
@@ -3497,7 +3503,7 @@
     const LG = lang || invoiceLang(), ti = (key, vars) => t(key, vars, LG);   // this drawing speaks LG all the way through (it loads the banner first, so the screen may change in between)
     return new Promise((ok, fail) => {
       const img = new Image(); img.onerror = () => fail(new Error(ti('doc.loadErr')));
-      img.onload = () => headerReady(invDesignId()).then(() => {
+      img.onload = () => cloudCatchUp().then(() => headerReady(invDesignId())).then(() => {
         const W = 800, S = scale || 2, lines = invLines(v), sub = lines.reduce((s, l) => s + l.qty * l.price, 0), D = invDesign(), classic = invDesignId() === 'classic';
         const bannerH = classic ? Math.round(W * img.naturalHeight / img.naturalWidth) : InvDesign.HEAD_H, rowH = 36;
         const H = Math.max(bannerH + 508 + lines.length * rowH + 62, Math.round(W * 1.4142));   // A4 portrait (1 : 1.414) like a paper invoice; longer invoices grow taller. Pink band sits right under the notes
@@ -6049,7 +6055,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     onRequests: (list) => { joinReqs = list; renderTools(); refreshTeamSheets(); },
     onRequestsError: (code) => { reqErr = code || ''; refreshTeamSheets(); },
     onStatus: (i) => { const was = cloud.signedIn; cloud = i; peopleCheck(); if (i.status === 'synced') planPing(); if (i.status === 'synced' && window.PhotoSync) PhotoSync.soon(3000); if (i.signedIn && !was && homeAfterSignIn) { homeAfterSignIn = false; closeSheet(); tab = 'home'; moreView = null; places = [{ tab: 'home', moreView: null }]; pageStack = []; render(); } if (i.status === 'synced' && window.Store) { Store.schedule(); Store.listen(); } else if (!i.signedIn && window.Store) Store.stopListen(); updateGate(); const el = $('#acct-st'); if (el && was === i.signedIn) { el.textContent = acctStatus(); el.parentNode.className = i.status === 'synced' ? 'good' : /error|rules|unavailable/.test(i.status) ? 'bad' : ''; } else if (tab === 'home' || (tab === 'more' && moreView === 'settings')) render(); },
-    onRemote: () => { L.migrate(state); peopleCheck(); wordList(); updateGate(); if (state.settings.palette) { Theme.apply(state.settings.palette); applyTheme(); } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } const a = document.activeElement; if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && $('#view').contains(a)) return setTimeout(render, 2000); render(); },
+    onRemote: () => { L.migrate(state); peopleCheck(); wordList(); invWarm(); invBannerRefresh(); updateGate(); if (state.settings.palette) { Theme.apply(state.settings.palette); applyTheme(); } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } const a = document.activeElement; if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && $('#view').contains(a)) return setTimeout(render, 2000); render(); },
   });
   setTimeout(() => { const e = Cloud.redirectError && Cloud.redirectError(); if (e) toast(acctErr(e)); }, 4000);   // a Google sign-in that came back from Google's page with an error
   setInterval(() => { if (!document.hidden) renderTools(); }, 60000);   // an invoice reminder appears 5 minutes after confirming, even if nothing else redraws the bell
@@ -6062,6 +6068,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   ensureZonePlaces();
   if (!state.settings.lateSince) { state.settings.lateSince = new Date().toISOString(); save(); }   // payments from this day on are judged on time or late; older ones are only listed
   ihTidy();
+  invWarm();
   render(); requestAnimationFrame(() => document.documentElement.classList.add('ready'));   // the start screen (logo) goes away once the first page is drawn
   setTimeout(() => PUI.sweep(photoKeep()), 3000);   // timers on screenshots and on sold items' photos run when the app opens
 })();
