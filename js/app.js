@@ -1636,7 +1636,15 @@
   }, true);
   // Open a creator with all its drop-downs closed (the ones of the other creators are left alone). Pass the prefix of this creator's keys, or '' for the older creators.
   const ihClosed = (prefix, keep) => { Object.keys(ihOpenSecs).forEach((k) => { const mine = prefix ? k.startsWith(prefix) : !/^(st|tt|lk):/.test(k); if (mine) delete ihOpenSecs[k]; }); if (keep) Object.assign(ihOpenSecs, keep); };
-  document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.dataset && d.dataset.ihk) ihOpenSecs[d.dataset.ihk] = d.open; }, true);
+  document.addEventListener('toggle', (e) => {
+    const d = e.target; if (!(d && d.dataset && d.dataset.ihk)) return; ihOpenSecs[d.dataset.ihk] = d.open;
+    // In the Brand Studio only one section is open at a time (unless the owner switched "keep several open" on); the new one scrolls to just under the pinned preview.
+    if (d.open && stOn && d.classList.contains('ihsec') && !state.settings.studioMulti && d.closest('#st-bodywrap')) {
+      document.querySelectorAll('#st-bodywrap details.ihsec[open]').forEach((o) => { if (o !== d) { o.open = false; ihOpenSecs[o.dataset.ihk] = false; } });
+      const top = $('#st-top'); document.documentElement.style.setProperty('--sttop', ((top ? top.getBoundingClientRect().height : 160) + 6) + 'px');
+      requestAnimationFrame(() => { try { d.scrollIntoView({ block: 'start', behavior: 'smooth' }); } catch (e2) { /* stays where it is */ } });
+    }
+  }, true);
   /* ---------- invoice header builder: pictures (files or a zip), layouts, pieces, banner, saved designs ---------- */
   const hdrImgs = new Map();
   let bpOn = false, rePaint = null, ihOn = false, ihRaf = 0, ihSlotPick = '', ihPend = null, ihOpenSecs = { images: true, layout: true };
@@ -2060,6 +2068,7 @@
   }
   const stBodyHTML = () => (stTab === 'promote' ? stPromoHTML() : stBrandHTML());
   const stBodyFor = () => ({ brand: stBodyHTML, promote: stBodyHTML, invoice: ihBodyHTML, card: bcBodyHTML, title: ttBodyHTML, logo: () => lkBodyHTML() + `<div class="list grp" style="margin-top:12px">${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo-page')}</div>` })[stTab]();
+  const stMultiHTML = () => `<div class="stmulti"><span>${t('st.multi')}</span>${swt('st-multi', 'x', !!state.settings.studioMulti)}</div>`;
   function stTopHTML() {
     const on = invDesignId() === 'custom', sample = `<button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button>`;
     if (stTab === 'invoice') return `<canvas id="ih-pv" width="1600" height="380" aria-label="${t('ih.title')}"></canvas><div class="stbar">${sample}<button type="button" class="btn primary" id="ih-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div>`;
@@ -2074,7 +2083,7 @@
   function stAttachCard() { const cv = $('#bc-pv'); if (cv) { bcSide = 'front'; cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } }
   function stRender() {
     const top = $('#st-top'), wrap = $('#st-bodywrap'); if (!top || !wrap) return;
-    stFlags(); top.querySelector('.stcont').innerHTML = stTopHTML(); wrap.innerHTML = `<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div>`;
+    stFlags(); top.querySelector('.stcont').innerHTML = stTopHTML(); wrap.innerHTML = `${stMultiHTML()}<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div>`;
     document.querySelectorAll('#st-strip button').forEach((b) => b.classList.toggle('on', b.dataset.id === stTab)); $('#sheet').scrollTop = 0; stAttachCard(); stPaintAll(); const on = document.querySelector('#st-strip button.on'); if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'center', block: 'nearest' });
   }
   function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); setTimeout(svPaint, 0); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !(stTab === 'brand' && stChanged()); }
@@ -2085,7 +2094,7 @@
     const strip = ST_TABS.map(([k, ic]) => `<button type="button" class="${stTab === k ? 'on' : ''}" data-act="st-tab" data-id="${k}">${ic} ${t('st.tab.' + k)}</button>`).join('');
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div>
       <div class="ihtop ststudio" id="st-top"><div class="ststrip" id="st-strip">${strip}</div><div class="stcont">${stTopHTML()}</div></div>
-      <div id="st-bodywrap"><p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div></div>
+      <div id="st-bodywrap">${stMultiHTML()}<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div></div>
       <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`,
       () => { stOn = ihOn = bcOn = lkOn = ttOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
     stAttachCard(); stPaintAll(); const on0 = document.querySelector('#st-strip button.on'); if (on0 && on0.scrollIntoView) on0.scrollIntoView({ inline: 'center', block: 'nearest' });
@@ -4995,6 +5004,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
       case 'studio-open': return openStudio('brand');
       case 'studio-details': openStudio('brand'); ihOpenSecs['st:details'] = true; return stRefresh();
+      case 'st-multi': { state.settings.studioMulti = !state.settings.studioMulti; save(); const m = document.querySelector('.stmulti'); if (m) m.outerHTML = stMultiHTML(); return; }
       case 'st-tab': stTab = id; ihClosed('st:'); return stRender();
       case 'mb-logo-page': ihClosed(''); return sheetMyLogo();
       case 'st-tpl': return stApply(id);

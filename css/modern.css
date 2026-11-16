@@ -112,3 +112,5 @@ input[type=range]{touch-action:pan-y}
 .inv.tbl-minimal .inv-t tbody tr:nth-child(even) td{background:none}
 .inv.tbl-minimal .inv-tot .due{background:none;border-top:2px solid var(--ih,#741b47)}.inv.tbl-minimal .inv-tot .due span,.inv.tbl-minimal .inv-tot .due b{color:#000}
 .inv.tbl-minimal .inv-foot{height:3px;background:#ddd}
+.stmulti{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:2px 14px 0;color:var(--mute);font-size:12.5px}
+#st-bodywrap details.ihsec{scroll-margin-top:var(--sttop,170px)}
