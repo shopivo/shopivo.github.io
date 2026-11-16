@@ -4881,7 +4881,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'rec-pay': {   // Record payment: the invoices that still have a balance, newest first; pick one and the payment page opens
         const open = state.invoices.filter((v) => !v.updatedBy && !v.void && v.balance > 0.004).sort((a, b) => new Date(b.date) - new Date(a.date));
         if (!open.length) return toast(t('rp.none'));
-        return openSmall(`<h3>${t('rp.title')}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${open.map((v) => `<button type="button" class="row tap" data-act="rec-go" data-id="${v.no}"><div class="grow"><b>${esc(clabel(v.client))}</b><small>${v.no}</small></div><div class="end"><b>${money(v.balance)}</b></div></button>`).join('')}</div>`, 'sheet');
+        const nm = (c) => String((PE.byKey(state, c) || {}).name || c).trim().toLowerCase(), same = (c) => new Set(open.filter((v) => nm(v.client) === nm(c)).map((v) => v.client)).size > 1;   // two different customers with the same name
+        const day = (d) => new Date(d).toLocaleDateString(I.locale(I.getLang()), { day: 'numeric', month: 'short' });
+        return openSmall(`<h3>${t('rp.title')}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${open.map((v) => { const pr = PE.byKey(state, v.client), ph = pr && pr.phone ? pr.phone : '', pl = L.place(state, v.client), contact = [ph || t('rp.noNum'), pl].filter(Boolean).join(' · ');
+          return `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${v.no}"><div class="grow"><b>${esc(pr ? pr.name : v.client)}${same(v.client) ? `<span class="rptag">${t('rp.same')}</span>` : ''}</b><small class="rpc">${esc(contact)}</small><small>${v.no} · ${day(v.date)}</small></div><div class="end"><b>${money(v.balance)}</b></div></button>`; }).join('')}</div>`, 'sheet');
       }
       case 'rec-go': closeSheet(); return setTimeout(() => sheetPay(id), 60);
       case 'view': hideAmounts = !hideAmounts; return render();

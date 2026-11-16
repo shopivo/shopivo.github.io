@@ -186,3 +186,8 @@ body.ed-open #tabbar,body.ed-open #actionbar{display:none!important}
 .smd b{font-size:13px;font-weight:700}.smd i{position:absolute;right:3px;top:2px;min-width:14px;height:14px;border-radius:7px;background:var(--bar);color:#fff;font-style:normal;font-size:9px;font-weight:800;display:grid;place-items:center;padding:0 3px}
 .smd.lv1{background:color-mix(in srgb,var(--brand) 22%,var(--card));color:var(--ink)}.smd.lv2{background:color-mix(in srgb,var(--brand) 42%,var(--card));color:var(--ink)}.smd.lv3{background:color-mix(in srgb,var(--brand) 66%,var(--card));color:#fff}.smd.lv4{background:var(--brand);color:#fff}
 .smd.today{border-color:var(--ink)}.smd.sel{outline:3px solid color-mix(in srgb,var(--brand) 60%,transparent);outline-offset:1px}
+
+/* Record payment: roomy rows (name, number and place, invoice and date), the list scrolls inside the pop-up */
+.rplist{max-height:calc(92dvh - 170px);overflow-y:auto;overscroll-behavior:contain;-webkit-overflow-scrolling:touch;padding:2px 2px 8px;margin:0 -2px}
+.rprow{align-items:flex-start;gap:12px;padding:14px 16px}.rprow .grow{min-width:0}.rprow b{font-size:16px}.rprow small{display:block;line-height:1.35;margin-top:1px}.rprow .rpc{color:var(--ink);opacity:.85;white-space:normal;overflow-wrap:anywhere}
+.rprow .end{text-align:right;flex:none;padding-top:1px}.rptag{display:inline-block;margin-left:7px;padding:0 8px;border-radius:99px;font-size:11px;font-weight:700;background:color-mix(in srgb,var(--brand) 20%,transparent);color:var(--brand);vertical-align:1px}
