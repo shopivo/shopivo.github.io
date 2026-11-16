@@ -1644,9 +1644,15 @@
   }, true);
   // Open a creator with all its drop-downs closed (the ones of the other creators are left alone). Pass the prefix of this creator's keys, or '' for the older creators.
   const ihClosed = (prefix, keep) => { Object.keys(ihOpenSecs).forEach((k) => { const mine = prefix ? k.startsWith(prefix) : !/^(st|tt|lk):/.test(k); if (mine) delete ihOpenSecs[k]; }); if (keep) Object.assign(ihOpenSecs, keep); };
+  // The drop-down rules below only act when the owner tapped a heading (a section that starts open when the page is drawn must not move the page).
+  let stTapAt = 0; document.addEventListener('click', (e) => { if (e.target.closest && e.target.closest('summary')) stTapAt = Date.now(); }, true);
   document.addEventListener('toggle', (e) => {
     const d = e.target; if (!(d && d.dataset && d.dataset.ihk)) return; ihOpenSecs[d.dataset.ihk] = d.open;
+    if (Date.now() - stTapAt > 700) return;
     // In the Brand Studio only one section is open at a time (unless the owner switched "keep several open" on); the new one scrolls to just under the pinned preview.
+    if (d.open && stOn && d.classList.contains('ihsub') && !state.settings.studioMulti && d.closest('#st-bodywrap') && d.parentElement) {   // the small drop-downs inside a section (Business name, Contact lines, ...) work the same way
+      d.parentElement.querySelectorAll(':scope > details.ihsub[open]').forEach((o) => { if (o !== d) { o.open = false; ihOpenSecs[o.dataset.ihk] = false; } });
+    }
     if (d.open && stOn && d.classList.contains('ihsec') && !state.settings.studioMulti && d.closest('#st-bodywrap')) {
       document.querySelectorAll('#st-bodywrap details.ihsec[open]').forEach((o) => { if (o !== d) { o.open = false; ihOpenSecs[o.dataset.ihk] = false; } });
       const top = $('#st-top'); document.documentElement.style.setProperty('--sttop', ((top ? top.getBoundingClientRect().height : 160) + 6) + 'px');
@@ -2111,10 +2117,12 @@
   function stFlags() { ihOn = stTab === 'invoice'; bcOn = stTab === 'card'; lkOn = stTab === 'logo'; ttOn = stTab === 'title'; stOn = true; }
   function stPaintAll() { stPaint(); if (ihOn) ihPaint(); if (bcOn) { bcPaint(); } if (lkOn) lkPaint(); if (ttOn) ttPaint(); svPaint(); }
   function stAttachCard() { const cv = $('#bc-pv'); if (cv) { bcSide = 'front'; cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } }
+  // keep the open tab in view inside the tab row (only the row moves, never the page)
+  function stStripCenter() { const st = $('#st-strip'), on = st && st.querySelector('button.on'); if (st && on) st.scrollLeft = Math.max(0, on.offsetLeft - (st.clientWidth - on.offsetWidth) / 2); }
   function stRender() {
     const top = $('#st-top'), wrap = $('#st-bodywrap'); if (!top || !wrap) return;
     stFlags(); top.querySelector('.stcont').innerHTML = stTopHTML(); wrap.innerHTML = `${stMultiHTML()}<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div>`;
-    document.querySelectorAll('#st-strip button').forEach((b) => b.classList.toggle('on', b.dataset.id === stTab)); $('#sheet').scrollTop = 0; stAttachCard(); stPaintAll(); const on = document.querySelector('#st-strip button.on'); if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+    document.querySelectorAll('#st-strip button[data-id]').forEach((b) => b.classList.toggle('on', b.dataset.id === stTab)); $('#sheet').scrollTop = 0; stAttachCard(); stPaintAll(); stStripCenter();
   }
   function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); setTimeout(svPaint, 0); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !(stTab === 'brand' && stChanged()); }
   function sheetStudio(tab) {
@@ -2123,11 +2131,12 @@
     stFlags(); state.settings.studioPrev = state.settings.studioPrev || stSnap();
     const strip = ST_TABS.map(([k, ic]) => `<button type="button" class="${stTab === k ? 'on' : ''}" data-act="st-tab" data-id="${k}">${ic} ${t('st.tab.' + k)}</button>`).join('');
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div>
-      <div class="ihtop ststudio" id="st-top"><div class="ststrip" id="st-strip">${strip}</div><div class="stcont">${stTopHTML()}</div></div>
+      <div class="ihtop ststudio" id="st-top"><div class="ststrip" id="st-strip"><button type="button" class="stback" data-act="close" aria-label="${t('aria.back')}">‹</button>${strip}</div><div class="stcont">${stTopHTML()}</div></div>
       <div id="st-bodywrap">${stMultiHTML()}<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div></div>
       <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`,
       () => { stOn = ihOn = bcOn = lkOn = ttOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
-    stAttachCard(); stPaintAll(); const on0 = document.querySelector('#st-strip button.on'); if (on0 && on0.scrollIntoView) on0.scrollIntoView({ inline: 'center', block: 'nearest' });
+    stAttachCard(); stPaintAll(); stStripCenter();
+    const sh = $('#sheet'); sh.onscroll = () => { const tp = $('#st-top'); if (tp) tp.classList.toggle('stuck', tp.getBoundingClientRect().top <= 1); };   // the back button in the tab row only shows once the pinned block has covered the title bar
   }
   // Open the Studio on one tab with all its drop-downs closed (so the old Invoice / Card / Logo / Title entries all lead here).
   function openStudio(tab) {
