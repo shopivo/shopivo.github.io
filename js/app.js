@@ -405,7 +405,7 @@
     closeTopMenu();
     cleanSelected();
     const moreTitles = { deliveries: 'more.deliveries', orders: 'more.orders', batches: 'more.batches', invoices: 'title.invoices', items: 'title.items', summary: 'title.summary', settings: 'title.settings' };
-    const titles = { home: bizName(), stock: stockBatch && stockFilter !== 'NoPrice' ? bl(stockBatch) : t('nav.stock'), sell: moreView === 'invoice' ? (pendingOrder ? t('ord.confirmTitle') : t('sell.newInv')) : t('nav.sell'), people: t('cu.title'), promote: t('nav.promote'), more: moreView ? (moreView.startsWith('set-') ? { 'set-theme': t('set.theme'), 'set-business': t('set.business'), 'set-invdesign': t('set.invDesign'), 'set-backup': t('set.backupRow'), 'set-about': t('set.storageRow'), 'set-plans': t('pl.admT'), 'set-paycfg': t('pay.cfgT'), 'set-terms': t('tp.termsT'), 'set-privacy': t('tp.privT'), 'set-password': t('acct.chPw') }[moreView] : t(moreTitles[moreView])) : t('nav.more') };
+    const titles = { home: bizName(), stock: stockBatch && stockFilter !== 'NoPrice' ? bl(stockBatch) : t('nav.stock'), sell: moreView === 'invoice' ? (pendingOrder ? t('ord.confirmTitle') : t('sell.newInv')) : t('nav.sell'), people: t('cu.title'), promote: t('nav.promote'), more: moreView ? (moreView.startsWith('set-') ? { 'set-theme': t('set.theme'), 'set-business': t('set.business'), 'set-invdesign': t('set.invDesign'), 'set-backup': t('set.backupRow'), 'set-about': t('set.storageRow'), 'set-plans': t('pl.admT'), 'set-paycfg': t('pay.cfgT'), 'set-terms': t('tp.termsT'), 'set-privacy': t('tp.privT'), 'set-password': t('acct.chPw') }[moreView] : t(moreTitles[moreView.replace(/^summary-.*/, 'summary')])) : t('nav.more') };
     $('#title').textContent = titles[tab];
     $('#back').hidden = !((tab === 'more' || tab === 'sell') && moreView);
     const hasLogo = !!state.settings.bizLogo, customBrand = !!state.settings.businessName, showBrand = $('#back').hidden, imgBrand = hasLogo || !customBrand;
@@ -1270,7 +1270,7 @@
     if (moreView === 'batches') return BatchLog();
     if (moreView === 'orders') return OrderLog();
     if (moreView === 'deliveries') { if (window.Store && dset().home) Store.measure(dset().home); return DeliveryLog(); }
-    if (moreView === 'summary') return Summary();
+    if (moreView && moreView.startsWith('summary')) return Summary();
     if (moreView === 'settings') return Settings();
     if (moreView && moreView.startsWith('set-')) return SettingsPage();
     const go = (v, icon, label, sub) => `<button class="row tap" data-act="more" data-id="${v}"><span style="font-size:22px">${icon}</span><div class="grow"><b>${label}</b><small>${sub}</small></div><span class="chev">›</span></button>`;
@@ -1470,16 +1470,62 @@
     return `<div class="oqbar"><span aria-hidden="true">🔍</span><input class="itq" type="search" enterkeyhint="search" autocomplete="off" autocapitalize="off" spellcheck="false" placeholder="${esc(t('tool.search'))}" aria-label="${esc(t('tool.search'))}" value="${esc(itQ)}"></div><div id="itmain">${itMain()}</div>`;
   }
 
+  /* ---------- Summary: view only. The year (bars, a tile per month, highlights) and, one tap deeper, a month (calendar, who paid, who owes, batches). ---------- */
+  const SM = window.Summary;
+  let smYear = null, smDay = 0;
+  const smY = () => (smYear == null ? new Date().getFullYear() : smYear);
+  const smKfmt = (n) => (n >= 1e6 ? (Math.round(n / 1e5) / 10) + 'M' : n >= 1000 ? (Math.round(n / 100) / 10) + 'k' : String(Math.round(n)));
+  const smMonthLong = (y, m) => new Date(y, m, 1).toLocaleDateString(I.locale(I.getLang()), { month: 'long' });
+  const smWd = (i, style) => new Date(2023, 0, 1 + i).toLocaleDateString(I.locale(I.getLang()), { weekday: style });   // 2023-01-01 is a Sunday
+  const smEye = () => `<button class="eyeb sm-eye" data-act="view" aria-label="${hideAmounts ? t('tool.show') : t('tool.hide')}"><svg viewBox="0 0 24 24">${ICONS[hideAmounts ? 'eyeoff' : 'eye']}</svg></button>`;
+  const smKpi = (label, val, cls, extra) => `<div class="smk ${cls || ''}"><small>${label}</small><b>${money(val)}</b>${extra || ''}</div>`;
+  const smDelta = (a, b) => { if (!(b > 0)) return ''; const p = Math.round((a - b) / b * 100); return `<em class="${p >= 0 ? 'up' : 'dn'}">${p >= 0 ? '▲' : '▼'} ${Math.abs(p)}% ${t('sm.vsLast')}</em>`; };
   function Summary() {
-    const y = state.settings.year, m = L.monthlySummary(state, y), tot = L.totals(state);
-    const names = Array.from({ length: 12 }, (_, i) => I.monthShort(i));
-    const sum = (k) => m.reduce((a, x) => a + x[k], 0), peak = Math.max(1, ...m.map((x) => Math.max(x.sales, x.expense)));
-    const row = (label, k) => `<tr><td><b>${label}</b></td>${m.map((x) => `<td>${x[k] ? Math.round(x[k]).toLocaleString() : '–'}</td>`).join('')}<td><b>${Math.round(sum(k)).toLocaleString()}</b></td></tr>`;
-    return `<div class="stats"><div class="stat"><span>${t('summary.sales', { y })}</span><b>${money(sum('sales'))}</b></div><div class="stat"><span>${t('summary.profit', { y })}</span><b>${money(sum('profit'))}</b></div>
-      <div class="stat"><span>${t('summary.expenses', { y })}</span><b>${money(sum('expense'))}</b></div><div class="stat"><span>${t('summary.owingNow')}</span><b>${money(tot.owing)}</b></div></div>
-      <h2>${t('summary.byMonth')}</h2><div class="mbars">${m.map((x, i) => `<div><i style="height:${x.sales / peak * 90}px"></i><i style="height:${x.expense / peak * 90}px"></i>${names[i][0]}</div>`).join('')}</div>
-      <p class="muted small">${t('summary.legend')}</p>
-      <div class="table"><table><thead><tr><th></th>${names.map((n) => `<th>${n}</th>`).join('')}<th>${t('summary.total')}</th></tr></thead><tbody>${row(t('summary.rowExpense'), 'expense')}${row(t('summary.rowSales'), 'sales')}${row(t('summary.rowProfit'), 'profit')}</tbody></table></div>`;
+    const mm = /^summary-(\d{4})-(\d{1,2})$/.exec(moreView || '');
+    return mm ? SummaryMonth(+mm[1], +mm[2]) : SummaryYear();
+  }
+  function SummaryYear() {
+    const yrs = SM.years(state), y = Math.min(Math.max(smY(), yrs[yrs.length - 1]), yrs[0]); smYear = y;
+    const D = SM.year(state, y), names = Array.from({ length: 12 }, (_, i) => I.monthShort(i)), peak = Math.max(1, ...D.months.map((x) => Math.max(x.sales, x.expense))), nowM = new Date(), isCur = (i) => y === nowM.getFullYear() && i === nowM.getMonth();
+    const owe = L.customerStats(state).filter((c) => c.owing > 0).sort((a, b) => b.owing - a.owing), oweTotal = owe.reduce((n, c) => n + c.owing, 0);
+    const head = `<div class="smhead"><button data-act="sm-year" data-id="-1" ${y <= yrs[yrs.length - 1] ? 'disabled' : ''} aria-label="${t('sm.prevYear')}">‹</button><b>${y}</b><button data-act="sm-year" data-id="1" ${y >= yrs[0] ? 'disabled' : ''} aria-label="${t('sm.nextYear')}">›</button><span class="grow"></span>${smEye()}</div>`;
+    const kpis = `<div class="smkg">${smKpi(t('sm.sales'), D.tot.sales, 'sales', smDelta(D.tot.sales, D.prev && D.prev.sales))}${smKpi(t('sm.expenses'), D.tot.expense, 'exp', smDelta(D.tot.expense, D.prev && D.prev.expense))}${smKpi(t('sm.profit'), D.tot.profit, D.tot.profit < 0 ? 'neg' : 'pos', smDelta(D.tot.profit, D.prev && D.prev.profit))}${smKpi(t('sm.owingNow'), oweTotal, 'owe', `<em>${tn('sm.customersN', owe.length)}</em>`)}</div>`;
+    const chart = `<h2>${t('sm.byMonth')}</h2><div class="smchart"><div class="smax"><span class="amt">${smKfmt(peak)}</span><span class="amt">${smKfmt(peak / 2)}</span><span>0</span></div><div class="smcols">${D.months.map((x, i) => `<button class="smc${isCur(i) ? ' cur' : ''}${x.sales || x.expense ? '' : ' empty'}" data-act="sm-month" data-id="${y}-${i}" aria-label="${smMonthLong(y, i)}"><span class="smbars"><i class="s" style="height:${x.sales / peak * 100}%"></i><i class="e" style="height:${x.expense / peak * 100}%"></i></span><b>${names[i].slice(0, 1).toUpperCase()}</b></button>`).join('')}</div></div>
+      <div class="smleg"><span><i class="s"></i>${t('sm.sales')}</span><span><i class="e"></i>${t('sm.expenses')}</span><span class="muted">${t('sm.tapMonth')}</span></div>`;
+    const tiles = `<div class="smtiles">${D.months.map((x, i) => `<button class="smt${D.best && D.best.m === i ? ' best' : ''}${isCur(i) ? ' cur' : ''}${x.sales || x.expense ? '' : ' empty'}" data-act="sm-month" data-id="${y}-${i}"><small>${esc(names[i])}${D.best && D.best.m === i ? ' ★' : ''}</small><b>${x.sales || x.expense ? money(x.sales) : '–'}</b><span class="${x.profit < 0 ? 'neg' : 'pos'}">${x.sales || x.expense ? money(x.profit) : ''}</span><em>${x.n ? tn('sm.salesN', x.n) : ''}</em></button>`).join('')}</div>`;
+    const hi = [];
+    if (D.best) hi.push([t('sm.best'), `${esc(smMonthLong(y, D.best.m))} · ${money(D.best.sales)}`]);
+    hi.push([t('sm.avgMonth'), money(D.avgMonth)]);
+    if (D.tot.n) hi.push([t('sm.avgSale'), money(D.avgSale)], [t('sm.nSales'), String(D.tot.n)]);
+    if (D.projection != null && D.tot.sales > 0) hi.push([t('sm.projection'), money(D.projection)]);
+    if (D.tot.tips > 0) hi.push([t('sm.tips'), money(D.tot.tips)]);
+    const wkMax = Math.max(1, ...D.weekdays), wkBest = D.weekdays.indexOf(Math.max(...D.weekdays));
+    if (D.tot.sales > 0) hi.push([t('sm.busiest'), esc(smWd(wkBest, 'long'))]);
+    const highlights = `<h2>${t('sm.highlights')}</h2><div class="list smlist">${hi.map(([k, v]) => `<div class="row"><div class="grow"><small>${k}</small></div><b>${v}</b></div>`).join('')}</div>
+      ${D.tot.sales > 0 ? `<div class="smwk">${D.weekdays.map((v, i) => `<div class="${i === wkBest ? 'best' : ''}"><span class="smwb"><i style="height:${v / wkMax * 100}%"></i></span><b>${esc(smWd(i, 'narrow'))}</b></div>`).join('')}</div><p class="muted small" style="margin:4px 2px 0">${t('sm.weekdayNote')}</p>` : ''}`;
+    const top = D.top.length ? `<h2>${t('sm.topCust')}</h2><div class="list smlist">${D.top.map((c) => `<button class="row tap smcb" data-act="customer" data-id="${esc(c.client)}"><div class="grow"><b>${esc(clabel(c.client))}</b><i class="smbar"><u style="width:${c.paid / D.top[0].paid * 100}%"></u></i></div><b>${money(c.paid)}</b></button>`).join('')}</div>` : '';
+    const owes = owe.length ? `<h2>${t('sm.owingNow')} <button class="hall" data-act="goto-owing">${t('hm.seeAll')}</button></h2><div class="list smlist">${owe.slice(0, 6).map((c) => `<button class="row tap" data-act="customer" data-id="${esc(c.name)}"><div class="grow"><b>${esc(clabel(c.name))}</b><small>${tn('home.itemsOwing', c.itemsOwing)}</small></div><b class="bad">${money(c.owing)}</b></button>`).join('')}</div>` : '';
+    const empty = !D.tot.sales && !D.tot.expense ? `<p class="muted" style="text-align:center;margin:18px 0">${t('sm.emptyYear')}</p>` : '';
+    return `<div class="smwrap">${head}${kpis}${chart}${tiles}${empty}${highlights}${top}${owes}</div>`;
+  }
+  function SummaryMonth(y, m) {
+    const D = SM.month(state, y, m), loc = I.locale(I.getLang()), peakDay = Math.max(1, ...D.cal.map((c) => c.sales)), today = new Date();
+    const head = `<div class="smhead"><button data-act="sm-mnav" data-id="-1" aria-label="${t('sm.prevMonth')}">‹</button><b>${esc(smMonthLong(y, m))} ${y}</b><button data-act="sm-mnav" data-id="1" aria-label="${t('sm.nextMonth')}">›</button><span class="grow"></span>${smEye()}</div>`;
+    const kpis = `<div class="smkg">${smKpi(t('sm.sales'), D.sales, 'sales', `<em>${D.nSales ? tn('sm.salesN', D.nSales) : t('sm.noSales')}</em>`)}${smKpi(t('sm.expenses'), D.expense, 'exp', `<em>${tn('sm.batchesN', D.batches.length)}</em>`)}${smKpi(t('sm.profit'), D.profit, D.profit < 0 ? 'neg' : 'pos')}${smKpi(t('sm.stillOwing'), D.owingTotal, 'owe', `<em>${tn('sm.customersN', D.oweList.length)}</em>`)}</div>`;
+    const cells = []; for (let i = 0; i < D.firstWeekday; i++) cells.push('<span class="smd blank"></span>');
+    D.cal.forEach((c) => { const lv = c.sales > 0 ? Math.min(4, 1 + Math.floor(c.sales / peakDay * 3.999)) : 0, isToday = y === today.getFullYear() && m === today.getMonth() && c.d === today.getDate();
+      cells.push(`<button class="smd lv${lv}${smDay === c.d ? ' sel' : ''}${isToday ? ' today' : ''}" data-act="sm-day" data-id="${c.d}" aria-label="${c.d}"><b>${c.d}</b>${c.n ? `<i>${c.n}</i>` : ''}</button>`); });
+    const calendar = `<h2>${t('sm.calendar')}</h2><div class="smcal"><div class="smwd">${Array.from({ length: 7 }, (_, i) => `<span>${esc(smWd(i, 'narrow'))}</span>`).join('')}</div><div class="smgrid">${cells.join('')}</div></div>
+      <div class="smleg"><span class="muted">${D.activeDays ? tn('sm.daysSold', D.activeDays) : ''}${D.bestDay ? ' · ' + t('sm.bestDay', { d: D.bestDay.d }) : ''}</span></div>`;
+    let day = '';
+    if (smDay) { const dv = D.invoices.filter((v) => v.day === smDay), dd = D.cal[smDay - 1] || { sales: 0 };
+      day = `<h2>${esc(new Date(y, m, smDay).toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' }))} <span class="smday">${money(dd.sales)}</span></h2><div class="list smlist">${dv.map((v) => `<button class="row tap" data-act="view-inv" data-id="${v.no}"><div class="grow"><b>${esc(clabel(v.client))}</b><small>${v.no}</small></div><div class="end"><b>${money(v.paid)}</b>${v.balance > 0.004 && v.latest ? `<span class="pill Owing">${t('sm.owesN', { amt: moneyText(v.balance) })}</span>` : ''}</div></button>`).join('') || `<div class="row"><div class="grow muted">${t('sm.nothingDay')}</div></div>`}</div>`; }
+    const paid = D.paidList.length ? `<h2>${t('sm.whoPaid')} <span class="smday">${D.paidList.length}</span></h2><div class="list smlist">${D.paidList.map((c) => `<button class="row tap" data-act="customer" data-id="${esc(c.client)}"><div class="grow"><b>${esc(clabel(c.client))}</b><small>${tn('sm.paymentsN', c.n)}</small></div><b>${money(c.paid)}</b></button>`).join('')}</div>` : '';
+    const owes = D.oweList.length ? `<h2>${t('sm.whoOwes')} <span class="smday">${D.oweList.length}</span></h2><div class="list smlist">${D.oweList.map((c) => `<button class="row tap" data-act="customer" data-id="${esc(c.client)}"><div class="grow"><b>${esc(clabel(c.client))}</b><small>${tn('sm.invoicesN', c.n)}</small></div><b class="bad">${money(c.owing)}</b></button>`).join('')}</div>` : '';
+    const bts = D.batches.length ? `<h2>${t('sm.batchesBought')}</h2><div class="list smlist">${D.batches.map((b) => `<button class="row tap" data-act="batch" data-id="${b.id}"><div class="grow"><b>${esc(blShort(b.id))} · ${esc(b.store)}</b><small>${tn('sm.itemsN', b.count)}${b.clearing > 0 ? ' · ' + t('sm.clearingN', { amt: moneyText(b.clearing) }) : ''}</small></div><b>${money(b.total)}</b></button>`).join('')}</div>` : '';
+    const all = D.invoices.map((x) => state.invoices.find((v) => v.no === x.no)).filter(Boolean);
+    const invs = all.length ? `<h2>${t('sm.allInvoices')} <span class="smday">${all.length}</span></h2><div class="list">${all.map(invoiceRow).join('')}</div>` : `<p class="muted" style="text-align:center;margin:18px 0">${t('sm.emptyMonth')}</p>`;
+    return `<div class="smwrap">${head}${kpis}${calendar}${day}${paid}${owes}${bts}${invs}</div>`;
   }
 
   /* Settings is a list; each row opens its own page (moreView 'set-...'). The gear opens it, and closes it again. */
@@ -4791,7 +4837,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   function openInvoiceFromSheet(no) { closeSheet(); sheetInvoice(no); }
 
   if (window.SelectPicker) SelectPicker.install(() => ({ cancel: t('btn.cancel'), done: t('btn.done'), search: t('pick.search'), choose: t('pick.choose'), none: t('people.noMatch') }));   // our own picker instead of the browser's list
-  const KEEP_SCROLL = new Set(['ds-charge', 'ds-count', 'ds-mode', 'offer-toggle', 'fr-on', 'cp-on', 'cp-kind', 'fr-tier-del', 'area-mode', 'place-on', 'risk-flag', 'band-on', 'band-del', 'spot-on', 'spot-del', 'pl-filter', 'pl-search-close', 'hot-remove', 'zone-starter', 'zone-starter-hot']);
+  const KEEP_SCROLL = new Set(['sm-day', 'sm-year', 'sm-mnav', 'view', 'ds-charge', 'ds-count', 'ds-mode', 'offer-toggle', 'fr-on', 'cp-on', 'cp-kind', 'fr-tier-del', 'area-mode', 'place-on', 'risk-flag', 'band-on', 'band-del', 'spot-on', 'spot-del', 'pl-filter', 'pl-search-close', 'hot-remove', 'zone-starter', 'zone-starter-hot']);
   document.addEventListener('click', (e) => {
     if (e.target.id === 'scrim') return closeSheet();
     if (e.target.id === 'tmscrim') return closeTopMenu();
@@ -4826,6 +4872,10 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'xfer-pick': closeSheet(); return xferSteps(id);
       case 'xfer-go': { const to = xferTo; closeSheet(); return Cloud.transfer(to).then(() => { dropPages('team|'); toast(t('xfer.done')); }).catch(() => toast(t('store.pubError'))); }
       case 'close': return pageBack();
+      case 'sm-year': smYear = smY() + Number(id); smDay = 0; return render();
+      case 'sm-month': smDay = 0; go({ tab: 'more', moreView: 'summary-' + id }); window.scrollTo(0, 0); return render();
+      case 'sm-day': smDay = smDay === Number(id) ? 0 : Number(id); return render();
+      case 'sm-mnav': { const mm = /^summary-(\d{4})-(\d{1,2})$/.exec(moreView || ''); if (!mm) return; const d = new Date(+mm[1], +mm[2] + Number(id), 1); smDay = 0; smYear = d.getFullYear(); moreView = 'summary-' + d.getFullYear() + '-' + d.getMonth(); places[places.length - 1].moreView = moreView; return render(); }
       case 'batch-log': closeTopMenu(); go({ tab: 'more', moreView: 'batches' }); window.scrollTo(0, 0); return render();
       case 'needs-more': homeNeedsAll = !homeNeedsAll; return render();
       case 'rec-pay': {   // Record payment: the invoices that still have a balance, newest first; pick one and the payment page opens
@@ -5483,7 +5533,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'inv-reset': { const m = Object.assign({}, state.settings.invoiceStyle); delete m[invDesignId()]; state.settings.invoiceStyle = m; save(); if (invFsOn) { invFsControls(); invFsPreview(); } return render(); }
       case 'inv-design-edit': return ihFromDesign(id);
       case 'inv-design': state.settings.invoiceDesign = id; if (id === 'custom' && !state.settings.invHeader) ihSave(ihCfg()); save(); toast(t('invd.saved')); return render();
-      case 'more': if (id === 'orders') { ordLimit = 20; ordQ = ''; } go({ tab: 'more', moreView: id }); window.scrollTo(0, 0); return render();
+      case 'more': if (id === 'summary') { smYear = null; smDay = 0; } if (id === 'orders') { ordLimit = 20; ordQ = ''; } go({ tab: 'more', moreView: id }); window.scrollTo(0, 0); return render();
       case 'import-xlsx': return pickFile('.xlsx,.xls', importXlsx);
       case 'import-json': return pickFile('.json,application/json', importJson);
       case 'export-json': return confirmDownload('buy-sell-backup.json', () => download('buy-sell-backup.json', JSON.stringify(state, null, 2)));
