@@ -445,7 +445,7 @@
     bar.classList.toggle('fabbar', tab === 'home' || (tab === 'stock' && !selected.size)); bar.hidden = !html; bar.innerHTML = html;
   }
 
-  const preview = () => L.previewInvoice(state, { itemIds: [...selected], client: invForm.client, paying: invForm.paying, allowZero: !!pendingOrder });
+  const preview = () => L.previewInvoice(state, { itemIds: [...selected], client: invForm.client, paying: invForm.paying, allowZero: !!pendingOrder, dueStart: pendingOrder ? '' : undefined });
 
   /* ---------- Home ---------- */
 
@@ -588,6 +588,15 @@
   }
   async function planAdmWrite(id, patch) { try { await Cloud.adminSet(id, patch); toast(t('pl.saved')); planAdm.rows = null; await planAdmLoad(); closeSheet(); } catch (e) { toast('⚠️ ' + ((e && e.message) || t('pl.err'))); } }
 
+  // Payments that are due: overdue, due today and due in the next 7 days (an order that is not delivered yet has no running due date).
+  const dueCounts = () => { const it = L.dueItems(state); return { overdue: it.filter((x) => x.days < 0).length, today: it.filter((x) => x.days === 0).length, soon: it.filter((x) => x.days > 0 && x.days <= 7).length, items: it }; };
+  function sheetDue() {
+    const D = dueCounts(), loc = I.locale(I.getLang()), day = (d) => new Date(d).toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short' });
+    const grp = (title, list, cls) => (list.length ? `<h4 class="duehd ${cls}">${title} <span>${list.length}</span></h4>${list.map((x) => { const pr = PE.byKey(state, x.client), contact = [pr && pr.phone ? pr.phone : t('rp.noNum'), L.place(state, x.client)].filter(Boolean).join(' · ');
+      return `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${x.no}"><div class="grow"><b>${esc(pr ? pr.name : x.client)}</b><small class="rpc">${esc(contact)}</small><small>${x.no} · ${x.days < 0 ? tn('due.overdueDays', -x.days) : x.days === 0 ? t('due.today') : t('due.on', { d: day(x.due) })}</small></div><div class="end"><b>${money(x.balance)}</b></div></button>`; }).join('')}` : '');
+    const body = grp(t('due.overdue'), D.items.filter((x) => x.days < 0).sort((a, b) => a.days - b.days), 'over') + grp(t('due.todayH'), D.items.filter((x) => x.days === 0), 'tod') + grp(t('due.soon'), D.items.filter((x) => x.days > 0 && x.days <= 7), 'soon');
+    openSmall(`<h3>${t('due.title')}</h3><p class="muted small" style="margin:0 0 8px">${t('due.sub')}</p><div class="rplist">${body || `<p class="muted" style="text-align:center;margin:18px 0">${t('due.none')}</p>`}</div>`, 'sheet');
+  }
   function Home0() {
     const tot = L.totals(state, flt);
     const inTransit = state.batches.filter((b) => bStatus(b) === 'In Transit').sort((a, b) => b.num - a.num);
@@ -604,6 +613,7 @@
     const wayTxt = (b) => (wayDays(b) < 1 ? t('hm.wayToday', { b: blShort(b.id) }) : t(inTransit.length === 1 ? 'hm.wayOne' : 'hm.wayMany', { b: blShort(b.id), n: wayDays(b) }));
     if (window.Store && Store.needsPublish && Store.needsPublish()) rows.push(need('📤', 'var(--warnbg)', t('hm.pubTitle'), t('hm.pubSub'), '!', 'goto-publish', true));
     if (owingAll.length) rows.push(need('💰', 'var(--warnbg)', t('hm.oweTitle'), t('hm.oweSub', { amt: money(oweTotal) }), owingAll.length, 'goto-owing', true));
+    { const dc = dueCounts(); if (dc.overdue + dc.today) rows.push(need('⏰', 'var(--warnbg)', t('hm.dueTitle'), [dc.overdue ? tn('hm.dueOver', dc.overdue) : '', dc.today ? tn('hm.dueToday', dc.today) : ''].filter(Boolean).join(' · '), dc.overdue + dc.today, 'due-open', dc.overdue > 0)); }
     if (orders) rows.push(need('🛒', 'var(--warnbg)', t('hm.ordTitle'), t('hm.ordSub'), orders, 'orders-open', true));
     { const mc = MO.counts(state), mn = (mc.ordered || 0) + (mc.arrived || 0) + (mc.handed || 0); if (mn) rows.push(need('🧾', 'var(--infobg)', t('st.myOrders'), t('hm.moSub', { a: mc.ordered || 0, b: mc.arrived || 0, c: mc.handed || 0 }), mn, 'mo-go', false)); }
     { const pi = planInfo(); if (pi.today.length || pi.over.length) rows.push(need('🚚', 'var(--infobg)', t('hm.dlvTitle'), (pi.over.length ? t('hm.dlvOver', { n: pi.over.length }) + ' · ' : '') + pi.names(pi.today.length ? pi.today : pi.over), pi.today.length + pi.over.length, 'goto-dlv', !!pi.over.length)); }
@@ -619,7 +629,7 @@
     return `${filtered() ? `<button class="row tap" data-act="filter" style="margin-bottom:10px;background:var(--tint)"><div class="grow"><b>${t('home.filtered', { label: esc(filterLabel()) })}</b><small>${t('home.filteredHint')}</small></div><span class="chev">›</span></button>` : ''}
     <div class="hgreet one"><span>${greet}${first ? ',' : ''}</span>${first ? ` <b>${esc(first)}</b>` : ''}</div>
     <div class="hhero"><small>${t('hm.salesMonth')}</small><b>${money(moSales)}</b><button class="eyeb" data-act="view" aria-label="${hideAmounts ? t('tool.show') : t('tool.hide')}"><svg viewBox="0 0 24 24">${ICONS[hideAmounts ? 'eyeoff' : 'eye']}</svg></button>
-      <div class="hsub"><span>${t('hm.owingLine')} ${money(tot.owing)}</span>${can('costs') ? `<button class="hsum" data-act="more" data-id="summary">${t('hm.summary')} ›</button>` : ''}</div></div>
+      <div class="hsub"><span>${t('hm.owingLine')} ${money(tot.owing)}</span>${can('costs') ? `<span class="hbtns"><button class="hsum" data-act="home-cal">${t('hm.calendar')}</button><button class="hsum" data-act="more" data-id="summary">${t('hm.summary')} ›</button></span>` : ''}</div></div>
     <div class="hact four"><button data-act="pay-clearing"><i>💳</i>${t('home.payClearing')}</button><button data-act="receive" ${inTransit.length ? '' : 'disabled'}><i>📦</i>${t('home.receive')}</button><button data-act="goto-stock"><i>🏷️</i>${t('home.priceItems')}</button><button data-act="rec-pay" ${owingAll.length ? '' : 'disabled'}><i>💵</i>${t('home.recPay')}</button></div>
     ${needs}
     ${owing.length ? `<div class="hsec"><h3>${t('home.whoOwes')}</h3><button class="hall" data-act="goto-owing">${t('hm.seeAll')}</button></div><div class="list">${owing.map((c) => `<button class="row tap" data-act="customer" data-id="${esc(c.name)}"><div class="grow"><b>${esc(clabel(c.name))}</b><small>${tn('home.itemsOwing', c.itemsOwing)}</small></div><div class="end"><b class="bad">${money(c.owing)}</b></div><span class="chev">›</span></button>`).join('')}</div>` : ''}
@@ -658,7 +668,7 @@
     const hero = nop ? `<div class="blhero i3 sthero"><div><small>${t('it.items')}</small><b>${items.length}</b></div><div class="mid"><small>${t('stock.needPrice')}</small><b>${items.length}</b></div><div class="rt"><small>${t('hm.batchesN')}</small><b>${new Set(items.map((i) => i.batchId)).size}</b></div><div class="sub">${t('stock.noPriceSub')}</div></div>`
       : `<div class="blhero i3 sthero" role="button" tabindex="0" data-act="batch-info" data-id="${b.id}"><div><small>${t('stock.invested2')}</small><b>${money(st.investment)}</b></div><div class="mid costonly"><small>${t('stock.profitAll')}</small><b>${money(st.profit)}</b></div><div class="rt"><small>${t('it.items')}</small><b>${all.length}</b></div><div class="sub">${stLabel(bStatus(b))} · ${t('stock.clearingLine', { amount: money(b.clearingPaid), pct: (st.clearingPct * 100).toFixed(0), left: st.left })}</div></div>`;
     const pw = nop ? { n: items.filter((i) => i.photo).length, total: items.length } : { n: ps.withPhoto, total: ps.total };   // the photo row always stays, so the page never jumps when a filter is tapped
-    const photo = `<div class="phrow"><div class="grow"><b>${t('photo.progress', { n: pw.n, total: pw.total })}</b>${!nop && ps.needCheck ? `<small class="bad">${tn('photo.needCheck', ps.needCheck)}</small>` : ''}</div>${!nop && ps.needCheck ? `<button class="chip on" data-act="photo-check-all" data-id="${b.id}">${t('photo.checkAll')}</button>` : ''}<button class="chip" data-act="photo-add" data-id="${b.id}"${nop ? ' disabled' : ''}>📷 ${t('photo.add')}</button><button class="chip" data-act="qe-open" data-id="${b.id}"${nop ? ' disabled' : ''}>✏️ ${t('qe.short')}</button></div>`;
+    const photo = `<div class="hwrow"><div class="grow"><b>${t('photo.progress', { n: pw.n, total: pw.total })}</b>${!nop && ps.needCheck ? `<small class="bad">${tn('photo.needCheck', ps.needCheck)}</small>` : ''}</div>${!nop && ps.needCheck ? `<button class="chip on" data-act="photo-check-all" data-id="${b.id}">${t('photo.checkAll')}</button>` : ''}<button class="chip" data-act="photo-add" data-id="${b.id}"${nop ? ' disabled' : ''}>📷 ${t('photo.add')}</button><button class="chip" data-act="qe-open" data-id="${b.id}"${nop ? ' disabled' : ''}>✏️ ${t('qe.short')}</button></div>`;
     const notin = nop ? '' : (() => { const sc = storeCfg(); return sc.id && !sc.batches.includes(b.id) && all.some((i) => i.status === 'Available' && String(i.desc || '').trim()) ? `<div class="row notin" style="margin-bottom:10px;flex-wrap:wrap"><div class="grow"><b>${t('store.notIn')}</b><small>${t('store.notInSub')}</small></div><button class="chip on" data-act="store-addbatch" data-id="${b.id}">${t('store.addBatch')}</button></div>` : ''; })();
     return `${bar}${hero}${photo}${notin}<div class="itchips stchips">${chips}</div>${selBar(items)}<div class="list stlist">${stockRows(nop ? null : b, items) || `<div class="empty">${t('stock.noMatch')}</div>`}</div>`;
   }
@@ -1514,18 +1524,31 @@
     const kpis = `<div class="smkg">${smKpi(t('sm.sales'), D.sales, 'sales', `<em>${D.nSales ? tn('sm.salesN', D.nSales) : t('sm.noSales')}</em>`)}${smKpi(t('sm.expenses'), D.expense, 'exp', `<em>${tn('sm.batchesN', D.batches.length)}</em>`)}${smKpi(t('sm.profit'), D.profit, D.profit < 0 ? 'neg' : 'pos')}${smKpi(t('sm.stillOwing'), D.owingTotal, 'owe', `<em>${tn('sm.customersN', D.oweList.length)}</em>`)}</div>`;
     const cells = []; for (let i = 0; i < D.firstWeekday; i++) cells.push('<span class="smd blank"></span>');
     D.cal.forEach((c) => { const lv = c.sales > 0 ? Math.min(4, 1 + Math.floor(c.sales / peakDay * 3.999)) : 0, isToday = y === today.getFullYear() && m === today.getMonth() && c.d === today.getDate();
-      cells.push(`<button class="smd lv${lv}${smDay === c.d ? ' sel' : ''}${isToday ? ' today' : ''}" data-act="sm-day" data-id="${c.d}" aria-label="${c.d}"><b>${c.d}</b>${c.n ? `<i>${c.n}</i>` : ''}</button>`); });
+      cells.push(`<button class="smd lv${lv}${c.over ? ' over' : c.due ? ' due' : ''}${smDay === c.d ? ' sel' : ''}${isToday ? ' today' : ''}" data-act="sm-day" data-id="${c.d}" aria-label="${c.d}"><b>${c.d}</b>${c.n ? `<i>${c.n}</i>` : ''}</button>`); });
     const calendar = `<h2>${t('sm.calendar')}</h2><div class="smcal"><div class="smwd">${Array.from({ length: 7 }, (_, i) => `<span>${esc(smWd(i, 'narrow'))}</span>`).join('')}</div><div class="smgrid">${cells.join('')}</div></div>
-      <div class="smleg"><span class="muted">${D.activeDays ? tn('sm.daysSold', D.activeDays) : ''}${D.bestDay ? ' · ' + t('sm.bestDay', { d: D.bestDay.d }) : ''}</span></div>`;
-    let day = '';
-    if (smDay) { const dv = D.invoices.filter((v) => v.day === smDay), dd = D.cal[smDay - 1] || { sales: 0 };
-      day = `<h2>${esc(new Date(y, m, smDay).toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' }))} <span class="smday">${money(dd.sales)}</span></h2><div class="list smlist">${dv.map((v) => `<button class="row tap" data-act="view-inv" data-id="${v.no}"><div class="grow"><b>${esc(clabel(v.client))}</b><small>${v.no}</small></div><div class="end"><b>${money(v.paid)}</b>${v.balance > 0.004 && v.latest ? `<span class="pill Owing">${t('sm.owesN', { amt: moneyText(v.balance) })}</span>` : ''}</div></button>`).join('') || `<div class="row"><div class="grow muted">${t('sm.nothingDay')}</div></div>`}</div>`; }
+      <div class="smleg"><span class="muted">${D.activeDays ? tn('sm.daysSold', D.activeDays) : ''}${D.bestDay ? ' · ' + t('sm.bestDay', { d: D.bestDay.d }) : ''}</span><span><i class="du"></i>${t('sm.legDue')}</span><span><i class="ov"></i>${t('sm.legOver')}</span></div>`;
+    if (smDay) return `<div class="smwrap">${head}${calendar}${SummaryDay(y, m, smDay)}</div>`;   // a day is chosen: only that day, nothing from the rest of the month
+    const day = '';
     const paid = D.paidList.length ? `<h2>${t('sm.whoPaid')} <span class="smday">${D.paidList.length}</span></h2><div class="list smlist">${D.paidList.map((c) => `<button class="row tap" data-act="customer" data-id="${esc(c.client)}"><div class="grow"><b>${esc(clabel(c.client))}</b><small>${tn('sm.paymentsN', c.n)}</small></div><b>${money(c.paid)}</b></button>`).join('')}</div>` : '';
     const owes = D.oweList.length ? `<h2>${t('sm.whoOwes')} <span class="smday">${D.oweList.length}</span></h2><div class="list smlist">${D.oweList.map((c) => `<button class="row tap" data-act="customer" data-id="${esc(c.client)}"><div class="grow"><b>${esc(clabel(c.client))}</b><small>${tn('sm.invoicesN', c.n)}</small></div><b class="bad">${money(c.owing)}</b></button>`).join('')}</div>` : '';
     const bts = D.batches.length ? `<h2>${t('sm.batchesBought')}</h2><div class="list smlist">${D.batches.map((b) => `<button class="row tap" data-act="batch" data-id="${b.id}"><div class="grow"><b>${esc(blShort(b.id))} · ${esc(b.store)}</b><small>${tn('sm.itemsN', b.count)}${b.clearing > 0 ? ' · ' + t('sm.clearingN', { amt: moneyText(b.clearing) }) : ''}</small></div><b>${money(b.total)}</b></button>`).join('')}</div>` : '';
     const all = D.invoices.map((x) => state.invoices.find((v) => v.no === x.no)).filter(Boolean);
     const invs = all.length ? `<h2>${t('sm.allInvoices')} <span class="smday">${all.length}</span></h2><div class="list">${all.map(invoiceRow).join('')}</div>` : `<p class="muted" style="text-align:center;margin:18px 0">${t('sm.emptyMonth')}</p>`;
     return `<div class="smwrap">${head}${kpis}${calendar}${day}${paid}${owes}${bts}${invs}</div>`;
+  }
+  // One day: what was paid and sold on credit, what was due, the sales, the payments received and the batches. Only that day.
+  function SummaryDay(y, m, d) {
+    const E = SM.day(state, y, m, d), loc = I.locale(I.getLang()), pill = (cls, txt) => `<span class="pill ${cls}">${txt}</span>`;
+    const person = (c) => { const pr = PE.byKey(state, c), who = esc(pr ? pr.name : clabel(c)); return who; };
+    const sec = (title, n, body) => (n ? `<h2 class="smsub">${title} <span class="smday">${n}</span></h2><div class="list smlist">${body}</div>` : '');
+    const dueRows = E.due.map((x) => `<button class="row tap" data-act="rec-go" data-id="${x.no}"><div class="grow"><b>${person(x.client)}</b><small>${x.no}</small></div><div class="end"><b>${money(x.balance)}</b>${pill(x.overdue ? 'Owing late' : 'Owing', x.overdue ? t('due.overdue') : x.today ? t('due.today') : t('sm.dueLbl'))}</div></button>`).join('');
+    const saleRows = E.sales.map((x) => `<button class="row tap" data-act="view-inv" data-id="${x.no}"><div class="grow"><b>${person(x.client)}</b><small>${x.no} · ${esc(x.desc || '')}</small></div><div class="end"><b>${money(x.total)}</b>${x.balance > 0.004 ? pill('Owing', t('sm.owesN', { amt: moneyText(x.balance) })) : pill('Paid', t('status.Paid'))}</div></button>`).join('');
+    const payRows = E.payments.map((x) => `<button class="row tap" data-act="view-inv" data-id="${x.no}"><div class="grow"><b>${person(x.client)}</b><small>${t('sm.paidOn', { no: x.ref })}</small></div><div class="end"><b>${money(x.paid)}</b>${x.balance <= 0.004 ? pill('Paid', t('sm.paidOff')) : pill('Owing', t('sm.owesN', { amt: moneyText(x.balance) }))}</div></button>`).join('');
+    const batRows = E.ordered.map((b) => `<button class="row tap" data-act="batch" data-id="${b.id}"><div class="grow"><b>${esc(blShort(b.id))} · ${esc(b.store)}</b><small>${t('sm.orderedDay')} · ${tn('sm.itemsN', b.count)}</small></div><b>${money(b.total)}</b></button>`).join('') + E.received.map((b) => `<button class="row tap" data-act="batch" data-id="${b.id}"><div class="grow"><b>${esc(blShort(b.id))} · ${esc(b.store)}</b><small>${t('sm.receivedDay')} · ${tn('sm.itemsN', b.count)}</small></div></button>`).join('');
+    return `<h2>${esc(new Date(y, m, d).toLocaleDateString(loc, { weekday: 'long', day: 'numeric', month: 'long' }))}</h2>
+      <div class="smkg">${smKpi(t('sm.paidDay'), E.paidTotal, 'pos')}${smKpi(t('sm.creditDay'), E.creditTotal, 'owe')}</div>
+      ${E.empty ? `<p class="muted" style="text-align:center;margin:18px 0">${t('sm.nothingDay')}</p>` : ''}${sec(t('sm.dueSec'), E.due.length, dueRows)}${sec(t('sm.salesMade'), E.sales.length, saleRows)}${sec(t('sm.paymentsIn'), E.payments.length, payRows)}${sec(t('sm.batchesDay'), E.ordered.length + E.received.length, batRows)}
+      <button class="btn smwhole" data-act="sm-day" data-id="${d}">${t('sm.wholeMonth')}</button>`;
   }
 
   /* Settings is a list; each row opens its own page (moreView 'set-...'). The gear opens it, and closes it again. */
@@ -2568,7 +2591,7 @@
       <input type="hidden" name="businessName" value="${esc(bizName())}"><input type="hidden" name="bizCity" value="${esc(s.bizCity || '')}"><input type="hidden" name="bizPhone" value="${esc(s.bizPhone || '')}"><input type="hidden" name="bizEmail" value="${esc(s.bizEmail || '')}">
       <div class="grid2"><div><label>${t('set.year')}</label><input name="year" type="text" inputmode="numeric" value="${s.year}"></div>
       <div><label>${t('set.margin')}</label><input name="defaultMargin" type="text" inputmode="decimal" value="${s.defaultMargin}"></div></div>
-      <label>${t('set.dueDays')}</label><input name="dueDays" type="text" inputmode="numeric" value="${L.dueDays(state)}"><p class="muted small" style="margin:4px 0 0">${t('set.dueDaysNote')}</p>
+      <label>${t('set.dueDays')}</label><div class="chiprow">${[7, 14, 30].map((n) => `<button type="button" class="chip ${L.dueDays(state) === n ? 'on' : ''}" data-act="dd-chip" data-id="${n}">${t('set.dueN', { n })}</button>`).join('')}<button type="button" class="chip ${[7, 14, 30].includes(L.dueDays(state)) ? '' : 'on'}" data-act="dd-chip" data-id="custom">${t('set.dueCustom')}</button></div><input name="dueDays" type="text" inputmode="numeric" value="${L.dueDays(state)}" aria-label="${t('set.dueDays')}"><p class="muted small" style="margin:4px 0 0">${t('set.dueDaysNote')}</p>
       <label>${t('set.markup')}</label><input name="markup" type="text" inputmode="decimal" step="0.001" value="${s.markup}">
       ${['USD', 'EUR', 'GBP'].map((c) => `<label>${t('set.rate', { c })}</label><input name="${c}" type="text" inputmode="decimal" step="0.0001" value="${s.rates[c]}">`).join('')}
       <p class="muted small">${t('set.rateNote')}</p>
@@ -3596,6 +3619,17 @@
       ${cur ? `<button type="button" class="btn" data-act="ce-pick" data-id="" style="margin-top:8px;width:100%">${t('cust.placeClear')}</button>` : ''}`, 'small');
   }
 
+  // How a customer pays: a summary (on time, late, days late) and each purchase with its due date and payments. Only for the owner; nothing here is on the invoices.
+  function payHistoryHTML(name) {
+    const H = L.payHistory(state, name, state.settings.lateSince), S = H.summary; if (!H.purchases.length) return '';
+    const loc = I.locale(I.getLang()), day = (d) => new Date(d).toLocaleDateString(loc, { day: 'numeric', month: 'short' });
+    const row = (p) => `<div class="hwrow"><div class="hwh"><b>${esc(p.desc || p.no)}</b><small>${p.no} · ${day(p.date)}${p.due ? ' · ' + t('ph.due', { d: day(p.due) }) : ''}</small></div>${p.payments.map((x) => `<div class="hwp"><span>${day(x.date)}</span><span>${money(x.amount)}</span><em class="${x.daysLate > 0 ? 'late' : x.daysLate === 0 ? 'ok' : ''}">${x.daysLate == null ? '' : x.daysLate > 0 ? tn('ph.daysLate', x.daysLate) : t('ph.onTimeW')}</em></div>`).join('')}${p.balance > 0.004 ? `<div class="hwp open"><span>${t('ph.owing')}</span><span>${money(p.balance)}</span><em class="${p.overdue ? 'late' : ''}">${p.overdue ? tn('ph.overdueDays', p.overdue) : p.due ? '' : t('ph.notDue')}</em></div>` : ''}</div>`;
+    const top = H.purchases.slice(0, 4), rest = H.purchases.slice(4);
+    return `<h2>${t('ph.howTitle')}${S.label ? `<span class="hwl ${S.label}">${t('ph.l.' + S.label)}</span>` : ''}</h2><div class="hwbox">
+      ${S.judged ? `<div class="hwg"><div><b>${S.onTime}</b><small>${t('ph.onTime')}</small></div><div><b class="${S.late ? 'bad' : ''}">${S.late}</b><small>${t('ph.late')}</small></div><div><b>${S.lateDays}</b><small>${t('ph.lateDays')}</small></div><div><b>${S.maxLate}</b><small>${t('ph.longest')}</small></div></div>${S.late ? `<p class="muted small" style="margin:6px 2px 0">${t('ph.avg', { n: S.avgLate })}</p>` : ''}` : `<p class="muted small" style="margin:2px">${t('ph.noJudged')}</p>`}
+      ${S.overdueNow ? `<p class="bad small" style="margin:8px 2px 0"><b>${tn('ph.overdueNow', S.overdueNow)}</b></p>` : ''}</div>
+      <div class="hwlist">${top.map(row).join('')}${rest.length ? `<details class="hwmore"><summary>${tn('ph.showAll', rest.length)}</summary>${rest.map(row).join('')}</details>` : ''}</div><p class="muted small" style="margin:6px 2px 0">${t('ph.note')}</p>`;
+  }
   // A customer's page: who they are to the business (not an account). Summary, then every invoice with its items; tap an invoice to see it, tap a picture to see the item.
   function sheetCustomer(name) {
     const c = L.customerStats(state).find((x) => x.name === name); if (!c) return;
@@ -3620,6 +3654,7 @@
       <div class="cp-tiles"><div class="tile ${owing ? 'bad' : ''}"><small>${t('cust.owingLabel')}</small><b>${moneyBare(c.owing)}</b></div><div class="tile"><small>${t('cust.totalSales')}</small><b>${moneyBare(c.sales)}</b></div>
         <div class="tile"><small>${t('cust.itemsBought')}</small><b>${c.bought}</b>${c.itemsOwing ? `<small class="bad">${t('cust.itemsOwing', { n: c.itemsOwing })}</small>` : ''}</div><div class="tile costonly"><small>${t('cust.profit')}</small><b>${moneyBare(c.profit)}</b></div></div>
       ${peopleOn ? peopleBox({ p: PE.byKey(state, name) }) : ''}
+      ${payHistoryHTML(name)}
       <h2>${t('cust.invoices')} <span class="muted" style="float:right;text-transform:none;letter-spacing:0">${invs.length}</span></h2>${invs.map(card).join('') || `<div class="muted">${t('cust.none')}</div>`}
       <p class="muted small" style="margin:10px 2px 0">${invs.length ? t('cust.tapHint') : ''}</p></div>`, null, true);
     const nmEl = document.querySelector('#sheet .cp-hero .nm');   // a long name gets smaller type first, then a second line, so nothing is cut off
@@ -4044,6 +4079,7 @@
     const out = [], now = Date.now(), c = storeCfg();
     const add = (n) => out.push(n);
     if (!isAdmin && Plan.needsNote(planSt)) add({ key: 'plan:' + planSt.state + ':' + (planSt.daysLeft != null ? planSt.daysLeft : planSt.graceLeft || ''), grp: 'attn', ic: '⏳', always: true, title: rentLabel(planSt), sub: t(planSt.state === 'readonly' || planSt.state === 'locked' ? 'pl.cardBad' : 'pl.cardSoon'), go: ['pl-info', ''] });   // renewal reminder: the last 7 days, and after the date has passed
+    { const dc = dueCounts(); if (dc.overdue + dc.today) add({ key: 'due:' + SCore.dayKey(new Date()) + ':' + dc.overdue + ':' + dc.today, grp: 'attn', ic: '⏰', always: true, title: [dc.overdue ? tn('notif.dueOver', dc.overdue) : '', dc.today ? tn('notif.dueToday', dc.today) : ''].filter(Boolean).join(' · '), sub: t('notif.dueSub'), go: ['due-open', ''] }); }
     if (can('team')) joinReqs.forEach((r) => add({ key: 'join:' + r.uid, grp: 'attn', ic: '👥', always: true, title: t('notif.join', { name: esc(r.name || r.email || '') }), sub: t('notif.joinSub'), go: ['req-open', r.uid] }));
     if (window.Store) {
       Store.orders().filter((o) => o.status === 'confirmed').forEach((o) => { const lat = latestInvOf(o), cf = tsAt(o.confirmedAt); if (lat && o.invSentNo !== lat.no && cf && cf.getTime() > INV_FROM && Date.now() - cf.getTime() > 5 * 60000) add({ key: 'send:' + o.id + ':' + lat.no, grp: 'attn', ic: '📤', always: true, title: t('notif.sendInv', { name: esc(o.name) }), sub: t('notif.sendInvSub', { code: esc(o.code || SCore.orderCode(o.id)), no: lat.no }), go: ['order-open', o.id] }); });
@@ -4127,7 +4163,7 @@
   // Delivered / Collected: asks first (a tap by mistake must not move the order on) and says where the order will go
   function finishHanded(id, got) {
     const po = Store.orders().find((x) => x.id === id); if (!po) return;
-    { const pp = L.orderPay(state, orderInvoice(po)), lv = pp && state.invoices.find((v) => v.no === pp.inv); if (lv && !lv.updatedBy && pp.owing > 0) { const dd = new Date(); dd.setDate(dd.getDate() + L.dueDays(state)); lv.due = dd.toISOString(); save(); } }
+    { const pp = L.orderPay(state, orderInvoice(po)), lv = pp && state.invoices.find((v) => v.no === pp.inv); if (lv && !lv.updatedBy && pp.owing > 0 && !lv.dueStart) { const dd = new Date(); lv.dueStart = dd.toISOString(); dd.setDate(dd.getDate() + L.dueDays(state)); lv.due = dd.toISOString(); save(); } }   // set once, on the first delivery; later payments keep it
     const dl = po.option === 'delivery', ow = Math.max(0, ((L.orderPay(state, orderInvoice(po)) || {}).owing || 0) - (got || 0)), how = dl ? t('ord.delivered') : t('ord.collected');
     Store.setStatus(id, 'done', tripsOf(po).length ? { trips: tripsOf(po).concat({ at: Date.now(), ids: toHand(po).map((i) => i.id) }) } : undefined).then(() => { ordDirty = true; toast(ow > 0 ? t('ord.toastHanded', { how, amount: plain(money(ow)) }) : t('ord.toastDone', { how })); const here = pageStack.length && pageStack[pageStack.length - 1].key === 'order|' + id; if (here) setTimeout(() => { sheetOrder(id, true); if (ow <= 0 && pageStack.length > 1) pageStack = pageStack.slice(-1); }, 450); else setTimeout(() => sheetOrder(id), 450); }).catch(() => toast(t('store.pubError')));
   }
@@ -4756,7 +4792,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     let who = o.name; if (peopleOn) { who = await resolveOrderCustomer(o); if (!who) return; if (!orderItemsLeft(o).length) return toast(t('ord.noneLeft')); }
     try {
       if ((o.option === 'delivery' || o.option === 'pickup') && o.deliveryPrice > 0) its[0].delivery = o.deliveryPrice;   // a pickup spot carries its small fee too
-      const inv = L.createInvoice(state, { itemIds: its.map((x) => x.id), client: who, paying: '0', allowZero: true });
+      const inv = L.createInvoice(state, { itemIds: its.map((x) => x.id), client: who, paying: '0', allowZero: true, dueStart: '' });   // an online order's due date starts when it is delivered
       if (sharedBusiness()) inv.by = myName();   // who made it, once there is more than one person in the business
       save(); tidyPhotos();
       Store.setStatus(o.id, 'confirmed', { invoice: inv.no }).catch(() => toast(t('store.pubError')));
@@ -4876,6 +4912,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'sm-month': smDay = 0; go({ tab: 'more', moreView: 'summary-' + id }); window.scrollTo(0, 0); return render();
       case 'sm-day': smDay = smDay === Number(id) ? 0 : Number(id); return render();
       case 'sm-mnav': { const mm = /^summary-(\d{4})-(\d{1,2})$/.exec(moreView || ''); if (!mm) return; const d = new Date(+mm[1], +mm[2] + Number(id), 1); smDay = 0; smYear = d.getFullYear(); moreView = 'summary-' + d.getFullYear() + '-' + d.getMonth(); places[places.length - 1].moreView = moreView; return render(); }
+      case 'due-open': return sheetDue();
+      case 'home-cal': { const now = new Date(); smDay = 0; smYear = now.getFullYear(); go({ tab: 'more', moreView: 'summary-' + now.getFullYear() + '-' + now.getMonth() }); render(); window.scrollTo(0, 0); return requestAnimationFrame(() => { const c = document.querySelector('.smcal'); if (c) window.scrollTo(0, Math.max(0, c.getBoundingClientRect().top + window.scrollY - (document.querySelector('.appbar').getBoundingClientRect().height + document.querySelector('.smhead').getBoundingClientRect().height + 52))); }); }   // the current month, scrolled to the calendar; Back goes straight to Home
+      case 'dd-chip': { const inp = document.querySelector('#sheet input[name=dueDays], #view input[name=dueDays]'); if (inp && id !== 'custom') inp.value = id; if (inp && id === 'custom') inp.focus(); document.querySelectorAll('[data-act=dd-chip]').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return; }
       case 'batch-log': closeTopMenu(); go({ tab: 'more', moreView: 'batches' }); window.scrollTo(0, 0); return render();
       case 'needs-more': homeNeedsAll = !homeNeedsAll; return render();
       case 'rec-pay': {   // Record payment: the invoices that still have a balance, newest first; pick one and the payment page opens
@@ -5941,6 +5980,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
   peopleCheck();
   ensureZonePlaces();
+  if (!state.settings.lateSince) { state.settings.lateSince = new Date().toISOString(); save(); }   // payments from this day on are judged on time or late; older ones are only listed
   ihTidy();
   render(); requestAnimationFrame(() => document.documentElement.classList.add('ready'));   // the start screen (logo) goes away once the first page is drawn
   setTimeout(() => PUI.sweep(photoKeep()), 3000);   // timers on screenshots and on sold items' photos run when the app opens
