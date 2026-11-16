@@ -1,0 +1,67 @@
+/* Modern look: one layer on top of style.css (softer lines, rounder cards, gentle shadows, line icons, frosted tab bar).
+   Everything uses the theme variables, so every colour theme and dark mode follow along. Remove this file from index.html to go back to the old look. */
+:root{--r1:14px;--r2:20px;--r3:26px;--ln:color-mix(in srgb,var(--line) 62%,transparent);
+  --sh-c:0 1px 2px rgba(35,18,45,.05),0 8px 22px -10px rgba(35,18,45,.16);--sh-f:0 1px 2px rgba(35,18,45,.06),0 14px 34px -12px rgba(35,18,45,.28)}
+@media (prefers-color-scheme:dark){:root:not([data-theme=light]){--sh-c:0 1px 2px rgba(0,0,0,.4),0 8px 22px -10px rgba(0,0,0,.6);--sh-f:0 1px 2px rgba(0,0,0,.5),0 14px 34px -12px rgba(0,0,0,.7)}}
+:root[data-theme=dark]{--sh-c:0 1px 2px rgba(0,0,0,.4),0 8px 22px -10px rgba(0,0,0,.6);--sh-f:0 1px 2px rgba(0,0,0,.5),0 14px 34px -12px rgba(0,0,0,.7)}
+html,body{font-family:Inter,system-ui,-apple-system,"Segoe UI",Roboto,sans-serif;-webkit-font-smoothing:antialiased;letter-spacing:-.005em}
+h2{font-size:12px;letter-spacing:.09em;font-weight:700;margin:24px 6px 10px}
+
+/* icons */
+.ico{display:inline-flex;width:1.2em;height:1.2em;vertical-align:-.22em;margin-right:.45em;flex:none;color:currentColor}
+.ico svg{width:100%;height:100%;fill:none;stroke:currentColor;stroke-width:1.75;stroke-linecap:round;stroke-linejoin:round}
+.ico.solo{margin:0}
+.hic,.tile,.ic,.pn,.hact button i,.quick button i{color:var(--brand)}
+.hic .ico,.tile .ico,.ic .ico,.hact button i .ico,.quick button i .ico{width:24px;height:24px;margin:0}
+.btn .ico,.chip .ico{width:1.15em;height:1.15em}
+.btn.primary .ico,.chip.on .ico{color:#fff}
+
+/* top bars */
+.appbar{background:linear-gradient(165deg,color-mix(in srgb,var(--bar) 84%,#fff) 0%,var(--bar) 55%,color-mix(in srgb,var(--bar) 82%,#000) 100%);border-radius:0 0 var(--r3) var(--r3);box-shadow:0 10px 28px -12px rgba(0,0,0,.45)}
+.appbar h1{font-size:20px;letter-spacing:-.015em}
+.round{border-color:rgba(255,255,255,.22);background:rgba(255,255,255,.16);backdrop-filter:blur(6px)}
+.fullbar{background:linear-gradient(165deg,color-mix(in srgb,var(--bar) 84%,#fff),var(--bar) 60%,color-mix(in srgb,var(--bar) 82%,#000));border-radius:0 0 var(--r2) var(--r2)}
+
+/* cards and rows */
+.stat,.row,.item,.install,.acctcard,.list.grp,.box,.hneeds,.hkp>div,.card,.dsg,.svslot,.adcard,.invset,.hbc,.ord{border-color:var(--ln);border-radius:var(--r2)}
+.stat,.row,.item,.install,.acctcard,.list.grp,.box,.hneeds,.hkp>div,.card,.dsg,.svslot,.adcard,.invset,.hbc{box-shadow:var(--sh-c)}
+.list.grp .row,.hneeds .hnr{border-radius:0;box-shadow:none}
+.hnr{border-top-color:var(--ln)}
+.hic{border-radius:14px;width:42px;height:42px;background:color-mix(in srgb,var(--brand) 10%,var(--card))!important}
+.hcnt{background:linear-gradient(135deg,color-mix(in srgb,var(--brand) 85%,#fff),var(--brand))}
+.row.tap:active,.hnr:active{background:var(--tint)}
+.sth .ord{border-radius:var(--r2);border-color:var(--ln);background:color-mix(in srgb,var(--tint) 70%,var(--card));box-shadow:var(--sh-c)}
+.sth .ord .ic{background:var(--card);box-shadow:0 1px 3px rgba(35,18,45,.1)}
+
+/* hero + tiles on Home */
+.hhero{border-radius:var(--r3);background:linear-gradient(140deg,color-mix(in srgb,var(--brand2) 88%,#fff) 0%,color-mix(in srgb,var(--brand) 90%,var(--bar)) 55%,var(--bar) 100%);box-shadow:var(--sh-f)}
+.hkp>div{padding:12px 14px}
+.hact button i{border-radius:20px;background:color-mix(in srgb,var(--brand) 9%,var(--card))!important;box-shadow:var(--sh-c);border:1px solid var(--ln)}
+
+/* buttons and chips */
+.btn{border-radius:var(--r1);min-height:52px;border-color:var(--ln);box-shadow:var(--sh-c);font-weight:650}
+.btn.primary,.pill-btn.solid{background:linear-gradient(160deg,color-mix(in srgb,var(--brand) 88%,#fff) 0%,var(--brand) 45%,color-mix(in srgb,var(--brand) 82%,#000) 100%);border:0;box-shadow:0 10px 22px -10px var(--brand),0 1px 2px rgba(0,0,0,.2)}
+.chip{border-color:var(--ln);box-shadow:none;background:color-mix(in srgb,var(--card) 92%,var(--tint));padding:8px 15px}
+.chip.on{background:var(--brand);border-color:var(--brand);box-shadow:0 6px 14px -8px var(--brand)}
+.seg{background:color-mix(in srgb,var(--line) 45%,var(--card));border-radius:16px}.seg button{border-radius:13px}
+.fab,.mofab{background:linear-gradient(160deg,color-mix(in srgb,var(--brand) 88%,#fff),var(--brand) 50%,color-mix(in srgb,var(--brand) 80%,#000));box-shadow:0 14px 28px -10px var(--brand),0 2px 4px rgba(0,0,0,.2)}
+input,select{border-color:var(--ln);border-radius:var(--r1);background:color-mix(in srgb,var(--card) 94%,var(--tint))}
+input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--brand) 55%,transparent);background:var(--card)}
+
+/* tab bar: frosted, floating */
+.tabbar{background:color-mix(in srgb,var(--card) 93%,transparent);backdrop-filter:saturate(1.4) blur(18px);-webkit-backdrop-filter:saturate(1.4) blur(18px);border:1px solid var(--ln);border-radius:30px;box-shadow:0 18px 40px -14px rgba(35,18,45,.4),0 2px 6px rgba(35,18,45,.08)}
+.tabbar button{font-size:10.5px;letter-spacing:.01em;border-radius:24px}
+.tabbar button.on{background:color-mix(in srgb,var(--brand) 12%,transparent);color:var(--brand)}
+.tabbar button svg{stroke-width:1.75}
+
+/* sheets and pop-ups */
+.sheet{border-radius:var(--r3) var(--r3) 0 0}
+.sheet.card{border-radius:28px}
+.sheet h3{font-size:21px;letter-spacing:-.015em}
+.scrim{backdrop-filter:blur(2px)}
+
+/* order log top: calmer */
+.sth .ordtip{font-size:12px;margin:6px 4px 10px}
+.mosw .seg{background:color-mix(in srgb,var(--line) 45%,var(--card))}
+.srow .tile,.row .tile{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--brand) 10%,var(--card));font-size:20px}
+.fullbar .ico,.appbar .ico{color:#fff}
