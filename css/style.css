@@ -9,7 +9,7 @@ html{color-scheme:light dark}
 :root[data-theme=light]{color-scheme:light}:root[data-theme=dark]{color-scheme:dark}
 *{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
 html,body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,sans-serif}
-body{max-width:620px;margin:0 auto;min-height:100dvh;overscroll-behavior-y:none}
+body{max-width:620px;margin:0 auto;min-height:100vh;min-height:100svh;overscroll-behavior-y:none}
 button,input,select{font:inherit;color:inherit}
 button{cursor:pointer}
 input,select{width:100%;min-height:46px;padding:10px 12px;border:1px solid var(--line);border-radius:12px;background:var(--card);font-size:16px}
@@ -1166,10 +1166,12 @@ a.btn.navopen{display:flex;align-items:center;justify-content:center;gap:8px;tex
 .cklist .r.tap{cursor:pointer}.cklist .r.tap:active{background:var(--tint)}
 
 /* order page: a slim strip under the header, shown once the full tracker has scrolled out of view */
-.stk{position:sticky;top:calc(60px + var(--sat));z-index:3;display:flex;align-items:center;gap:12px;margin:0 -16px 8px;padding:7px 16px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 6px 12px -8px rgba(0,0,0,.6)}.stk[hidden]{display:none}
-.stk .dots{display:flex;align-items:center;flex:1}.stk .dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--card);box-sizing:border-box;flex:none;display:grid;place-items:center;color:#fff;font-size:8px;font-style:normal;font-weight:900}
-.stk .dots b{flex:1;height:2px;background:var(--line)}.stk .dots b.dn{background:#2e9e5b}.stk .dots i.dn{background:#2e9e5b;border-color:#2e9e5b}.stk .dots i.on{background:var(--brand,#d6264a);border-color:var(--brand,#d6264a);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand,#d6264a) 25%,transparent)}
-.stk .lab{flex:none;font-weight:800;font-size:13.5px}.stk .lab small{color:var(--mute);font-weight:600;font-size:11.5px;margin-left:6px}
+.stk{position:sticky;top:calc(60px + var(--sat));z-index:3;height:0;margin:0 -16px;overflow:visible}.stk[hidden]{display:none}
+/* the strip takes no room in the page, so showing and hiding it while you scroll never moves the content (it used to, which made the page flicker on iPhone) */
+.stki{position:absolute;left:0;right:0;top:0;display:flex;align-items:center;gap:12px;padding:7px 16px;background:var(--bg);border-bottom:1px solid var(--line);box-shadow:0 6px 12px -8px rgba(0,0,0,.6)}
+.stki .dots{display:flex;align-items:center;flex:1}.stki .dots i{width:14px;height:14px;border-radius:50%;border:2px solid var(--line);background:var(--card);box-sizing:border-box;flex:none;display:grid;place-items:center;color:#fff;font-size:8px;font-style:normal;font-weight:900}
+.stki .dots b{flex:1;height:2px;background:var(--line)}.stki .dots b.dn{background:#2e9e5b}.stki .dots i.dn{background:#2e9e5b;border-color:#2e9e5b}.stki .dots i.on{background:var(--brand,#d6264a);border-color:var(--brand,#d6264a);box-shadow:0 0 0 3px color-mix(in srgb,var(--brand,#d6264a) 25%,transparent)}
+.stki .lab{flex:none;font-weight:800;font-size:13.5px}.stki .lab small{color:var(--mute);font-weight:600;font-size:11.5px;margin-left:6px}
 
 /* the "Not in your online store yet" notice: readable on both light and dark */
 .row.notin{background:#fff4e0;border-color:#f1d4a0;color:#4a3213}.row.notin b{color:#4a3213}.row.notin small{color:#7a5a12}
