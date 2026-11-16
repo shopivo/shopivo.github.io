@@ -72,7 +72,7 @@
     '✏': 'edit', '📞': 'phone', '✨': 'sparkles', '🎉': 'sparkles', '⬇': 'download', '📥': 'inbox', '⬆': 'upload', '💬': 'message', '📦': 'box', '🖼': 'image', '👥': 'users', '👤': 'user', '🧭': 'compass', '🎨': 'palette', '📅': 'calendar',
     '⚙': 'sliders', '📋': 'clipboard', '📝': 'note', '🛒': 'cart', '🔗': 'link', '📏': 'ruler', '🏷': 'tag', '🔖': 'bookmark', '📷': 'camera', '🎁': 'gift', '🔤': 'type', '🗣': 'megaphone', '🔑': 'key', '📎': 'clip', '🗺': 'map',
     '💡': 'bulb', '🚪': 'out', '⚡': 'bolt', '🏢': 'building', '📊': 'chart', '📈': 'trend', '🎟': 'ticket', '🔄': 'refresh', '📖': 'book', '💰': 'wallet', '🌐': 'globe', '📄': 'file', '🌸': 'flower', '💲': 'dollar', '🔀': 'shuffle',
-    '📇': 'contact', '🔍': 'search', '🏦': 'bank', '🛡': 'shield', '💧': 'drop', '🪪': 'id', '⚠': 'alert' };
+    '📇': 'contact', '🔍': 'search', '🏦': 'bank', '🛡': 'shield', '💧': 'drop', '🪪': 'id', '⚠': 'alert', '📲': 'send', '📱': 'phone' };
   const key = (s) => String(s).replace(/️/g, '');
   I.has = (e) => !!M[key(e)];
   I.svg = (name) => (P[name] ? `<svg viewBox="0 0 24 24" aria-hidden="true">${P[name]}</svg>` : '');

@@ -65,3 +65,5 @@ input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--brand) 55%,tr
 .mosw .seg{background:color-mix(in srgb,var(--line) 45%,var(--card))}
 .srow .tile,.row .tile{width:44px;height:44px;border-radius:14px;display:grid;place-items:center;flex:none;background:color-mix(in srgb,var(--brand) 10%,var(--card));font-size:20px}
 .fullbar .ico,.appbar .ico{color:#fff}
+.fullbar>div{min-width:0}.fullbar small{white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.adslim{display:flex;align-items:center;justify-content:space-between;gap:10px;margin:8px 2px 4px;color:var(--mute);font-size:12.5px}.adslim button{flex:none;border:0;background:none;color:var(--brand);font-weight:700;font-size:12.5px;min-height:0;padding:6px 8px;box-shadow:none;text-decoration:underline}
