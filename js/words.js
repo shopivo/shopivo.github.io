@@ -36,7 +36,7 @@
     A('styles', [['floral', 'floral'], ['striped', 'rayado'], ['printed', 'estampado'], ['solid', 'liso'], ['plain', 'liso'], ['embroidered', 'bordado'], ['pleated', 'plisado'], ['ribbed', 'acanalado'], ['halter', 'halter', 'all'],
       ['slim fit', 'ajustado'], ['fitted', 'ajustado'], ['oversized', 'oversize', 'all'], ['loose', 'holgado'], ['stretch', 'elástico'], ['cropped', 'corto'], ['maxi', 'largo'], ['midi', 'midi', 'all'], ['mini', 'mini', 'all'],
       ['long', 'largo'], ['short', 'corto'], ['casual', 'casual'], ['elegant', 'elegante'], ['formal', 'formal'], ['sexy', 'sexy', 'all'], ['cute', 'bonito'], ['sporty', 'deportivo'], ['vintage', 'vintage', 'all'], ['boho', 'boho', 'all'],
-      ['tropical', 'tropical'], ['new', 'nuevo'], ['unisex', 'unisex', 'all'], ['small', 'pequeño'], ['medium', 'mediano'], ['large', 'grande'], ['extra large', 'extra grande']]),
+      ['tropical', 'tropical'], ['bear', 'oso', 'all'], ['teddy bear', 'osito', 'all'], ['puppy', 'perrito', 'all'], ['new', 'nuevo'], ['unisex', 'unisex', 'all'], ['small', 'pequeño'], ['medium', 'mediano'], ['large', 'grande'], ['extra large', 'extra grande']]),
     P('styles', [['long sleeve', 'de manga larga'], ['short sleeve', 'de manga corta'], ['sleeveless', 'sin mangas'], ['off shoulder', 'con hombros descubiertos'], ['one shoulder', 'de un hombro'], ['strapless', 'sin tirantes'],
       ['v neck', 'de cuello en V'], ['high waist', 'de tiro alto'], ['low waist', 'de tiro bajo'], ['wide leg', 'de pierna ancha'], ['straight leg', 'de pierna recta'], ['polka dot', 'de lunares'], ['plaid', 'de cuadros'],
       ['checkered', 'de cuadros'], ['ruffle', 'con volantes'], ['ruffled', 'con volantes'], ['sequin', 'con lentejuelas'], ['sequined', 'con lentejuelas'], ['backless', 'con espalda descubierta'], ['lace up', 'con cordones'],
@@ -259,7 +259,7 @@
   const fold = (s) => norm(s).normalize('NFD').replace(/[̀-ͯ]/g, '');
   const enPlural = (w) => { const a = String(w).split(' '), l = a[a.length - 1]; a[a.length - 1] = /(s|x|z|ch|sh)$/i.test(l) ? l + 'es' : /[^aeiou]y$/i.test(l) ? l.slice(0, -1) + 'ies' : l + 's'; return a.join(' '); };
   const NUMEN = {}; Object.keys(NUM).forEach((k) => { NUMEN[fold(NUM[k])] = k; });
-  const ALIASES = [['vestido de baño', 'swimsuit', 'vestidos de baño'], ['bañador', 'swimsuit', 'bañadores'], ['traje de baño de una pieza', 'one piece swimsuit'], ['juego', 'set', 'juegos'], ['set', 'set', 'sets'], ['juego de bisutería', 'jewelry set', 'juegos de bisutería'], ['juego de bisuteria', 'jewelry set', 'juegos de bisuteria'], ['bisutería', 'jewelry set', 'bisuterías']], MAT = [['plata', 'silver'], ['oro', 'gold']];
+  const ALIASES = [['cholas', 'flip flops', 'cholas'], ['vestido de baño', 'swimsuit', 'vestidos de baño'], ['bañador', 'swimsuit', 'bañadores'], ['traje de baño de una pieza', 'one piece swimsuit'], ['juego', 'set', 'juegos'], ['set', 'set', 'sets'], ['juego de bisutería', 'jewelry set', 'juegos de bisutería'], ['juego de bisuteria', 'jewelry set', 'juegos de bisuteria'], ['bisutería', 'jewelry set', 'bisuterías']], MAT = [['plata', 'silver'], ['oro', 'gold']];
   const revCache = new WeakMap();
   const reverse = (words) => {
     const arr = words || []; if (revCache.has(arr)) return revCache.get(arr);
@@ -274,6 +274,10 @@
     // other Spanish names for a thing the list already has ("vestido de baño" is also a swimsuit)
     ALIASES.forEach(([es, en, pe]) => { const w = arr.find((x) => norm(x.en) === norm(en) && kindOf(x) === 'n'); if (!w) return; add(es, { w, kind: 'n', pl: false }); add(pe || pluralPhrase(es), { w, kind: 'n', pl: true }); });
     MAT.forEach(([es, en]) => { const w = arr.find((x) => norm(x.en) === norm(en)); if (w) add(es, { w, kind: 'm' }); });   // "de plata" is a material
+    // In the owner's shop "franela" is a T-shirt ("franela oso" = bear t-shirt); "de franela" is still the fabric ("pijama de franela" = flannel pajamas)
+    { const ts = arr.find((x) => norm(x.en) === norm('t-shirt') && kindOf(x) === 'n'), fl = arr.find((x) => norm(x.en) === 'flannel');
+      if (ts) { m.set('franela', { w: ts, kind: 'n', pl: false }); m.set('franelas', { w: ts, kind: 'n', pl: true }); }
+      if (fl) { m.set('de franela', { w: fl, kind: 'm' }); max = Math.max(max, 2); } }
     const r = { m, max }; revCache.set(arr, r); return r;
   };
   const toEnglish = (desc, words) => {
