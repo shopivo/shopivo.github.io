@@ -1634,11 +1634,11 @@
   let bpOn = false, rePaint = null, ihOn = false, ihRaf = 0, ihSlotPick = '', ihPend = null, ihOpenSecs = { images: true, layout: true };
   const hdrImg = (src) => {
     if (!src) return null; let i = hdrImgs.get(src);
-    if (!i) { i = new Image(); i.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); ihPaintSoon(); if (bpOn) bpPaint(); if (rePaint) rePaint(); if (invFsOn) invFsPreview(); }; i.src = src; hdrImgs.set(src, i); if (hdrImgs.size > 14) hdrImgs.delete(hdrImgs.keys().next().value); }
+    if (!i) { i = new Image(); i.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); ihPaintSoon(); if (stOn) stPaintSoon(); if (bpOn) bpPaint(); if (rePaint) rePaint(); if (invFsOn) invFsPreview(); }; i.src = src; hdrImgs.set(src, i); if (hdrImgs.size > 14) hdrImgs.delete(hdrImgs.keys().next().value); }
     return i;
   };
   const ihCfg = () => InvHeader.norm(InvHeader.fromKeys(state.settings.invHeader, state.settings.invPool));
-  const ihPrune = () => { const p = state.settings.invPool; if (!p) return; InvHeader.prune(p, [state.settings.invHeader].concat((state.settings.invHeaderSaved || []).map((d) => d.cfg))); if (!Object.keys(p).length) delete state.settings.invPool; };
+  const ihPrune = () => { const p = state.settings.invPool; if (!p) return; InvHeader.prune(p, [state.settings.invHeader].concat((state.settings.invHeaderSaved || []).map((d) => d.cfg)).concat(state.settings.studioPrev && state.settings.studioPrev.header ? [state.settings.studioPrev.header] : [])); if (!Object.keys(p).length) delete state.settings.invPool; };
   // On a white square or rounded tile the round logo from the saved set is used when there is one; otherwise the normal business logo
   const hdrLogoSrc = (cfg) => cfg.slots.logo || (['square', 'rounded'].includes(cfg.items.logo.shape) && ((state.settings.bizLogoSet || []).find((x) => x.shape === 'circle') || {}).src) || state.settings.bizLogo;
   const ihImages = (cfg) => ({ logo: hdrImg(hdrLogoSrc(cfg)), title: hdrImg(cfg.slots.title), extra1: hdrImg(cfg.slots.extra1), extra2: hdrImg(cfg.slots.extra2), bg: hdrImg(cfg.bg.image.src) });
@@ -1951,11 +1951,76 @@
     ttPaint();
   }
   function ttUse() {
-    const src = ttScaled(TM.draw(ttCfg()), 720); if (!src) return; ihAssign('title', { src: src.toDataURL('image/png') }); toast(t('tm.done')); ihRefresh();
+    const src = ttScaled(TM.draw(ttCfg()), 720); if (!src) return; ihAssign('title', { src: src.toDataURL('image/png') }); state.settings.studio = Object.assign({}, state.settings.studio || {}, { autoTitle: false }); save(); toast(t('tm.done')); ihRefresh();
   }
   function ttSaveSlot(n) {
     const old = (state.settings.titleSaved || []).find((d) => d.slot === n), nm = ((old && old.name) || t('tt.savedN', { n: n + 1 })).slice(0, 30);
     state.settings.titleSaved = (state.settings.titleSaved || []).filter((d) => d.slot !== n).concat({ slot: n, id: old ? old.id : Math.random().toString(36).slice(2, 9), name: nm, cfg: JSON.parse(JSON.stringify(ttCfg())) }).sort((a, b) => a.slot - b.slot); save(); toast(t('ih.savedOk')); ttRefresh();
+  }
+  // ---- Brand Studio: one place for the invoice look. Pick a design, pick your colour, check the logo and title, and see it live.
+  // Everything the older creators can do is still there under "More controls". The designs and colours live in js/studio.js. ----
+  let stOn = false, stRaf = 0;
+  const stSt = () => state.settings.studio || {};
+  const stColor = () => Studio.hex(stSt().color, Theme.brand());
+  const invRefresh = () => (ihOn ? ihRefresh() : stOn ? stRefresh() : render());
+  const stTitleMemo = new Map();
+  const stTitleSrc = (color, look) => { const key = color + '|' + look + '|' + bizName(); if (stTitleMemo.has(key)) return stTitleMemo.get(key); const out = stTitleMake(color, look); stTitleMemo.set(key, out); if (stTitleMemo.size > 24) stTitleMemo.delete(stTitleMemo.keys().next().value); return out; };
+  const stTitleMake = (color, look) => { const c = TM.norm(null, bizName(), color), bold = look === 'bold'; c.name.col = bold ? '#ffffff' : '#333333'; c.line.col = bold ? InvHeader.mix(color, '#ffffff', 0.7) : color; c.sub.col = c.line.col; const cv = ttScaled(TM.draw(c), 720); return cv ? cv.toDataURL('image/png') : ''; };
+  // the header settings a design would give right now (nothing saved; used for the pictures and the live preview)
+  function stCfgFor(tplId, color) {
+    const c = Studio.apply(ihCfg(), tplId, color, InvHeader);
+    if (Studio.NEEDS_TITLE[c.layout] && (!c.slots.title || stSt().autoTitle)) c.slots.title = stTitleSrc(color, (Studio.byId(tplId) || {}).look);
+    return c;
+  }
+  // How things were when the Studio opened, so one tap puts it back (kept only while the Studio is open).
+  const stSnap = () => JSON.parse(JSON.stringify({ header: state.settings.invHeader || null, design: state.settings.invoiceDesign || null, studio: state.settings.studio || null }));
+  const stChanged = () => { const p0 = state.settings.studioPrev; return !!p0 && JSON.stringify(p0) !== JSON.stringify(stSnap()); };
+  function stRestore() { const p0 = state.settings.studioPrev; if (!p0) return; const q = JSON.parse(JSON.stringify(p0)); state.settings.invHeader = q.header || undefined; if (!q.header) delete state.settings.invHeader; state.settings.invoiceDesign = q.design || undefined; if (!q.design) delete state.settings.invoiceDesign; state.settings.studio = q.studio || undefined; if (!q.studio) delete state.settings.studio; Object.keys(headCache).forEach((k) => delete headCache[k]); save(); stRefresh(); toast(t('st.restored')); }
+  function stApply(tplId) {
+    const col = stColor(), s = stSt(); let c = Studio.apply(ihCfg(), tplId, col, InvHeader), auto = !!s.autoTitle;
+    if (Studio.NEEDS_TITLE[c.layout] && (!c.slots.title || auto)) { c.slots.title = stTitleSrc(col, (Studio.byId(tplId) || {}).look); c.items.title.on = true; auto = true; }
+    ihSave(c); state.settings.invoiceDesign = 'custom'; state.settings.studio = { tpl: tplId, color: col, autoTitle: auto }; save(); stRefresh(); toast(t('st.applied'));
+  }
+  function stSetColor(hex) {
+    const s = stSt(); state.settings.studio = Object.assign({}, s, { color: Studio.hex(hex) }); save();
+    if (s.tpl) { stApply(s.tpl); } else stRefresh();
+  }
+  const stTplName = (t0) => t('st.look.' + t0.look) + ' · ' + t('st.lay.' + t0.layout);
+  function stPaint() {
+    const pv = $('#st-pv'); if (pv) { const cfg = ihCfg(), S = 2; pv.width = InvHeader.W * S; pv.height = InvHeader.H * S; const x = pv.getContext('2d'); x.scale(S, S); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); }
+    const col = stColor(); document.querySelectorAll('canvas[data-sttpl]').forEach((cv) => { const cfg = stCfgFor(cv.dataset.sttpl, col), x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); });
+  }
+  function stPaintSoon() { if (!stOn) return; cancelAnimationFrame(stRaf); stRaf = requestAnimationFrame(stPaint); }
+  function stLogoColors() { try { const i = hdrImg(state.settings.bizLogo); if (!i || !i.complete || !i.naturalWidth) return []; const cv = document.createElement('canvas'); cv.width = cv.height = 48; const g = cv.getContext('2d'); g.drawImage(i, 0, 0, 48, 48); return Studio.dominant(g.getImageData(0, 0, 48, 48).data, 4); } catch (e) { return []; } }
+  function stBodyHTML() {
+    const col = stColor(), s = stSt(), cfg = ihCfg(), ic = InvHeader.colours(cfg);
+    const sw = (c) => `<button type="button" class="stsw ${c.toLowerCase() === col ? 'on' : ''}" data-act="st-color" data-id="${c}" style="background:${c}" aria-label="${c}"></button>`;
+    const brandCols = [Theme.brand()].concat(stLogoColors()), custom = !Studio.SWATCHES.concat(brandCols).some((c) => c.toLowerCase() === col);
+    const gallery = Studio.TEMPLATES.map((t0) => `<button type="button" class="stcard ${s.tpl === t0.id && invDesignId() === 'custom' ? 'on' : ''}" data-act="st-tpl" data-id="${t0.id}"><canvas data-sttpl="${t0.id}" width="800" height="190"></canvas><span>${esc(stTplName(t0))}</span></button>`).join('');
+    const colours = `<div class="stsws">${brandCols.map(sw).join('')}<i class="stsep"></i>${Studio.SWATCHES.map(sw).join('')}<button type="button" class="stsw own ${custom ? 'on' : ''}" data-act="st-colpick" style="${custom ? 'background:' + col : ''}" aria-label="${t('ih.pickColor')}"><span>＋</span></button></div><p class="muted small" style="margin:8px 2px 0">${t('st.colorSub')}</p>`;
+    const logo = hdrLogoSrc(cfg), title = cfg.slots.title, shapes = ['circle', 'rounded', 'square', 'none'];
+    const brand = `<div class="stbrand"><div class="stlogo"><span class="lgpv fit ${logoShape()}">${logo ? `<img src="${logo}" alt="">` : esc(initials(bizName()))}</span><div class="stbtns"><button type="button" class="btn" data-act="logo-pick">${t('bz.logoChange')}</button><button type="button" class="btn" data-act="lm-open">✨ ${t('lm.open')}</button></div></div>
+      <div class="ihr"><label>${t('ih.shape')}</label><div class="chiprow">${shapes.map((k) => `<button type="button" class="chip ${cfg.items.logo.shape === k ? 'on' : ''}" data-act="st-logoshape" data-id="${k}">${t('ih.sh.' + k)}</button>`).join('')}</div></div>
+      <div class="sttitle">${title ? `<img src="${title}" alt="">` : `<span class="muted small">${t('st.noTitle')}</span>`}<div class="stbtns"><button type="button" class="btn" data-act="tt-open">${t('tt.row')}</button><button type="button" class="btn" data-act="st-autotitle">${t('st.autoTitle')}</button></div></div>
+      <button type="button" class="row tap" data-act="contact-open" style="margin-top:8px"><div class="grow"><b>${t('hub.contact')}</b><small>${esc([ihInfo().name, state.settings.bizCity, state.settings.bizPhone].filter(Boolean).join(' · '))}</small></div><span class="chev">›</span></button></div>`;
+    const adv = `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}${mbRow('🔤', t('tt.row'), t('tt.rowSub'), 'tt-open')}${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo')}</div>`;
+    const accent = `<div class="ihr col"><label>${t('ih.accent')}</label><button type="button" class="ihsw" data-act="st-accent" style="background:${ic.head}" aria-label="${t('ih.pickColor')}"></button></div>`;
+    return `${ihSec('st:design', '1 · ' + t('st.s1'), `<div class="stgal">${gallery}</div>`)}
+      ${ihSec('st:color', '2 · ' + t('st.s2'), colours + accent)}
+      ${ihSec('st:brand', '3 · ' + t('st.s3'), brand)}
+      ${ihSec('st:page', '4 · ' + t('st.s4'), `<p class="muted small" style="margin:0 0 6px">${t('ih.pagebgSub')}</p>${frameBlockHTML()}`)}
+      ${ihSec('st:more', t('st.more'), adv + `<h4 class="sth4">${t('mb.savedInv')}</h4>${svSlotsHTML('inv', false)}`)}
+      <div class="btns" style="margin-top:14px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
+  }
+  function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !stChanged(); }
+  function sheetStudio() {
+    enterPage('studio', '', () => sheetStudio());
+    stOn = true; state.settings.studioPrev = stSnap(); ['st:design', 'st:color'].forEach((k) => { if (ihOpenSecs[k] === undefined) ihOpenSecs[k] = true; });
+    const on = invDesignId() === 'custom';
+    openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div>
+      <div class="ihtop"><canvas id="st-pv" width="1600" height="380" aria-label="${t('st.title')}"></canvas><div class="stbar"><button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button><button type="button" class="btn primary" id="st-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div></div>
+      <p class="strest" id="st-rest" ${stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="st-body">${stBodyHTML()}</div>`, () => { stOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
+    stPaint();
   }
   function lmUse() {
     if (!lm) return; const cv = lmCanvas(256); state.settings.bizLogo = cv.toDataURL('image/png'); state.settings.bizLogoShape = lm.shape === 'circle' ? 'circle' : lm.shape === 'rounded' ? 'rounded' : 'square'; state.settings.bizLogoPick = 'auto';
@@ -2173,10 +2238,10 @@
   const mbPage = (kind, title, sub, body, after) => { const sh0 = $('#sheet'), keepY = sh0 && !sh0.hidden && !sh0.classList.contains('small') && ((pageStack[pageStack.length - 1] || {}).key === kind + '|') ? sh0.scrollTop : 0; enterPage(kind, '', () => ({ myinvoice: sheetMyInvoice, mycard: sheetMyCard, mylogo: sheetMyLogo, mybiz: sheetMyBiz })[kind]()); rePaint = svPaint; openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${title}</b><small>${sub}</small></div></div><div class="pd bpg">${body}</div>`, () => { rePaint = null; render(); }, true); svPaint(); if (keepY) restoreSheetY(keepY); if (after) after(); };
   const nInv = () => svList('inv').length, nCard = () => svList('card').length;
   function sheetMyBiz() {
-    mbPage('mybiz', t('mb.title'), t('mb.sub'), `${mbHero(true)}<h3>${t('mb.title')}</h3><div class="list grp">${mbRow('🧾', t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'mb-inv')}${mbRow('💳', t('mb.card'), t('mb.cardSub', { n: nCard() }), 'mb-card')}${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo')}</div><div class="list grp" style="margin-top:12px">${mbRow('📇', t('mb.contact'), t('mb.contactSub'), 'bp-open')}</div>`);
+    mbPage('mybiz', t('mb.title'), t('mb.sub'), `${mbHero(true)}<h3>${t('mb.title')}</h3><div class="list grp">${mbRow('✨', t('st.row'), t('st.rowSub'), 'studio-open')}${mbRow('🧾', t('mb.invoice'), t('mb.invoiceSub', { n: nInv() }), 'mb-inv')}${mbRow('💳', t('mb.card'), t('mb.cardSub', { n: nCard() }), 'mb-card')}${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo')}</div><div class="list grp" style="margin-top:12px">${mbRow('📇', t('mb.contact'), t('mb.contactSub'), 'bp-open')}</div>`);
   }
   function sheetMyInvoice() {
-    mbPage('myinvoice', t('mb.invoice'), t('mb.invLimit'), `<div class="list grp">${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}${mbRow('🔤', t('tt.row'), t('tt.rowSub'), 'tt-open')}${mbRow('👁', t('inv.sampleBtn'), t('inv.sampleSub'), 'inv-sample')}</div><h3>${t('mb.savedInv')}</h3>${svSlotsHTML('inv', true)}`);
+    mbPage('myinvoice', t('mb.invoice'), t('mb.invLimit'), `<div class="list grp">${mbRow('✨', t('st.row'), t('st.rowSub'), 'studio-open')}${mbRow('🎨', t('mb.creator'), t('mb.creatorSub'), 'ih-open')}${mbRow('🌸', t('mb.banner'), t('mb.bannerSub'), 'ih-banner')}${mbRow('🎛️', t('mb.style'), t('mb.styleSub'), 'mb-style')}${mbRow('🔤', t('tt.row'), t('tt.rowSub'), 'tt-open')}${mbRow('👁', t('inv.sampleBtn'), t('inv.sampleSub'), 'inv-sample')}</div><h3>${t('mb.savedInv')}</h3>${svSlotsHTML('inv', true)}`);
   }
   function sheetMyCard() {
     mbPage('mycard', t('mb.card'), t('mb.cardLimit'), `<div class="list grp">${mbRow('✏️', t('mb.cardEdit'), t('mb.cardEditSub'), 'bc-open')}</div><h3>${t('mb.savedCards')}</h3>${svSlotsHTML('card', true)}<div class="btns"><button type="button" class="btn" data-act="bp-cardpdf">⬇ ${t('bz.cardDl')}</button></div>`);
@@ -4848,6 +4913,14 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-add': { const [w, m] = id.split(':'), r = (planAdm.rows || []).find((x) => x.id === w); if (!r) return; const cur = r.plan === 'trial' ? Plan.ms(r.trialEnds) : Plan.ms(r.paidUntil), ends = Plan.extend(cur, Date.now(), Number(m)); return planAdmWrite(w, { plan: r.plan === 'trial' ? 'starter' : r.plan, paidUntil: Cloud.ts(ends), locked: false }); }
       case 'pl-test': { const [w, d] = id.split(':'); return planAdmWrite(w, { plan: 'trial', trialEnds: Cloud.ts(Date.now() - Number(d) * 864e5), locked: false }); }
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
+      case 'studio-open': return sheetStudio();
+      case 'st-tpl': return stApply(id);
+      case 'st-restore': return stRestore();
+      case 'st-color': return stSetColor(id);
+      case 'st-colpick': return openColorPick({ get: () => stColor(), set: (v) => { state.settings.studio = Object.assign({}, stSt(), { color: Studio.hex(v) }); save(); } }, () => setTimeout(() => { const s0 = stSt(); if (s0.tpl) stApply(s0.tpl); else stRefresh(); }, 0));
+      case 'st-accent': return openColorPick({ get: () => ihVal('accent'), set: (v) => ihSet('accent', v) }, () => setTimeout(() => { stRefresh(); stPaint(); }, 0));
+      case 'st-logoshape': ihSet('items.logo.shape', id); return stRefresh();
+      case 'st-autotitle': { const c = ihCfg(); c.slots.title = stTitleSrc(stColor(), (Studio.byId(stSt().tpl) || {}).look); c.items.title.on = true; ihSave(c); state.settings.studio = Object.assign({}, stSt(), { autoTitle: true }); save(); stRefresh(); return toast(t('tm.done')); }
       case 'tm-open': case 'tt-open': return sheetTitle();
       case 'tt-set': { const i = id.indexOf('='); const p = id.slice(0, i); let v = id.slice(i + 1); if (/^\d+(\.\d+)?$/.test(v) && !/(font|style|deco|align|case)$/.test(p)) v = Number(v); ttSet(p, v); return ttRefresh(); }
       case 'tt-tog': { ttSet(id, !TM.getPath(ttCfg(), id)); return ttRefresh(); }
@@ -5172,15 +5245,15 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
         designOverride = t_.dataset.act === 'inv-design-view' ? id : null; toast(t('doc.preparing'));
         return invoiceCanvas(inv, 'image/png', true).then((blob) => PUI.openViewer(URL.createObjectURL(blob))).catch((e) => toast('⚠️ ' + errMsg(e))).finally(() => { designOverride = null; });
       }
-      case 'inv-bgcol': return openColorPick({ get: () => invBg()[id], set: (v) => { state.settings.invoiceBg = Object.assign({}, invBg(), { [id]: v }); save(); } }, () => setTimeout(() => (ihOn ? ihRefresh() : render()), 0));
-      case 'inv-bggrad': state.settings.invoiceBg = Object.assign({}, invBg(), { grad: !invBg().grad }); save(); return ihOn ? ihRefresh() : render();
-      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); document.documentElement.classList.toggle('invsq', invSquare()); return ihOn ? ihRefresh() : render();
+      case 'inv-bgcol': return openColorPick({ get: () => invBg()[id], set: (v) => { state.settings.invoiceBg = Object.assign({}, invBg(), { [id]: v }); save(); } }, () => setTimeout(invRefresh, 0));
+      case 'inv-bggrad': state.settings.invoiceBg = Object.assign({}, invBg(), { grad: !invBg().grad }); save(); return invRefresh();
+      case 'inv-corners': state.settings.invoiceCorners = id === 'square' ? 'square' : 'round'; save(); document.documentElement.classList.toggle('invsq', invSquare()); return invRefresh();
       case 'inv-sample': {   // a made-up invoice in your design, so you can see the whole thing without a real sale
         const d = new Date(), sample = { no: 'INV00123', client: ti('doc.sampleClient'), date: d.toISOString(), due: new Date(d.getTime() + 6048e5).toISOString(), lines: [{ desc: ti('doc.sampleItem'), qty: 1, price: 250 }, { desc: ti('doc.sampleItem2'), qty: 2, price: 60 }, { desc: ti('doc.sampleItem3'), qty: 1, price: 95 }], delivery: 30, total: 495, amountPaid: 200, previouslyPaid: 0, balance: 295 };
         designOverride = null; toast(t('doc.preparing'));
         return invoiceCanvas(sample, 'image/png', true).then((blob) => PUI.openViewer(URL.createObjectURL(blob))).catch((e) => toast('⚠️ ' + errMsg(e)));
       }
-      case 'inv-frame': state.settings.invoiceFrame = id; save(); return ihOn ? ihRefresh() : render();
+      case 'inv-frame': state.settings.invoiceFrame = id; save(); return invRefresh();
       case 'invfs-open': return openInvEditor();
       case 'invfs-close': return closeInvEditor();
       case 'invfs-pick': state.settings.invoiceDesign = id; save(); invFsChips(); invFsControls(); invFsPreview(); return;
