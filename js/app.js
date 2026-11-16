@@ -591,10 +591,28 @@
 
   // Payments that are due: overdue, due today and due in the next 7 days (an order that is not delivered yet has no running due date).
   const dueCounts = () => { const it = L.dueItems(state); return { overdue: it.filter((x) => x.days < 0).length, today: it.filter((x) => x.days === 0).length, soon: it.filter((x) => x.days > 0 && x.days <= 7).length, items: it }; };
+  // Lists of who owes (Payments due, Record payment): one row per customer. A customer with several unpaid invoices gets one row with the count and total; tap it for their invoices.
+  const payDay = (d, long) => new Date(d).toLocaleDateString(I.locale(I.getLang()), long ? { weekday: 'short', day: 'numeric', month: 'short' } : { day: 'numeric', month: 'short' });
+  const dueText = (x) => (x.days == null ? '' : x.days < 0 ? tn('due.overdueDays', -x.days) : x.days === 0 ? t('due.today') : t('due.on', { d: payDay(x.due, true) }));
+  const payRowsHTML = (items, ctx) => {
+    const by = new Map(); items.forEach((x) => { const g = by.get(x.client) || by.set(x.client, []).get(x.client); g.push(x); });
+    const nm = (c) => String((PE.byKey(state, c) || {}).name || c).trim().toLowerCase(), twin = (c) => new Set([...by.keys()].filter((k) => nm(k) === nm(c))).size > 1;   // two different customers with the same name
+    return [...by.values()].map((g) => {
+      const c = g[0].client, pr = PE.byKey(state, c), contact = [pr && pr.phone ? pr.phone : t('rp.noNum'), L.place(state, c)].filter(Boolean).join(' · '), tag = twin(c) ? `<span class="rptag">${t('rp.same')}</span>` : '', who = esc(pr ? pr.name : c);
+      if (g.length === 1) { const x = g[0]; return `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${x.no}"><div class="grow"><b>${who}${tag}</b><small class="rpc">${esc(contact)}</small><small>${x.no} · ${ctx === 'due' ? dueText(x) : payDay(x.date)}</small></div><div class="end"><b>${money(x.balance)}</b></div></button>`; }
+      const total = g.reduce((n, x) => n + x.balance, 0), oldest = ctx === 'due' ? Math.min(...g.map((x) => x.days)) : null;
+      return `<button type="button" class="row tap rprow rpgroup" data-act="rec-cust" data-id="${esc(c)}" data-ctx="${ctx}"><div class="grow"><b>${who}${tag}</b><small class="rpc">${esc(contact)}</small><small>${tn('rp.invN', g.length)}${oldest != null && oldest < 0 ? ' · ' + t('rp.oldest', { txt: tn('due.overdueDays', -oldest) }) : ''}</small></div><div class="end"><b>${money(total)}</b><span class="rpn">${g.length} ›</span></div></button>`;
+    }).join('');
+  };
+  // One customer's unpaid invoices (what each was for, the date, the balance), so you can pick the one being paid
+  function sheetRecCust(client, ctx) {
+    const due = new Map(L.dueItems(state).map((x) => [x.no, x])), pr = PE.byKey(state, client);
+    const list = state.invoices.filter((v) => v.client === client && !v.updatedBy && !v.void && v.balance > 0.004).map((v) => Object.assign({ date: v.date, desc: v.desc }, due.get(v.no) || { no: v.no, client, balance: v.balance, days: null })).sort((a, b) => (a.days == null ? 1e9 : a.days) - (b.days == null ? 1e9 : b.days) || new Date(b.date) - new Date(a.date));
+    openSmall(`<h3>${esc(pr ? pr.name : client)}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${list.map((x) => `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${x.no}"><div class="grow"><b class="rpdesc">${esc(x.desc || x.no)}</b><small>${x.no} · ${payDay(x.date)}${x.days != null ? ' · ' + dueText(x) : ''}</small></div><div class="end"><b>${money(x.balance)}</b></div></button>`).join('')}</div>`, 'sheet');
+  }
   function sheetDue() {
-    const D = dueCounts(), loc = I.locale(I.getLang()), day = (d) => new Date(d).toLocaleDateString(loc, { weekday: 'short', day: 'numeric', month: 'short' });
-    const grp = (title, list, cls) => (list.length ? `<h4 class="duehd ${cls}">${title} <span>${list.length}</span></h4>${list.map((x) => { const pr = PE.byKey(state, x.client), contact = [pr && pr.phone ? pr.phone : t('rp.noNum'), L.place(state, x.client)].filter(Boolean).join(' · ');
-      return `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${x.no}"><div class="grow"><b>${esc(pr ? pr.name : x.client)}</b><small class="rpc">${esc(contact)}</small><small>${x.no} · ${x.days < 0 ? tn('due.overdueDays', -x.days) : x.days === 0 ? t('due.today') : t('due.on', { d: day(x.due) })}</small></div><div class="end"><b>${money(x.balance)}</b></div></button>`; }).join('')}` : '');
+    const D = dueCounts(), byNo = (x) => Object.assign({ date: (state.invoices.find((v) => v.no === x.no) || {}).date }, x);
+    const grp = (title, list, cls) => (list.length ? `<h4 class="duehd ${cls}">${title} <span>${list.length}</span></h4>${payRowsHTML(list.map(byNo), 'due')}` : '');
     const body = grp(t('due.overdue'), D.items.filter((x) => x.days < 0).sort((a, b) => a.days - b.days), 'over') + grp(t('due.todayH'), D.items.filter((x) => x.days === 0), 'tod') + grp(t('due.soon'), D.items.filter((x) => x.days > 0 && x.days <= 7), 'soon');
     openSmall(`<h3>${t('due.title')}</h3><p class="muted small" style="margin:0 0 8px">${t('due.sub')}</p><div class="rplist">${body || `<p class="muted" style="text-align:center;margin:18px 0">${t('due.none')}</p>`}</div>`, 'sheet');
   }
@@ -4940,14 +4958,12 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'dd-chip': { const inp = document.querySelector('#sheet input[name=dueDays], #view input[name=dueDays]'); if (inp && id !== 'custom') inp.value = id; if (inp && id === 'custom') inp.focus(); document.querySelectorAll('[data-act=dd-chip]').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return; }
       case 'batch-log': closeTopMenu(); go({ tab: 'more', moreView: 'batches' }); window.scrollTo(0, 0); return render();
       case 'needs-more': homeNeedsAll = !homeNeedsAll; return render();
-      case 'rec-pay': {   // Record payment: the invoices that still have a balance, newest first; pick one and the payment page opens
-        const open = state.invoices.filter((v) => !v.updatedBy && !v.void && v.balance > 0.004).sort((a, b) => new Date(b.date) - new Date(a.date));
+      case 'rec-pay': {   // Record payment: customers who still owe (one row each, newest first); pick one, then the invoice, and the payment page opens
+        const open = state.invoices.filter((v) => !v.updatedBy && !v.void && v.balance > 0.004).sort((a, b) => new Date(b.date) - new Date(a.date)).map((v) => ({ no: v.no, client: v.client, balance: v.balance, date: v.date, days: null }));
         if (!open.length) return toast(t('rp.none'));
-        const nm = (c) => String((PE.byKey(state, c) || {}).name || c).trim().toLowerCase(), same = (c) => new Set(open.filter((v) => nm(v.client) === nm(c)).map((v) => v.client)).size > 1;   // two different customers with the same name
-        const day = (d) => new Date(d).toLocaleDateString(I.locale(I.getLang()), { day: 'numeric', month: 'short' });
-        return openSmall(`<h3>${t('rp.title')}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${open.map((v) => { const pr = PE.byKey(state, v.client), ph = pr && pr.phone ? pr.phone : '', pl = L.place(state, v.client), contact = [ph || t('rp.noNum'), pl].filter(Boolean).join(' · ');
-          return `<button type="button" class="row tap rprow" data-act="rec-go" data-id="${v.no}"><div class="grow"><b>${esc(pr ? pr.name : v.client)}${same(v.client) ? `<span class="rptag">${t('rp.same')}</span>` : ''}</b><small class="rpc">${esc(contact)}</small><small>${v.no} · ${day(v.date)}</small></div><div class="end"><b>${money(v.balance)}</b></div></button>`; }).join('')}</div>`, 'sheet');
+        return openSmall(`<h3>${t('rp.title')}</h3><p class="muted small" style="margin:0 0 8px">${t('rp.sub')}</p><div class="rplist">${payRowsHTML(open, 'all')}</div>`, 'sheet');
       }
+      case 'rec-cust': return sheetRecCust(id, t_.dataset.ctx);
       case 'rec-go': closeSheet(); return setTimeout(() => sheetPay(id), 60);
       case 'view': hideAmounts = !hideAmounts; render(); return syncEyes();
       case 'set-theme': theme = id; setPref('theme', theme); applyTheme(); closeSheet(); return render();

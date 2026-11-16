@@ -215,3 +215,5 @@ body.ed-open #tabbar,body.ed-open #actionbar{display:none!important}
 
 .hdue{margin:12px 0}.hdue p{margin:0 0 8px}
 .hdbtns{display:grid;grid-template-columns:1fr 1fr;gap:8px}
+.rpgroup .rpn{display:block;margin-top:2px;font-size:12px;font-weight:800;color:var(--brand)}
+.rpdesc{display:block;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;max-width:100%}
