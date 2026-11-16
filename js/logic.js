@@ -390,6 +390,8 @@
 
   // How many days after the invoice date a balance is due: one setting for every invoice (7 unless the owner changed it)
   L.dueDays = (s) => { const n = Math.round(Number(s && s.settings && s.settings.dueDays)); return n >= 0 && n <= 365 ? n : 7; };
+  // The last day to pay: the day the item is handed over is day one, so with 7 days the due date is the 7th day (6 days later).
+  L.dueFrom = (s, start) => { const d = new Date(start); d.setDate(d.getDate() + Math.max(0, L.dueDays(s) - 1)); return d; };
   L.createInvoice = (s, { itemIds, client, isNew, paying, date, allowZero, orderId, no, dueStart }) => {
     const p = L.previewInvoice(s, { itemIds, client, paying, allowZero, orderId });
     if (p.errors.length) throw fail(p.errors[0]);
@@ -399,7 +401,11 @@
     const old = p.ref ? s.invoices.find((v) => v.no === p.ref) : null, hasStart = (v) => !!v && Object.prototype.hasOwnProperty.call(v, 'dueStart');
     let due, start;
     if (old && old.due) { due = new Date(old.due); start = hasStart(old) ? old.dueStart : old.date; }   // an invoice from before this rule keeps its own date as the start
-    else { start = dueStart === undefined ? d.toISOString() : dueStart; due = new Date(start || d); due.setDate(due.getDate() + L.dueDays(s)); }
+    else {
+      // an item that has not arrived yet is not in the customer's hands: no due date runs until it is handed over
+      start = dueStart === undefined ? (p.items.some((i) => i.status === 'In Transit') ? '' : d.toISOString()) : dueStart;
+      due = L.dueFrom(s, start || d);
+    }
     const inv = {
       no: no || L.nextInvoiceNo(s), client, desc: p.lines.map((l) => l.desc).join(', '), lines: p.lines,
       total: r2(p.total), amountPaid: r2(p.paying), previouslyPaid: r2(p.prev), balance: r2(p.balance),

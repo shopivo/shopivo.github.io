@@ -212,3 +212,5 @@ body.ed-open #tabbar,body.ed-open #actionbar{display:none!important}
 
 /* Days to pay: room between the 7 / 14 / 30 / Other buttons and the number box */
 .chiprow+input[name=dueDays]{margin-top:12px}
+
+.hdue{margin:12px 0}.hdue p{margin:0 0 8px}

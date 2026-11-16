@@ -3386,7 +3386,7 @@
   // An invoice by its number: the real ones, or the invoice you sent for an order that is still on its way (it lives on the order, not in the invoice log).
   const invByNo = (no) => state.invoices.find((x) => x.no === no) || (() => { const o = MO.preByNo(state, no); return o ? MO.preInvoice(state, o) : null; })();
   // Due line: 'Balance due on delivery' for anything that has not been handed over yet (online orders, My orders), otherwise the date.
-  const dueOnDelivery = (v) => { if (!v || v.updatedBy || v.void) return false; if (v.dueOn === 'delivery') return true; if (!(Number(v.balance) > 0.004)) return false; const o = orderOfInvoice(v.no); return !!(o && o.status === 'confirmed' && toHand(o).length); };
+  const dueOnDelivery = (v) => { if (!v || v.updatedBy || v.void) return false; if (v.dueOn === 'delivery') return true; if (!(Number(v.balance) > 0.004)) return false; if (!L.dueStarted(v)) return true; const o = orderOfInvoice(v.no); return !!(o && o.status === 'confirmed' && toHand(o).length); };
   function sheetInvoice(no, swap) {   // swap: show this invoice in place of the one on screen (the payment history rows do this)
     const v0 = invByNo(no); if (!v0) return;
     const v = v0.void ? Object.assign({}, v0, v0.void.was) : v0;   // a returned invoice is shown as it was, with a note
@@ -3410,6 +3410,7 @@
         <div class="inv-sum">${stampKind(v) && !v0.void ? `<img class="stamp" src="${stampURL(v)}" alt="${ti('doc.stampAlt')}">` : ''}<div class="inv-tot">${totRows(v, sub).map(([k, val]) => `<div><span>${ti(k)}</span><b>${invMoney(val)}</b></div>`).join('')}<div class="due"><span>${ti('doc.balance')}</span><b>${invMoney(v.balance)}</b></div></div>${(() => { const nt = invNote(v); return nt ? `<div class="inv-note"><b>${esc(nt[0])}</b><span>${esc(nt[1])}</span></div>` : ''; })()}</div>
         <div class="inv-terms"><b>${ti('doc.terms')}</b><span>${ti('doc.thanks')}</span></div></div><div class="inv-foot"></div></div></div>
       <div class="muted small" style="margin-top:8px">${t('invUI.status')} <span class="pill ${st}">${invStLabel(st)}</span>${v.by ? ` · ${t('inv.by', { name: esc(v.by) })}` : ''}${v.refundDue > 0 ? ` <b class="bad">${t('ret.refundDue', { amount: money(v.refundDue) })}</b>` : ''}${v.balance > 0 && !v.updatedBy && !v0.void ? ` <button class="pay-btn" data-act="pay-inv" data-id="${v.no}" data-back="inv" style="margin-left:6px">${t('pay.btn')}</button>` : ''}${!v0.void && v.profit ? `<span class="costonly"> · ${t('invUI.profit')} ${money(v.profit)}</span>` : ''}${!v0.void && v.loss ? `<span class="costonly"> · ${t('invUI.loss')} ${money(v.loss)}</span>` : ''}${!v0.void && v.tip ? `<span class="costonly"> · ${t('invUI.tip')} ${money(v.tip)}</span>` : ''}</div>
+      ${isLatest && !v0.void && !L.dueStarted(v) && !orderOfInvoice(v0.no) && v.balance > 0.004 ? `<div class="hdue"><p class="muted small">${t('ih.onDeliveryNote')}</p><button class="btn primary" data-act="inv-handed" data-id="${v.no}" style="width:100%">📦 ${t('ih.markHanded')}</button></div>` : ''}
       ${hist}${thumbs}${spotRow}
       ${(() => { const who = esc(clabel(v.client || '')), k = autoActive() ? knownLang(v.no, v.client) : invoiceLang(); return `<p class="muted small sendnote">${autoActive() ? (k ? t('inv.sendAuto', { lang: I.LANGS[k]['lang.name'], who }) : t('inv.sendAsk', { who })) : t('inv.sendFixed', { lang: I.LANGS[k]['lang.name'] })}</p>`; })()}<div class="b22"><button class="btn primary" data-act="share-pdf" data-id="${v.no}">${t('invUI.shareBtn')}</button><button class="btn primary" data-act="download-pdf" data-id="${v.no}">${t('invUI.download')}</button>
       ${(() => { const rr = isLatest && !v0.void && state.items.some((x) => x.invoice === v.no), cc = isLatest && !v0.void; return (rr ? `<button class="btn rs ${cc ? '' : 'span2'}" data-act="return-open" data-id="${v.no}">↩ ${t('ret.btn')}</button>` : '') + (cc ? `<button class="btn rs ${rr ? '' : 'span2'}" data-act="del-inv" data-id="${v.no}">${t('invUI.cancel')}</button>` : ''); })()}<button class="btn slim span2" data-act="close">${t('btn.close')}</button></div>`, null, true);
@@ -3596,7 +3597,7 @@
       <label for="pay-date">${t('pay.date')}</label><input id="pay-date" type="date" value="${iso}" max="${iso}">
       <div class="pm-after mid" id="pay-after"></div>
       <div class="pm-note">${t('pay.note', { no: L.nextInvoiceNo(state), old: v.no })}</div>
-      <div class="btns"><button class="btn primary" id="pay-save" data-act="pay-save" data-id="${v.no}" disabled>${t('pay.save')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`,
+      <div class="btns"><button type="button" class="btn" data-act="view-inv" data-id="${v.no}">${t('pay.viewInv')}</button><button class="btn primary" id="pay-save" data-act="pay-save" data-id="${v.no}" disabled>${t('pay.save')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`,
       () => { payInv = null; }, true);
     payUpdate();
   }
@@ -4086,6 +4087,7 @@
     const add = (n) => out.push(n);
     if (!isAdmin && Plan.needsNote(planSt)) add({ key: 'plan:' + planSt.state + ':' + (planSt.daysLeft != null ? planSt.daysLeft : planSt.graceLeft || ''), grp: 'attn', ic: '⏳', always: true, title: rentLabel(planSt), sub: t(planSt.state === 'readonly' || planSt.state === 'locked' ? 'pl.cardBad' : 'pl.cardSoon'), go: ['pl-info', ''] });   // renewal reminder: the last 7 days, and after the date has passed
     { const dc = dueCounts(); if (dc.overdue + dc.today) add({ key: 'due:' + SCore.dayKey(new Date()) + ':' + dc.overdue + ':' + dc.today, grp: 'attn', ic: '⏰', always: true, title: [dc.overdue ? tn('notif.dueOver', dc.overdue) : '', dc.today ? tn('notif.dueToday', dc.today) : ''].filter(Boolean).join(' · '), sub: t('notif.dueSub'), go: ['due-open', ''] }); }
+    state.invoices.filter((v) => !v.updatedBy && !v.void && v.balance > 0.004 && !L.dueStarted(v) && !orderOfInvoice(v.no)).forEach((v) => { const its = state.items.filter((x) => x.invoice === v.no); if (its.length && its.every((i) => !itemArriving(i))) add({ key: 'hand:' + v.no, grp: 'attn', ic: '📦', always: true, title: t('notif.handInv', { name: esc(clabel(v.client)) }), sub: t('notif.handInvSub', { no: v.no }), go: ['view-inv', v.no] }); });
     if (can('team')) joinReqs.forEach((r) => add({ key: 'join:' + r.uid, grp: 'attn', ic: '👥', always: true, title: t('notif.join', { name: esc(r.name || r.email || '') }), sub: t('notif.joinSub'), go: ['req-open', r.uid] }));
     if (window.Store) {
       Store.orders().filter((o) => o.status === 'confirmed').forEach((o) => { const lat = latestInvOf(o), cf = tsAt(o.confirmedAt); if (lat && o.invSentNo !== lat.no && cf && cf.getTime() > INV_FROM && Date.now() - cf.getTime() > 5 * 60000) add({ key: 'send:' + o.id + ':' + lat.no, grp: 'attn', ic: '📤', always: true, title: t('notif.sendInv', { name: esc(o.name) }), sub: t('notif.sendInvSub', { code: esc(o.code || SCore.orderCode(o.id)), no: lat.no }), go: ['order-open', o.id] }); });
@@ -4169,7 +4171,7 @@
   // Delivered / Collected: asks first (a tap by mistake must not move the order on) and says where the order will go
   function finishHanded(id, got) {
     const po = Store.orders().find((x) => x.id === id); if (!po) return;
-    { const pp = L.orderPay(state, orderInvoice(po)), lv = pp && state.invoices.find((v) => v.no === pp.inv); if (lv && !lv.updatedBy && pp.owing > 0 && !lv.dueStart) { const dd = new Date(); lv.dueStart = dd.toISOString(); dd.setDate(dd.getDate() + L.dueDays(state)); lv.due = dd.toISOString(); save(); } }   // set once, on the first delivery; later payments keep it
+    { const pp = L.orderPay(state, orderInvoice(po)), lv = pp && state.invoices.find((v) => v.no === pp.inv); if (lv && !lv.updatedBy && pp.owing > 0 && !lv.dueStart) { const now0 = new Date(); lv.dueStart = now0.toISOString(); lv.due = L.dueFrom(state, now0).toISOString(); save(); } }   // set once, on the first delivery; later payments keep it
     const dl = po.option === 'delivery', ow = Math.max(0, ((L.orderPay(state, orderInvoice(po)) || {}).owing || 0) - (got || 0)), how = dl ? t('ord.delivered') : t('ord.collected');
     Store.setStatus(id, 'done', tripsOf(po).length ? { trips: tripsOf(po).concat({ at: Date.now(), ids: toHand(po).map((i) => i.id) }) } : undefined).then(() => { ordDirty = true; toast(ow > 0 ? t('ord.toastHanded', { how, amount: plain(money(ow)) }) : t('ord.toastDone', { how })); const here = pageStack.length && pageStack[pageStack.length - 1].key === 'order|' + id; if (here) setTimeout(() => { sheetOrder(id, true); if (ow <= 0 && pageStack.length > 1) pageStack = pageStack.slice(-1); }, 450); else setTimeout(() => sheetOrder(id), 450); }).catch(() => toast(t('store.pubError')));
   }
@@ -4179,9 +4181,22 @@
     const po = Store.orders().find((x) => x.id === id); if (!po) return null; const p = L.orderPay(state, orderInvoice(po)) || { total: Number(po.total) || 0, paid: 0, owing: Number(po.total) || 0 };
     return { code: po.code || SCore.orderCode(po.id), name: po.name, total: p.total, paid: p.paid, owing: p.owing, how: how || po.option };
   }
+  // "If something is left to pay, it is due Mon 23 Nov (7 days, today is day one)": what the hand-over starts
+  const dueNoteHTML = () => `<p class="muted small" style="margin:0 0 8px">${t('hand.dueNote', { n: L.dueDays(state), d: esc(L.dueFrom(state, new Date()).toLocaleDateString(I.locale(I.getLang()), { weekday: 'short', day: 'numeric', month: 'short' })) })}</p>`;
+  // A sale from Stock of an item that has not arrived: the invoice says On delivery until you hand it over; then the due date starts that day.
+  function sheetInvHanded(no) {
+    const v = state.invoices.find((x) => x.no === no); if (!v || v.updatedBy || v.void) return;
+    if (state.items.some((x) => x.invoice === no && itemArriving(x))) return toast(t('ih.notArrived'));
+    openSmall(`<h3>${t('ih.handedTitle', { no })}</h3><p style="margin:0 0 6px;font-weight:700">${esc(clabel(v.client))}</p><p class="muted">${t('mo.handBody', { total: moneyText(v.total), dep: moneyText(v.total - v.balance), bal: moneyText(v.balance) })}</p>${dueNoteHTML()}<label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${v.balance || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="inv-handed-ok" data-id="${no}">✅ ${t('ih.markHanded')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet');
+  }
+  function invHandedOk(no) {
+    const v = state.invoices.find((x) => x.no === no); if (!v || v.updatedBy || v.void) return; const amt = parseAmt(($('#hand-recv') || {}).value), now = new Date();
+    try { v.dueStart = now.toISOString(); v.due = L.dueFrom(state, now).toISOString(); let last = v; if (amt > 0) { last = L.recordPayment(state, no, amt); if (sharedBusiness()) last.by = myName(); } save(); closeSheet(); render(); toast(t('ih.handedDone', { d: new Date(last.due).toLocaleDateString(I.locale(I.getLang()), { day: 'numeric', month: 'short' }) })); setTimeout(() => sheetInvoice(last.no), 80); }
+    catch (e) { return toast('⚠️ ' + errMsg(e)); }
+  }
   function handSheet(kind, id, how) {
     const h = handInfo(kind, id, how); if (!h) return; const dl = h.how === 'delivery';
-    openSmall(`<h3>${t(dl ? 'hand.tDel' : 'hand.tCol', { code: esc(h.code) })}</h3><p style="margin:0 0 6px;font-weight:700">${esc(h.name || '')}</p><p class="muted">${t('mo.handBody', { total: moneyText(h.total), dep: moneyText(h.paid), bal: moneyText(h.owing) })}</p><label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${h.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="hand-ok" data-kind="${kind}" data-id="${id}" data-how="${h.how}">${t(dl ? 'hand.okDel' : 'hand.okCol')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
+    openSmall(`<h3>${t(dl ? 'hand.tDel' : 'hand.tCol', { code: esc(h.code) })}</h3><p style="margin:0 0 6px;font-weight:700">${esc(h.name || '')}</p><p class="muted">${t('mo.handBody', { total: moneyText(h.total), dep: moneyText(h.paid), bal: moneyText(h.owing) })}</p>${dueNoteHTML()}<label for="hand-recv">${t('mo.recv')}</label><input id="hand-recv" inputmode="decimal" value="${h.owing || ''}" placeholder="0.00"><div class="btns"><button class="btn primary" data-act="hand-ok" data-kind="${kind}" data-id="${id}" data-how="${h.how}">${t(dl ? 'hand.okDel' : 'hand.okCol')}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card');
   }
   function handOk(kind, id, how) {
     const amt = parseAmt(($('#hand-recv') || {}).value);
@@ -5421,6 +5436,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'mo-pay': return moAmountSheet(t('mo.addPay'), 'mo-pay-ok', id, '', '');
       case 'mo-pay-ok': { try { MO.addPayment(state, id, $('#mo-amt').value); closeSheet(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
       case 'mo-hand': return handSheet('mine', id, t_.dataset.how);
+      case 'inv-handed': return sheetInvHanded(id);
+      case 'inv-handed-ok': return invHandedOk(id);
       case 'hand-ok': return handOk(t_.dataset.kind, id, t_.dataset.how);
       case 'mo-send': { const o = MO.byId(state, id); if (!o) return; const lat = o.invoice ? L.invoiceForward(state, o.invoice).slice(-1)[0] : null; return lat ? shareInvoicePdf(lat.no, false) : o.pre ? shareInvoicePdf(o.pre.no, false) : null; }
       case 'mo-pre': { try { MO.makePre(state, id); save(); return moRefresh(id); } catch (e) { return toast('⚠️ ' + errMsg(e)); } }
