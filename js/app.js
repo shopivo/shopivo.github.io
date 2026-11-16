@@ -1679,7 +1679,7 @@
   // On a white square or rounded tile the round logo from the saved set is used when there is one; otherwise the normal business logo
   const hdrLogoSrc = (cfg) => cfg.slots.logo || (['square', 'rounded'].includes(cfg.items.logo.shape) && ((state.settings.bizLogoSet || []).find((x) => x.shape === 'circle') || {}).src) || state.settings.bizLogo;
   const ihImages = (cfg) => ({ logo: hdrImg(hdrLogoSrc(cfg)), title: hdrImg(cfg.slots.title), extra1: hdrImg(cfg.slots.extra1), extra2: hdrImg(cfg.slots.extra2), bg: hdrImg(cfg.bg.image.src) });
-  const ihInfo = () => { const s = state.settings, own = !!(s.businessName || s.bizCity || s.bizPhone || s.bizEmail); return { name: s.businessName || 'B.RUIZ', lines: own ? { city: s.bizCity, phone: s.bizPhone, email: s.bizEmail } : { city: 'Chaguanas', phone: '18683658857', email: 'berilexy.ruiz93@gmail.com' }, title: ti('doc.invoiceWord') }; };
+  const ihInfo = (lg) => { const s = state.settings, own = !!(s.businessName || s.bizCity || s.bizPhone || s.bizEmail); return { name: s.businessName || 'B.RUIZ', lines: own ? { city: s.bizCity, phone: s.bizPhone, email: s.bizEmail } : { city: 'Chaguanas', phone: '18683658857', email: 'berilexy.ruiz93@gmail.com' }, title: t('doc.invoiceWord', undefined, lg || invoiceLang()) }; };
   const ihSave = (cfg) => { state.settings.invPool = state.settings.invPool || {}; state.settings.invHeader = InvHeader.toKeys(cfg, state.settings.invPool); ihPrune(); save(); Object.keys(headCache).forEach((k) => delete headCache[k]); };
   // Once at start: move any pictures still stored inside designs into the shared pool and delete the ones nothing uses.
   function ihTidy() { const s = state.settings; svNorm(); if (!s.invHeader && !s.invPool && !(s.invHeaderSaved || []).length) return; s.invPool = s.invPool || {}; if (s.invHeader) s.invHeader = InvHeader.toKeys(s.invHeader, s.invPool); s.invHeaderSaved = (s.invHeaderSaved || []).map((d) => Object.assign({}, d, { cfg: InvHeader.toKeys(d.cfg, s.invPool) })); ihPrune(); save(); }
@@ -3222,11 +3222,13 @@
   const bizLogoImage = () => { const sx = state.settings.bizLogo || ''; if (!sx) return null; if (sx !== bizLogoSrc) { bizLogoSrc = sx; bizLogoImg = new Image(); bizLogoImg.onload = () => { Object.keys(headCache).forEach((k) => delete headCache[k]); }; bizLogoImg.src = sx; } return bizLogoImg; };
   const invLogo = new Image(); invLogo.src = 'icons/bruiz-logo-512.png';
   const headCache = {};
-  function headerCanvas(id, S) {
+  // Wait until the pictures a custom header uses (banner, title picture, logo) have loaded, so a drawing made right after the app opens is never missing them.
+  const headerReady = (id) => { if (id !== 'custom') return Promise.resolve(); const cfg = ihCfg(); return Promise.all(Object.values(ihImages(cfg)).filter((im) => im && !im.complete).map((im) => new Promise((r) => { im.addEventListener('load', r, { once: true }); im.addEventListener('error', r, { once: true }); setTimeout(r, 5000); }))); };
+  function headerCanvas(id, S, lg) {
     const b = invBiz(), W = 800, c = document.createElement('canvas'); c.width = W * S; c.height = InvDesign.HEAD_H * S;
     const x = c.getContext('2d'); x.scale(S, S);
-    if (id === 'custom') { const cfg = ihCfg(); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); return c; }
-    InvDesign.drawHeader(x, id, W, { name: b.name, lines: b.lines, title: ti('doc.invoiceWord'), logo: b.logo && b.logo.complete && b.logo.naturalWidth ? b.logo : null }, Theme.brand(), invStyle(id)); return c;
+    if (id === 'custom') { const cfg = ihCfg(); InvHeader.draw(x, cfg, ihInfo(lg), ihImages(cfg)); return c; }
+    InvDesign.drawHeader(x, id, W, { name: b.name, lines: b.lines, title: t('doc.invoiceWord', undefined, lg || invoiceLang()), logo: b.logo && b.logo.complete && b.logo.naturalWidth ? b.logo : null }, Theme.brand(), invStyle(id)); return c;
   }
   function headerURL(id) {
     const b = invBiz(), k = [id, invoiceLang(), b.name, b.lines.join('|'), Theme.brand(), JSON.stringify(invStyle(id)), b.logo && b.logo.complete ? 1 : 0, id === 'custom' ? JSON.stringify(state.settings.invHeader || '') + [state.settings.bizLogo].map((s) => (s ? s.length : 0)) + Object.values(ihImages(ihCfg())).map((im) => (im && im.complete ? 1 : 0)).join('') : ''].join('~');
@@ -3362,7 +3364,7 @@
     const LG = lang || invoiceLang(), ti = (key, vars) => t(key, vars, LG);   // this drawing speaks LG all the way through (it loads the banner first, so the screen may change in between)
     return new Promise((ok, fail) => {
       const img = new Image(); img.onerror = () => fail(new Error(ti('doc.loadErr')));
-      img.onload = () => {
+      img.onload = () => headerReady(invDesignId()).then(() => {
         const W = 800, S = scale || 2, lines = invLines(v), sub = lines.reduce((s, l) => s + l.qty * l.price, 0), D = invDesign(), classic = invDesignId() === 'classic';
         const bannerH = classic ? Math.round(W * img.naturalHeight / img.naturalWidth) : InvDesign.HEAD_H, rowH = 36;
         const H = Math.max(bannerH + 508 + lines.length * rowH + 62, Math.round(W * 1.4142));   // A4 portrait (1 : 1.414) like a paper invoice; longer invoices grow taller. Pink band sits right under the notes
@@ -3370,7 +3372,7 @@
         const x = c.getContext('2d'); x.scale(S, S);
         const F = (w, s) => { x.font = `${w} ${s}px "Lato", "Helvetica Neue", Helvetica, Arial, sans-serif`; };
         x.fillStyle = '#fff'; x.fillRect(0, 0, W, H);
-        if (classic) x.drawImage(img, 0, 0, W, bannerH); else x.drawImage(headerCanvas(invDesignId(), S), 0, 0, W, bannerH);
+        if (classic) x.drawImage(img, 0, 0, W, bannerH); else x.drawImage(headerCanvas(invDesignId(), S, LG), 0, 0, W, bannerH);
         const L0 = 36, R0 = W - 36; let y = bannerH + 44;
         x.textBaseline = 'alphabetic';
         F('700', 16); x.fillStyle = INV.grey; x.textAlign = 'left'; x.fillText(ti('doc.billTo'), L0, y);
@@ -3411,7 +3413,7 @@
         x.fillStyle = TB === 'minimal' ? '#dddddd' : TB === 'outline' ? D.head : D.band; x.fillRect(0, H - (TB === 'filled' ? 26 : TB === 'outline' ? 12 : 4), W, TB === 'filled' ? 26 : TB === 'outline' ? 12 : 4);   // the footer bar runs edge to edge of the sheet
         const out = frame && invFrame() !== 'none' ? framedCanvas(c, invFrame(), S, Theme.brand()) : c;
         out.toBlob((b) => (b ? ok(b) : fail(new Error(ti('doc.imgErr')))), type || 'image/png', quality || 0.92);
-      };
+      }).catch(fail);
       img.src = invDesignId() === 'classic' ? (LG === 'es' ? 'icons/invoice-banner-es.jpg' : 'icons/invoice-banner.jpg') : 'icons/logo.png';
     });
   }
