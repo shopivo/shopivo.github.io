@@ -91,3 +91,15 @@ input:focus,select:focus{outline:2px solid color-mix(in srgb,var(--brand) 55%,tr
 .stshare{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin-bottom:6px}.stshare>div{display:flex;flex-direction:column;gap:6px;align-items:stretch}.stshare canvas{width:100%;height:auto;border-radius:10px;box-shadow:var(--sh-c);background:#fff}.stshare small{color:var(--mute);font-size:11.5px;text-align:center}
 /* sliders: a vertical swipe scrolls the page; only a sideways drag moves the slider */
 input[type=range]{touch-action:pan-y}
+/* Studio tabs */
+.ststrip{display:flex;gap:6px;overflow-x:auto;scrollbar-width:none;padding:2px 0 8px;margin:0 -2px}.ststrip::-webkit-scrollbar{display:none}
+.ststrip button{flex:none;border:1px solid var(--ln);background:color-mix(in srgb,var(--card) 92%,var(--tint));border-radius:99px;padding:8px 14px;min-height:38px;font-size:13px;font-weight:700;color:var(--mute);box-shadow:none;display:inline-flex;align-items:center}
+.ststrip button.on{background:var(--brand);border-color:var(--brand);color:#fff;box-shadow:0 6px 14px -8px var(--brand)}
+.ststrip button.on .ico{color:#fff}
+.ihtop.ststudio canvas{max-height:104px;width:100%;object-fit:contain}
+.ihtop.ststudio #bc-pv{max-height:132px}
+.ihtop.ststudio .tmpv{padding:6px}.ihtop.ststudio .tmpv canvas{max-height:84px;width:auto}
+.ihtop.ststudio .lkpv canvas{width:64px;height:64px;max-height:none}
+.ihtop.ststudio .stpromo{border-radius:10px;box-shadow:var(--sh-c)}
+.ihtop.ststudio .stbar{margin-top:6px}
+.ststrip button{padding:8px 12px}

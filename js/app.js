@@ -2017,18 +2017,18 @@
   function stPaint() {
     const pv = $('#st-pv'); if (pv) { const cfg = ihCfg(), S = 2; pv.width = InvHeader.W * S; pv.height = InvHeader.H * S; const x = pv.getContext('2d'); x.scale(S, S); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); }
     const cc = $('#st-card'); if (cc) { try { const src = bcCanvas('front', CardMaker.applyScheme(bcCfg(), 'invoice', stColor()), 0.5); cc.width = src.width; cc.height = src.height; cc.getContext('2d').drawImage(src, 0, 0); } catch (e) { /* no preview */ } }
-    const pc = $('#st-promo'); if (pc) { const t0 = Studio.byId(stSt().tpl) || { look: 'bold' }, ps = Studio.promoStyle(t0.look, stColor(), InvHeader.mix); pc.width = 540; pc.height = 86; const g = pc.getContext('2d'), gr = g.createLinearGradient(0, 0, 540, 86); gr.addColorStop(0, ps.head[0]); gr.addColorStop(1, ps.head[1]); g.fillStyle = gr; g.fillRect(0, 0, 540, 86); g.fillStyle = ps.ink; g.textBaseline = 'alphabetic'; g.font = '800 30px system-ui,Arial'; g.fillText(storeCfg().name || bizName(), 20, 42, 500); g.globalAlpha = 0.85; g.font = '600 16px system-ui,Arial'; g.fillText(t('pr.subNew'), 20, 68, 500); g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillRect(0, 70, 0, 0); }
+    document.querySelectorAll('canvas[data-stpromo]').forEach((pc) => { const t0 = Studio.byId(stSt().tpl) || { look: 'bold' }, ps = Studio.promoStyle(t0.look, stColor(), InvHeader.mix); pc.width = 540; pc.height = 86; const g = pc.getContext('2d'), gr = g.createLinearGradient(0, 0, 540, 86); gr.addColorStop(0, ps.head[0]); gr.addColorStop(1, ps.head[1]); g.fillStyle = gr; g.fillRect(0, 0, 540, 86); g.fillStyle = ps.ink; g.textBaseline = 'alphabetic'; g.font = '800 30px system-ui,Arial'; g.fillText(storeCfg().name || bizName(), 20, 42, 500); g.globalAlpha = 0.85; g.font = '600 16px system-ui,Arial'; g.fillText(t('pr.subNew'), 20, 68, 500); g.globalAlpha = 1; g.fillStyle = '#fff'; g.fillRect(0, 70, 0, 0); });
     const col = stColor(); document.querySelectorAll('canvas[data-sttpl]').forEach((cv) => { const cfg = stCfgFor(cv.dataset.sttpl, col), x = cv.getContext('2d'); x.clearRect(0, 0, cv.width, cv.height); InvHeader.draw(x, cfg, ihInfo(), ihImages(cfg)); });
   }
   function stPaintSoon() { if (!stOn) return; cancelAnimationFrame(stRaf); stRaf = requestAnimationFrame(stPaint); }
   function stLogoColors() { try { const i = hdrImg(state.settings.bizLogo); if (!i || !i.complete || !i.naturalWidth) return []; const cv = document.createElement('canvas'); cv.width = cv.height = 48; const g = cv.getContext('2d'); g.drawImage(i, 0, 0, 48, 48); return Studio.dominant(g.getImageData(0, 0, 48, 48).data, 4); } catch (e) { return []; } }
   function stShareHTML() {
     const s0 = stSt(), row = (key, label, sub, on) => `<div class="rw2 prrow"><div class="t"><b>${label}</b><small>${sub}</small></div>${swt('st-toggle', key, on)}</div>`;
-    return `<p class="muted small" style="margin:0 0 8px">${t('st.shareSub')}</p><div class="stshare"><div><canvas id="st-card"></canvas><small>${t('st.cardLbl')}</small></div><div><canvas id="st-promo"></canvas><small>${t('st.promoLbl')}</small></div></div>
+    return `<p class="muted small" style="margin:0 0 8px">${t('st.shareSub')}</p><div class="stshare"><div><canvas id="st-card"></canvas><small>${t('st.cardLbl')}</small></div><div><canvas data-stpromo="1"></canvas><small>${t('st.promoLbl')}</small></div></div>
       ${row('card', t('st.cardSync'), t('st.cardSyncSub'), !!s0.card)}${row('promo', t('st.promoSync'), t('st.promoSyncSub'), !!s0.promo)}
       <button type="button" class="btn primary" data-act="st-everywhere" style="margin-top:10px">${t('st.everywhere')}</button>`;
   }
-  function stBodyHTML() {
+  function stBrandHTML() {
     const col = stColor(), s = stSt(), cfg = ihCfg(), ic = InvHeader.colours(cfg);
     const sw = (c) => `<button type="button" class="stsw ${c.toLowerCase() === col ? 'on' : ''}" data-act="st-color" data-id="${c}" style="background:${c}" aria-label="${c}"></button>`;
     const brandCols = [Theme.brand()].concat(stLogoColors()), custom = !Studio.SWATCHES.concat(brandCols).some((c) => c.toLowerCase() === col);
@@ -2043,21 +2043,59 @@
     const accent = `<div class="ihr col"><label>${t('ih.accent')}</label><button type="button" class="ihsw" data-act="st-accent" style="background:${ic.head}" aria-label="${t('ih.pickColor')}"></button></div>`;
     return `${ihSec('st:design', '1 · ' + t('st.s1'), `<div class="stgal">${gallery}</div>`)}
       ${ihSec('st:color', '2 · ' + t('st.s2'), colours + accent)}
-      ${ihSec('st:brand', '3 · ' + t('st.s3'), brand)}
+      ${ihSec('st:details', '3 · ' + t('st.s3b'), stDetailsHTML())}
       ${ihSec('st:page', '4 · ' + t('st.s4'), `<p class="muted small" style="margin:0 0 6px">${t('ih.pagebgSub')}</p>${frameBlockHTML()}`)}
-      ${ihSec('st:share', '5 · ' + t('st.s5'), stShareHTML())}
       ${ihSec('st:more', t('st.more'), adv + `<h4 class="sth4">${t('mb.savedInv')}</h4>${svSlotsHTML('inv', false)}`)}
       <div class="btns" style="margin-top:14px"><button type="button" class="btn primary" data-act="ih-saveas">💾 ${t('ih.saveAs')}</button></div>`;
   }
-  function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !stChanged(); }
-  function sheetStudio() {
+  // ---- the tabs: Brand, Invoice, Card, Logo, Title, Promote. Each tab hosts one of the creators (their pages stay the same, only their frame is shared). ----
+  let stTab = 'brand';
+  const ST_TABS = [['brand', '✨'], ['invoice', '🧾'], ['card', '💳'], ['logo', '🖼️'], ['title', '🔤'], ['promote', '🗣️']];
+  const stBodyId = () => ({ brand: 'st-body', promote: 'st-body', invoice: 'ih-body', card: 'bc-body', logo: 'lk-body', title: 'tt-body' })[stTab];
+  const stField = (k, label, type) => `<div class="ihr"><label>${label}</label><input type="${type || 'text'}" data-bz="${k}" value="${esc(state.settings[k] || '')}" autocomplete="off"${type === 'tel' ? ' inputmode="tel"' : ''}></div>`;
+  const stDetailsHTML = () => `<p class="muted small" style="margin:0 0 6px">${t('st.detailsSub')}</p>${stField('businessName', t('set.bizName'))}${stField('bizCity', t('bz.city'))}${stField('bizPhone', t('bz.phone'), 'tel')}${stField('bizEmail', t('bz.email'), 'email')}`;
+  function stPromoHTML() {
+    return stShareHTML();
+  }
+  const stBodyHTML = () => (stTab === 'promote' ? stPromoHTML() : stBrandHTML());
+  const stBodyFor = () => ({ brand: stBodyHTML, promote: stBodyHTML, invoice: ihBodyHTML, card: bcBodyHTML, title: ttBodyHTML, logo: () => lkBodyHTML() + `<div class="list grp" style="margin-top:12px">${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo-page')}</div>` })[stTab]();
+  function stTopHTML() {
+    const on = invDesignId() === 'custom', sample = `<button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button>`;
+    if (stTab === 'invoice') return `<canvas id="ih-pv" width="1600" height="380" aria-label="${t('ih.title')}"></canvas><div class="stbar">${sample}<button type="button" class="btn primary" id="ih-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div>`;
+    if (stTab === 'card') return `<canvas id="bc-pv" width="1050" height="600" aria-label="${t('bc.title')}"></canvas><div class="chiprow bcside"><button type="button" class="chip on" data-act="bc-side" data-id="front">${t('bc.front')}</button><button type="button" class="chip" data-act="bc-side" data-id="back">${t('bc.back')}</button></div>`;
+    if (stTab === 'logo') { const c = lkCfg(); return `<div class="lkpv">${LMK.SHAPES.map((sh) => `<button type="button" class="${c.shape === sh ? 'on' : ''}" data-act="lk-set" data-id="shape=${sh}" aria-label="${t('ih.sh.' + sh)}"><canvas data-lkshape="${sh}" width="220" height="220"></canvas></button>`).join('')}</div><div class="stbar"><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>`; }
+    if (stTab === 'title') return `<div class="tmpv"><canvas id="tt-pv" aria-label="${t('tt.title')}"></canvas></div><div class="stbar"><button type="button" class="btn primary" data-act="tt-use">${t('tt.use')}</button></div>`;
+    if (stTab === 'promote') return `<canvas data-stpromo="1" class="stpromo"></canvas>`;
+    return `<canvas id="st-pv" width="1600" height="380" aria-label="${t('st.title')}"></canvas><div class="stbar">${sample}<button type="button" class="btn primary" id="st-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div>`;
+  }
+  function stFlags() { ihOn = stTab === 'invoice'; bcOn = stTab === 'card'; lkOn = stTab === 'logo'; ttOn = stTab === 'title'; stOn = true; }
+  function stPaintAll() { stPaint(); if (ihOn) ihPaint(); if (bcOn) { bcPaint(); } if (lkOn) lkPaint(); if (ttOn) ttPaint(); }
+  function stAttachCard() { const cv = $('#bc-pv'); if (cv) { bcSide = 'front'; cv.onpointerdown = bcDown; cv.onpointermove = bcMove; cv.onpointerup = cv.onpointercancel = bcUp; } }
+  function stRender() {
+    const top = $('#st-top'), wrap = $('#st-bodywrap'); if (!top || !wrap) return;
+    stFlags(); top.querySelector('.stcont').innerHTML = stTopHTML(); wrap.innerHTML = `<p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div>`;
+    document.querySelectorAll('#st-strip button').forEach((b) => b.classList.toggle('on', b.dataset.id === stTab)); $('#sheet').scrollTop = 0; stAttachCard(); stPaintAll(); const on = document.querySelector('#st-strip button.on'); if (on && on.scrollIntoView) on.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+  function stRefresh() { const b = $('#st-body'); if (!b) return; const sc = $('#sheet').scrollTop; b.innerHTML = stBodyHTML(); $('#sheet').scrollTop = sc; stPaint(); const u = $('#st-use'); if (u) { const on = invDesignId() === 'custom'; u.disabled = on; u.textContent = on ? '✓ ' + t('st.inUse') : t('st.use'); } const r = $('#st-rest'); if (r) r.hidden = !(stTab === 'brand' && stChanged()); }
+  function sheetStudio(tab) {
+    if (tab) stTab = tab;
     enterPage('studio', '', () => sheetStudio());
-    stOn = true; state.settings.studioPrev = stSnap();
-    const on = invDesignId() === 'custom';
+    stFlags(); state.settings.studioPrev = state.settings.studioPrev || stSnap();
+    const strip = ST_TABS.map(([k, ic]) => `<button type="button" class="${stTab === k ? 'on' : ''}" data-act="st-tab" data-id="${k}">${ic} ${t('st.tab.' + k)}</button>`).join('');
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('st.title')}</b><small>${t('st.sub')}</small></div></div>
-      <div class="ihtop"><canvas id="st-pv" width="1600" height="380" aria-label="${t('st.title')}"></canvas><div class="stbar"><button type="button" class="btn" data-act="inv-sample">👁 ${t('inv.sampleBtn')}</button><button type="button" class="btn primary" id="st-use" data-act="ih-use" ${on ? 'disabled' : ''}>${on ? '✓ ' + t('st.inUse') : t('st.use')}</button></div></div>
-      <p class="strest" id="st-rest" ${stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="st-body">${stBodyHTML()}</div>`, () => { stOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
-    stPaint();
+      <div class="ihtop ststudio" id="st-top"><div class="ststrip" id="st-strip">${strip}</div><div class="stcont">${stTopHTML()}</div></div>
+      <div id="st-bodywrap"><p class="strest" id="st-rest" ${stTab === 'brand' && stChanged() ? '' : 'hidden'}><button type="button" data-act="st-restore">↶ ${t('st.restore')}</button></p><div class="pd" id="${stBodyId()}">${stBodyFor()}</div></div>
+      <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`,
+      () => { stOn = ihOn = bcOn = lkOn = ttOn = false; delete state.settings.studioPrev; ihPrune(); save(); render(); }, true);
+    stAttachCard(); stPaintAll(); const on0 = document.querySelector('#st-strip button.on'); if (on0 && on0.scrollIntoView) on0.scrollIntoView({ inline: 'center', block: 'nearest' });
+  }
+  // Open the Studio on one tab with all its drop-downs closed (so the old Invoice / Card / Logo / Title entries all lead here).
+  function openStudio(tab) {
+    const open = { brand: { 'st:design': true } }[tab] || {}; ihClosed('st:', open); ihClosed(''); ihClosed('tt:'); ihClosed('lk:');
+    if (tab === 'invoice-banner') { ihOpenSecs.banner = true; tab = 'invoice'; }
+    const sh = $('#sheet'), inStudio = !sh.hidden && ((pageStack[pageStack.length - 1] || {}).key === 'studio|');
+    if (inStudio) { stTab = tab; return stRender(); }
+    return sheetStudio(tab);
   }
 
   /* ---------- default places for a new business: the same places, no prices; the high-risk areas come marked ---------- */
@@ -4893,7 +4931,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'gd-logo-pick': { const f = $('#logo-file'); if (f) f.click(); return; }
       case 'gd-store': return gdCreateStore();
       case 'gd-look': { const [l, p] = id.split('|'); state.settings.invoiceDesign = 'custom'; ihSave(InvHeader.applyPreset(InvHeader.applyLayout(ihCfg(), l), p)); gdDraw(false); return; }
-      case 'lm-open': case 'lk-open': ihClosed('lk:'); return sheetLogoStudio();
+      case 'lm-open': case 'lk-open': return openStudio('logo');
       case 'lk-style': { const c = lkCfg(); c.style = id; lkSave(LMK.recolor(c, c.bg)); return lkRefresh(); }
       case 'lk-set': { const i = id.indexOf('='); lkSet(id.slice(0, i), id.slice(i + 1)); document.querySelectorAll('.lkpv button').forEach((b0) => b0.classList.toggle('on', b0.dataset.id === 'shape=' + lkCfg().shape)); return lkRefresh(); }
       case 'lk-brand': { const c = lkCfg(); lkSave(LMK.recolor(c, id)); return lkRefresh(); }
@@ -4901,18 +4939,18 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'lk-colpick': return openColorPick({ get: () => LMK.getPath(lkCfg(), id), set: (v) => lkSet(id, v) }, () => setTimeout(lkRefresh, 0));
       case 'lk-use': return lkUse();
       case 'lk-reset': return askCard(t('lk.resetAsk'), { danger: true, ok: t('tt.reset') }).then((y) => { if (!y) return; delete state.settings.logoCfg; save(); lkRefresh(); document.querySelectorAll('.lkpv button').forEach((b0) => b0.classList.toggle('on', b0.dataset.id === 'shape=' + lkCfg().shape)); });
-      case 'bc-open': ihClosed(''); return sheetCard();
+      case 'bc-open': return openStudio('card');
       case 'bc-auto': { const c = bcCfg(); c.fv = (c.fv + 1) % CardMaker.FRONT_N; c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
       case 'bc-arrreset': { const c = bcCfg(); c.fpos = {}; bcSave(CardMaker.norm(c)); return bcRefresh(); }
       case 'bc-sel': bcSel = id; return bcRefresh();
       case 'bc-size': { const c = bcCfg(), bx = CardMaker.frontBoxes(c, bcData(), bcImages()), o = bx[bcSel]; if (!o) return; const k = Math.max(0.3, Math.min(2.5, Math.round(o.k * (Number(id) > 0 ? 1.12 : 0.89) * 100) / 100)); c.fpos = Object.assign({}, c.fpos); c.fpos[bcSel] = Object.assign({}, c.fpos[bcSel], { x: Math.round(o.x), y: Math.round(o.y), k }); bcSave(CardMaker.norm(c)); return bcRefresh(); }
       case 'bp-open': return sheetBizProfile();
       case 'mb-open': return mbOpen();
-      case 'mb-inv': return sheetMyInvoice();
-      case 'mb-card': return sheetMyCard();
-      case 'mb-logo': ihClosed(''); return sheetMyLogo();
+      case 'mb-inv': return openStudio('invoice');
+      case 'mb-card': return openStudio('card');
+      case 'mb-logo': return openStudio('logo');
       case 'mb-style': return goFromPage({ tab: 'more', moreView: 'set-invdesign' });
-      case 'ih-banner': ihClosed('', { banner: true }); return sheetHeader();
+      case 'ih-banner': return openStudio('invoice-banner');
       case 'sv-edit': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); return k === 'inv' ? sheetHeader() : sheetCard(); }
       case 'sv-use': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d) return; svLoad(k, d); state.settings.invoiceDesign = 'custom'; save(); toast(t('ih.toast')); return svRedraw(); }
       case 'sv-save': { const [k, n] = id.split(':'), el = document.querySelector('[data-svname="' + id + '"]'); svSave(k, Number(n), el && el.value.trim()); toast(t('ih.savedOk')); return svRedraw(); }
@@ -4933,7 +4971,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'sv-share': { const [k, n] = id.split(':'), d = svSlot(k, Number(n)); if (!d || k !== 'card') return; return cardShare(d.cfg); }
       case 'bc-png': { const cfg = bcCfg(); return bcBlob(bcCanvas(id, cfg, 2), 'image/png').then((b) => bcDownload(b, `${bcFile()}-card-${id}-${cfg.bleed ? 'bleed-1125x675' : '1050x600'}.png`)); }
       case 'bc-pdf': return bcMakePdf().then((b) => bcDownload(b, `${bcFile()}-business-card-${bcCfg().bleed ? 'WITH-BLEED-3.75x2.25in' : '3.5x2in'}.pdf`));
-      case 'ih-open': ihClosed(''); return sheetHeader();
+      case 'ih-open': return openStudio('invoice');
       case 'ih-add': { const f = $('#ih-file'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-slot': { ihSlotPick = id; const f = $('#ih-file1'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-clear': { const c = ihCfg(); c.slots[id] = ''; ihSave(InvHeader.norm(c)); return ihRefresh(); }
@@ -4951,7 +4989,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-add': { const [w, m] = id.split(':'), r = (planAdm.rows || []).find((x) => x.id === w); if (!r) return; const cur = r.plan === 'trial' ? Plan.ms(r.trialEnds) : Plan.ms(r.paidUntil), ends = Plan.extend(cur, Date.now(), Number(m)); return planAdmWrite(w, { plan: r.plan === 'trial' ? 'starter' : r.plan, paidUntil: Cloud.ts(ends), locked: false }); }
       case 'pl-test': { const [w, d] = id.split(':'); return planAdmWrite(w, { plan: 'trial', trialEnds: Cloud.ts(Date.now() - Number(d) * 864e5), locked: false }); }
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
-      case 'studio-open': ihClosed('st:', { 'st:design': true }); return sheetStudio();
+      case 'studio-open': return openStudio('brand');
+      case 'st-tab': stTab = id; ihClosed('st:'); return stRender();
+      case 'mb-logo-page': ihClosed(''); return sheetMyLogo();
       case 'st-tpl': return stApply(id);
       case 'st-restore': return stRestore();
       case 'st-toggle': { state.settings.studio = Object.assign({}, stSt(), { [id]: !stSt()[id] }); if (id === 'card') stSyncCard(); save(); stRefresh(); return toast(t(stSt()[id] ? 'st.on' : 'st.off')); }
@@ -4961,7 +5001,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'st-accent': return openColorPick({ get: () => ihVal('accent'), set: (v) => ihSet('accent', v) }, () => setTimeout(() => { stRefresh(); stPaint(); }, 0));
       case 'st-logoshape': ihSet('items.logo.shape', id); return stRefresh();
       case 'st-autotitle': { const c = ihCfg(); c.slots.title = stTitleSrc(stColor(), (Studio.byId(stSt().tpl) || {}).look); c.items.title.on = true; ihSave(c); state.settings.studio = Object.assign({}, stSt(), { autoTitle: true }); save(); stRefresh(); return toast(t('tm.done')); }
-      case 'tm-open': case 'tt-open': ihClosed('tt:'); return sheetTitle();
+      case 'tm-open': case 'tt-open': return openStudio('title');
       case 'tt-set': { const i = id.indexOf('='); const p = id.slice(0, i); let v = id.slice(i + 1); if (/^\d+(\.\d+)?$/.test(v) && !/(font|style|deco|align|case)$/.test(p)) v = Number(v); ttSet(p, v); return ttRefresh(); }
       case 'tt-tog': { ttSet(id, !TM.getPath(ttCfg(), id)); return ttRefresh(); }
       case 'tt-colpick': return openColorPick({ get: () => TM.getPath(ttCfg(), id), set: (v) => ttSet(id, v) }, () => setTimeout(ttRefresh, 0));
@@ -5420,6 +5460,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     if (el.id === 'cr-zoom' && ihCr) { const ar = InvHeader.W / InvHeader.H, maxW = Math.min(ihCr.iw, ihCr.ih * ar), cx = ihCr.fx + ihCr.fw / 2, cy = ihCr.fy + ihCr.fw / ar / 2; ihCr.fw = maxW * Number(el.value) / 100; ihCr.fx = cx - ihCr.fw / 2; ihCr.fy = cy - ihCr.fw / ar / 2; ihCrClamp(); ihCrDraw(); return; }
     if (el.dataset.invsh) { state.settings.invoiceShadow = Number(el.value); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; const pv = document.querySelector('.frprev i'); if (pv) pv.style.boxShadow = frShadowCss(); save(); return; }
     if (el.dataset.invbg) { state.settings.invoiceBg = Object.assign({}, invBg(), { angle: Number(el.value) }); const lb = el.parentElement.querySelector('.v'); if (lb) lb.textContent = el.value; const pv = document.querySelector('.frprev'); if (pv) pv.style.background = invBgCss(invBg()); save(); return; }
+    if (el.dataset.bz) { state.settings[el.dataset.bz] = el.value; save(); ihPaintSoon(); stPaintSoon(); bcPaintSoon(); return; }
     if (el.dataset.lk) { const p = el.dataset.lk; let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = Math.round(v * 100) / 100; } else if (p === 'text') { v = v.toUpperCase().replace(/[^A-Za-z0-9]/g, '').slice(0, 3); } lkSet(p, v || (p === 'text' ? 'B' : v)); return; }
     if (el.dataset.tt) { const p = el.dataset.tt; let v = el.value; if (el.type === 'range') { v = Number(v); const lb = el.parentElement && el.parentElement.querySelector('.v'); if (lb) lb.textContent = Math.round(v * 100) / 100; } ttSet(p, v); return; }
     if (el.dataset.ttname !== undefined) { const d = (state.settings.titleSaved || []).find((x) => x.slot === Number(el.dataset.ttname)); if (d) { d.name = el.value.slice(0, 30); save(); } return; }
