@@ -2068,7 +2068,26 @@
   }
   const stBodyHTML = () => (stTab === 'promote' ? stPromoHTML() : stBrandHTML());
   const stBodyFor = () => ({ brand: stBodyHTML, promote: stBodyHTML, invoice: ihBodyHTML, card: bcBodyHTML, title: ttBodyHTML, logo: () => (state.settings.bizLogo ? lkGenHTML() : '') + lkBodyHTML() + `<div class="list grp" style="margin-top:12px">${mbRow('🖼️', t('mb.logo'), t('mb.logoSub'), 'mb-logo-page')}</div>` })[stTab]();
-  const stMultiHTML = () => `<div class="stmulti"><span>${t('st.multi')}</span>${swt('st-multi', 'x', !!state.settings.studioMulti)}</div>`;
+  // Every switch and big button in the Studio says exactly what it will do before it does it (a short pop-up with the steps and a Cancel).
+  const ST_INFO = {
+    'multi:on': ['st.c.multiOn.t', ['st.c.multiOn.1', 'st.c.multiOn.2', 'st.c.multiOn.3'], 'st.c.multiOn.ok'],
+    'multi:off': ['st.c.multiOff.t', ['st.c.multiOff.1', 'st.c.multiOff.2'], 'st.c.multiOff.ok'],
+    'card:on': ['st.c.cardOn.t', ['st.c.cardOn.1', 'st.c.cardOn.2', 'st.c.cardOn.3', 'st.c.cardOn.4'], 'st.c.cardOn.ok'],
+    'card:off': ['st.c.cardOff.t', ['st.c.cardOff.1', 'st.c.cardOff.2'], 'st.c.cardOff.ok'],
+    'promo:on': ['st.c.promoOn.t', ['st.c.promoOn.1', 'st.c.promoOn.2', 'st.c.promoOn.3', 'st.c.promoOn.4'], 'st.c.promoOn.ok'],
+    'promo:off': ['st.c.promoOff.t', ['st.c.promoOff.1', 'st.c.promoOff.2'], 'st.c.promoOff.ok'],
+    'everywhere': ['st.c.every.t', ['st.c.every.1', 'st.c.every.2', 'st.c.every.3', 'st.c.every.4'], 'st.c.every.ok'],
+    'use': ['st.c.use.t', ['st.c.use.1', 'st.c.use.2', 'st.c.use.3'], 'st.c.use.ok'],
+    'restore': ['st.c.restore.t', ['st.c.restore.1', 'st.c.restore.2', 'st.c.restore.3'], 'st.c.restore.ok'],
+  };
+  function stConfirm(key) {
+    const [title, lines, ok] = ST_INFO[key];
+    return new Promise((done) => {
+      let fin = false; const finish = (v) => { if (!fin) { fin = true; done(v); } }; window.__ask = finish;
+      openSmall(`<h3>${t(title)}</h3><p class="stwhat">${t('st.c.whatHappens')}</p><ul class="stinfo">${lines.map((k) => `<li>${t(k)}</li>`).join('')}</ul><div class="btns"><button class="btn primary" data-act="ask-yes">${t(ok)}</button><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'card', () => finish(false));
+    });
+  }
+  const stMultiHTML = () => `<div class="stmulti"><div class="t"><b>${t('st.multi')}</b><small>${t('st.multiSub')}</small></div>${swt('st-multi', 'x', !!state.settings.studioMulti)}</div>`;
   // For an owner who already has a logo: the letter-logo maker's shapes and "use" button sit in a block of their own under it.
   function lkGenHTML() { const c = lkCfg(); return `<div class="card lkgen"><b>${t('st.makeNew')}</b><small>${t('st.makeNewSub')}</small><div class="lkpv">${LMK.SHAPES.map((sh) => `<button type="button" class="${c.shape === sh ? 'on' : ''}" data-act="lk-set" data-id="shape=${sh}" aria-label="${t('ih.sh.' + sh)}"><canvas data-lkshape="${sh}" width="220" height="220"></canvas></button>`).join('')}</div><button type="button" class="btn primary" data-act="lk-use">${t('lk.use')}</button></div>`; }
   function stTopHTML() {
@@ -5007,13 +5026,13 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'pl-lock': { const r = (planAdm.rows || []).find((x) => x.id === id); if (!r) return; return planAdmWrite(id, { locked: !r.locked }); }
       case 'studio-open': return openStudio('brand');
       case 'studio-details': openStudio('brand'); ihOpenSecs['st:details'] = true; return stRefresh();
-      case 'st-multi': { state.settings.studioMulti = !state.settings.studioMulti; save(); const m = document.querySelector('.stmulti'); if (m) m.outerHTML = stMultiHTML(); return; }
+      case 'st-multi': return stConfirm(state.settings.studioMulti ? 'multi:off' : 'multi:on').then((y) => { if (!y) return; state.settings.studioMulti = !state.settings.studioMulti; save(); const m = document.querySelector('.stmulti'); if (m) m.outerHTML = stMultiHTML(); });
       case 'st-tab': stTab = id; ihClosed('st:'); return stRender();
       case 'mb-logo-page': ihClosed(''); return sheetMyLogo();
       case 'st-tpl': return stApply(id);
-      case 'st-restore': return stRestore();
-      case 'st-toggle': { state.settings.studio = Object.assign({}, stSt(), { [id]: !stSt()[id] }); if (id === 'card') stSyncCard(); save(); stRefresh(); return toast(t(stSt()[id] ? 'st.on' : 'st.off')); }
-      case 'st-everywhere': { state.settings.studio = Object.assign({}, stSt(), { card: true, promo: true }); stSyncCard(); save(); stRefresh(); return toast(t('st.everywhereDone')); }
+      case 'st-restore': return stConfirm('restore').then((y) => { if (y) stRestore(); });
+      case 'st-toggle': return stConfirm(id + (stSt()[id] ? ':off' : ':on')).then((y) => { if (!y) return; state.settings.studio = Object.assign({}, stSt(), { [id]: !stSt()[id] }); if (id === 'card') stSyncCard(); save(); stRefresh(); toast(t(stSt()[id] ? 'st.on' : 'st.off')); });
+      case 'st-everywhere': return stConfirm('everywhere').then((y) => { if (!y) return; state.settings.studio = Object.assign({}, stSt(), { card: true, promo: true }); stSyncCard(); save(); stRefresh(); toast(t('st.everywhereDone')); });
       case 'st-color': return stSetColor(id);
       case 'st-colpick': return openColorPick({ get: () => stColor(), set: (v) => { state.settings.studio = Object.assign({}, stSt(), { color: Studio.hex(v) }); save(); } }, () => setTimeout(() => { const s0 = stSt(); if (s0.tpl) stApply(s0.tpl); else stRefresh(); }, 0));
       case 'st-accent': return openColorPick({ get: () => ihVal('accent'), set: (v) => ihSet('accent', v) }, () => setTimeout(() => { stRefresh(); stPaint(); }, 0));
@@ -5042,7 +5061,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ih-preset': ihSave(InvHeader.applyPreset(ihCfg(), id)); return ihRefresh();
       case 'ih-stop-add': { const c = ihCfg(), s = c.bg.grad.stops; if (s.length < 4) { const last = s[s.length - 1]; s.push({ c: InvHeader.mix(last.c, '#000000', 0.2), p: Math.min(1, last.p + 0.1) }); ihSave(InvHeader.norm(c)); } return ihRefresh(); }
       case 'ih-stop-del': { const c = ihCfg(); if (c.bg.grad.stops.length > 2) { c.bg.grad.stops.splice(Number(id), 1); ihSave(InvHeader.norm(c)); } return ihRefresh(); }
-      case 'ih-use': state.settings.invoiceDesign = 'custom'; ihSave(ihCfg()); toast(t('ih.toast')); return ihRefresh();
+      case 'ih-use': { const go = () => { state.settings.invoiceDesign = 'custom'; ihSave(ihCfg()); toast(t('ih.toast')); }; if (!stOn) { go(); return ihRefresh(); } return stConfirm('use').then((y) => { if (y) { go(); invRefresh(); } }); }
       case 'ih-bgpick': { const f = $('#ih-bgfile'); if (f) { f.value = ''; f.click(); } return; }
       case 'ih-bgclear': { const c = ihCfg(); c.bg.image.src = ''; if (c.bg.type === 'image') c.bg.type = 'gradient'; ihSave(InvHeader.norm(c)); return ihRefresh(); }
       case 'ih-reset': return askCard(t('ih.resetAsk'), { danger: true, ok: t('ih.reset') }).then((y) => { if (!y) return; ihSave(InvHeader.defaults()); ihRefresh(); });
