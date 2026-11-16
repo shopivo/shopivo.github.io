@@ -12,7 +12,7 @@
     /* Start screen: the logo on a plain page in the app's colours, shown the moment the page begins to load (before any script runs).
        It follows the chosen light/dark setting, or the phone's own setting when none is chosen. The app removes it when it is ready. */
     html::before{content:"";position:fixed;inset:0;z-index:2147483646;background:#fafafb}
-    html::after{content:"";position:fixed;left:50%;top:50%;width:112px;height:112px;margin:-56px 0 0 -56px;border-radius:50%;z-index:2147483647;background:#fff url(icons/logo.png) center/cover no-repeat;box-shadow:0 2px 14px rgba(0,0,0,.18)}
+    html::after{content:"";position:fixed;left:50%;top:50%;width:104px;height:104px;margin:-52px 0 0 -52px;z-index:2147483647;background:url(icons/icon-192.png) center/contain no-repeat;filter:drop-shadow(0 6px 14px rgba(0,0,0,.25))}
     @media (prefers-color-scheme:dark){html:not([data-theme=light])::before{background:#150f16}}
     html[data-theme=dark]::before{background:#150f16}
     html.ready::before,html.ready::after{opacity:0;visibility:hidden;pointer-events:none;transition:opacity .25s ease,visibility 0s .25s}
