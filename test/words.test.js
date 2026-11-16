@@ -105,5 +105,7 @@ console.log('words tests passed: ' + CASES.length + ' example names');
   assert.strictEqual(en('Franela león').en, 'Lion t-shirt'); assert.strictEqual(en('Franela mariposa').en, 'Butterfly t-shirt'); assert.strictEqual(en('Franela corazones').en, 'Hearts t-shirt'); assert.strictEqual(en('Franela unicornio').en, 'Unicorn t-shirt'); assert.strictEqual(en('Franela oso polar').en, 'Polar bear t-shirt');
   assert.strictEqual(W.translate('Lion t-shirt', words).es, 'Camiseta león'); assert.strictEqual(W.translate('Butterfly top', words).es, 'Blusa mariposa');
   assert.strictEqual(en('Franela fresas').en, 'Strawberries t-shirt'); assert.strictEqual(en('Franela leones').en, 'Lions t-shirt'); assert.strictEqual(en('Franela osos').en, 'Bears t-shirt');
+  ['Braga', 'Pantalón', 'Pantalon', 'Bolso', 'Correa', 'Forro', 'Boxer', 'Conjunto de short', 'Zarcillos', 'Zapatillas', 'Playera', 'Enterizo', 'Mameluco', 'Gorro', 'Cartera', 'Licra'].forEach((x) => assert.deepStrictEqual(en(x).missing, [], x + ' is understood'));
+  assert.strictEqual(en('Braga').en, 'Panties'); assert.strictEqual(en('Pantalón').en, 'Pants'); assert.strictEqual(en('Bolso').en, 'Bag'); assert.strictEqual(en('Correa').en, 'Belt'); assert.strictEqual(en('Forro').en, 'Phone case'); assert.strictEqual(en('Conjunto de short').en, 'Shorts set');
   console.log('Spanish names tests passed');
 }
