@@ -3301,7 +3301,7 @@
   // "PAID IN FULL" rubber stamp: double border, tilted, worn ink. Seeded by invoice number so it never changes.
   const stampCache = {};
   function stampCanvas(seed, dateText, label, kind) {
-    const W = 560, H = 250, S = 2, INK = kind === 'due' ? '180,83,9' : '24,112,58', lbl = String(label).split('\n');
+    const W = 560, H = 250, S = 2, INK = kind === 'late' ? '176,38,38' : kind === 'due' ? '180,83,9' : '24,112,58', lbl = String(label).split('\n');
     let a = 0; for (const ch of String(seed)) a = (a * 31 + ch.charCodeAt(0)) >>> 0;
     const rnd = () => { a = (a + 0x6D2B79F5) >>> 0; let x = a; x = Math.imul(x ^ (x >>> 15), x | 1); x ^= x + Math.imul(x ^ (x >>> 7), x | 61); return ((x ^ (x >>> 14)) >>> 0) / 4294967296; };
     const ink = document.createElement('canvas'); ink.width = W * S; ink.height = H * S;
@@ -3342,13 +3342,18 @@
   // Which stamp an invoice carries: green PAID IN FULL once paid; amber DELIVERED / COLLECTED + BALANCE DUE when handed over with money still owing; none otherwise
   const stampKind = (v) => { if (!v || v.void) return ''; if (isPaidInFull(v)) return 'paid'; const o = v.no ? orderOfInvoice(v.no) : null; if (o && o.status === 'done') return o.option === 'delivery' ? 'del' : 'col'; return ''; };
   const STAMP_KEY = { paid: 'doc.stamp', del: 'doc.stampDel', col: 'doc.stampCol' };
-  const stampCanvasFor = (v, lg) => { const k = stampKind(v), due = k === 'del' || k === 'col', tl = (key) => t(key, {}, lg || invoiceLang()); return stampCanvas(v.no, stampDate(v, lg), due ? tl(STAMP_KEY[k]) + '\n' + tl('doc.stampDue') : tl('doc.stamp'), due ? 'due' : 'ok'); };
+  // A payment made after the due date: the due date stays as it was, and the payment is marked late (how many days after it was received).
+  const lateDays = (v) => { if (!v || v.void || !(num_(v.amountPaid) > 0) || !v.due || dueOnDelivery(v)) return 0; const a = new Date(v.date), b = new Date(v.due), da = new Date(a.getFullYear(), a.getMonth(), a.getDate()), db = new Date(b.getFullYear(), b.getMonth(), b.getDate()); return Math.max(0, Math.round((da - db) / 864e5)); };
+  const lateTxt = (key, n, lg) => t(key + (n === 1 ? '.one' : '.other'), { n }, lg || invoiceLang());
+  const stampCanvasFor = (v, lg) => { const k = stampKind(v), due = k === 'del' || k === 'col', tl = (key) => t(key, {}, lg || invoiceLang()), late = k === 'paid' ? lateDays(v) : 0; if (late) return stampCanvas(v.no, stampDate(v, lg), tl('doc.stamp') + '\n' + lateTxt('doc.stampLate', late, lg), 'late'); return stampCanvas(v.no, stampDate(v, lg), due ? tl(STAMP_KEY[k]) + '\n' + tl('doc.stampDue') : tl('doc.stamp'), due ? 'due' : 'ok'); };
   // The small two-line note under the balance while money is owing and the order is still to be handed over: "To be delivered / Payment due on delivery"
-  const invNote = (v, lg) => { const tl = (key) => t(key, {}, lg || invoiceLang()); if (!v || v.void || isPaidInFull(v)) return null; const o = v.no ? orderOfInvoice(v.no) : null; if (!o || o.status !== 'confirmed') return null;
+  const lateNote = (v, lg) => { const n = lateDays(v); return n ? [t('inv.ln.lateT', {}, lg || invoiceLang()), t('inv.ln.lateS', { d: dayMon(new Date(v.date)), n: lateTxt('inv.ln.lateN', n, lg) }, lg || invoiceLang()), 'late'] : null; };
+  const invNote = (v, lg) => invNote0(v, lg) || lateNote(v, lg);
+  const invNote0 = (v, lg) => { const tl = (key) => t(key, {}, lg || invoiceLang()); if (!v || v.void || isPaidInFull(v)) return null; const o = v.no ? orderOfInvoice(v.no) : null; if (!o || o.status !== 'confirmed') return null;
     const del = o.option === 'delivery', soon = (o.items || []).some(itemArriving), part = (Number(v.amountPaid) || 0) + (Number(v.previouslyPaid) || 0) > 0;
     if (handedN(o) > 0 && toHand(o).length) return [tl('inv.ln.partial').replace('{n}', handedN(o)).replace('{m}', (o.items || []).length), tl('inv.ln.balRest')];   // some items have gone out, the rest are still to come
     return [tl(soon ? 'inv.ln.soon' : del ? 'inv.ln.deliver' : 'inv.ln.pickup'), tl(part ? (del ? 'inv.ln.balDel' : 'inv.ln.balPick') : (del ? 'inv.ln.payDel' : 'inv.ln.payPick'))]; };   // in the language this invoice is being drawn in, not the phone's
-  function stampURL(v) { const k = v.no + '|' + v.date + '|' + invoiceLang() + '|' + stampKind(v); return stampCache[k] || (stampCache[k] = stampCanvasFor(v).toDataURL('image/png')); }
+  function stampURL(v) { const k = v.no + '|' + v.date + '|' + invoiceLang() + '|' + stampKind(v) + '|' + lateDays(v); return stampCache[k] || (stampCache[k] = stampCanvasFor(v).toDataURL('image/png')); }
 
   // "Returned on 8 Nov · 2 items back in stock · TT$ 200 had been paid" — shown on a returned or cancelled invoice
   const voidBanner = (v0) => { if (!v0.void) return ''; const d = v0.void, n = (d.items || []).length, paid = num_(d.was.amountPaid) + num_(d.was.previouslyPaid);
@@ -3457,7 +3462,7 @@
           x.save(); x.globalCompositeOperation = 'multiply';
           x.drawImage(stampCanvasFor(v, LG), W - L0 - 350, y + 34, 340, 152); x.restore();
         }
-        const nt = invNote(v, LG); if (nt) { x.textAlign = 'right'; F('700', 19); x.fillStyle = '#222'; x.fillText(nt[0], R0, y + 104); F('400', 16); x.fillStyle = '#555'; x.fillText(nt[1], R0, y + 126); }
+        const nt = invNote(v, LG), ny = y + (stampKind(v) && !v.void ? 208 : 104); if (nt) { x.textAlign = 'right'; F('700', 19); x.fillStyle = nt[2] === 'late' ? '#b02626' : '#222'; x.fillText(nt[0], R0, ny); F('400', 16); x.fillStyle = '#555'; x.fillText(nt[1], R0, ny + 22); }   // under the stamp when there is one
         y = H - 62;   // Terms stay at the bottom, as in the sheet; the empty space above them is where the stamp sits
         F('700', 19); x.fillStyle = '#000'; x.textAlign = 'left'; x.fillText(ti('doc.terms'), L0, y);
         F('400', 17); x.fillStyle = INV.grey; x.fillText(ti('doc.thanks'), L0, y + 26);
