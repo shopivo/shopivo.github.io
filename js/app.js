@@ -2074,7 +2074,7 @@
   // and one Edit page per thing: slim top bar (Back / Save), the live preview pinned on top, the controls below. The only ways out are Back and Save;
   // Back with unsaved changes asks. Edits are applied as you make them and Discard puts the snapshot taken when the page opened back. ----
   let edKind = null, edSnap = '', edMin = pref('edPvMin', false);
-  const ED_KINDS = ['brand', 'invoice', 'card', 'logo', 'title', 'promote'];
+  const ED_KINDS = ['brand', 'invoice', 'card', 'logo', 'title', 'promote'], ED_ICONS = { brand: '✨', invoice: '🧾', card: '💳', logo: '🖼️', title: '🔤', promote: '🗣️' };
   const edNice = (k) => t('st.ed.' + k);
   const stField = (k, label, type) => `<div class="ihr"><label>${label}</label><input type="${type || 'text'}" data-bz="${k}" value="${esc(state.settings[k] || '')}" autocomplete="off"${type === 'tel' ? ' inputmode="tel"' : ''}></div>`;
   const stDetailsHTML = () => `<p class="muted small" style="margin:0 0 6px">${t('st.detailsSub')}</p>${stField('businessName', t('set.bizName'))}${stField('bizCity', t('bz.city'))}${stField('bizPhone', t('bz.phone'), 'tel')}${stField('bizEmail', t('bz.email'), 'email')}`;
@@ -2157,10 +2157,19 @@
     edKind = kind; edFlags();
     enterPage('studioed', '', () => openEditor(edKind));
     openSheet(`<div class="edhead" id="ed-head"><div class="fullbar edbar"><button data-act="se-back" aria-label="${t('aria.back')}">‹</button><div><b>${edNice(kind)}</b></div><button type="button" class="edsave" data-act="se-save">${t('btn.save')}</button></div>
+        <div class="ststrip edstrip" id="ed-strip">${ED_KINDS.map((k) => `<button type="button" class="${k === kind ? 'on' : ''}" data-act="se-tab" data-id="${k}">${ED_ICONS[k]} ${t('st.tab.' + k)}</button>`).join('')}</div>
         <div class="edtop${edMin ? ' min' : ''}" id="ed-top"><div class="edpv">${edTopHTML()}</div><button type="button" class="edh" data-act="se-min" aria-label="${t('st.ed.size')}">${edMin ? '▾' : '▴'}</button></div></div>
       <div class="pd" id="ed-body">${edBodyHTML()}</div>
       <input type="file" id="ih-file" accept="image/*,.zip,application/zip" multiple hidden><input type="file" id="ih-file1" accept="image/*,.zip,application/zip" hidden><input type="file" id="ih-bgfile" accept="image/*" hidden>`, () => { edCleanup(); stOn = false; render(); }, true);
     document.body.classList.add('ed-open'); stAttachCard(); edPaint();
+  }
+  // switch to another thing without leaving the page: the same session, so Save and Discard cover everything changed on any tab
+  function edSwitch(k) {
+    if (!edKind || k === edKind) return; edKind = k; edFlags();
+    document.querySelectorAll('#ed-strip button').forEach((b) => b.classList.toggle('on', b.dataset.id === k));
+    const bt = document.querySelector('.edbar b'); if (bt) bt.textContent = edNice(k);
+    edRefresh(); $('#sheet').scrollTop = 0;
+    const st = $('#ed-strip'), on = st && st.querySelector('button.on'); if (st && on) st.scrollLeft = Math.max(0, on.offsetLeft - (st.clientWidth - on.offsetWidth) / 2);
   }
   // leave the edit page (after Save or Discard): back to the page it was opened from
   function edExit() {
@@ -2168,7 +2177,7 @@
     if (sh.classList.contains('small')) { const p = smallPrev; if (p && p.stack.length > 1) { p.stack = p.stack.slice(0, -1); p.open = p.stack[p.stack.length - 1].open; } else smallPrev = null; closeSheet(); } else pageBack();
   }
   function edSave() {
-    try { if (edKind === 'invoice' && JSON.stringify(state.settings.invHeader || null) !== JSON.stringify(JSON.parse(edSnap).invHeader || null)) state.settings.invoiceDesign = 'custom'; } catch (e) { /* design choice left as it is */ }
+    try { if (JSON.stringify(state.settings.invHeader || null) !== JSON.stringify(JSON.parse(edSnap).invHeader || null)) state.settings.invoiceDesign = 'custom'; } catch (e) { /* design choice left as it is */ }
     save(); toast(t('st.savedOk')); edExit();
   }
   function edDiscard() {
@@ -2182,7 +2191,7 @@
     ihClosed('st:'); ihClosed(''); ihClosed('tt:'); ihClosed('lk:');
     if (tab === 'invoice-banner') { ihOpenSecs.banner = true; tab = 'invoice'; }
     if (!tab || tab === 'main') return sheetStudio();
-    if (edKind && !$('#sheet').hidden) { edKind = tab; edFlags(); return openEditor(tab); }
+    if (edKind && !$('#sheet').hidden) return edSwitch(tab);
     return openEditor(tab);
   }
   /* ---------- default places for a new business: the same places, no prices; the high-risk areas come marked ---------- */
@@ -5086,6 +5095,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'studio-details': openStudio('brand'); ihOpenSecs['st:details'] = true; return edRefresh();
       case 'st-multi': return stConfirm(state.settings.studioMulti ? 'multi:off' : 'multi:on').then((y) => { if (!y) return; state.settings.studioMulti = !state.settings.studioMulti; save(); const m = document.querySelector('.stmulti'); if (m) m.outerHTML = stMultiHTML(); });
       case 'se-open': return openEditor(id);
+      case 'se-tab': return edSwitch(id);
       case 'se-back': return pageBack();
       case 'se-save': return edSave();
       case 'se-min': edMin = !edMin; setPref('edPvMin', edMin); { const tp = $('#ed-top'); if (tp) { tp.classList.toggle('min', edMin); t_.textContent = edMin ? '▾' : '▴'; } } return;
