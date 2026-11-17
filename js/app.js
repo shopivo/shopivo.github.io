@@ -4970,7 +4970,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   function openInvoiceFromSheet(no) { closeSheet(); sheetInvoice(no); }
 
   if (window.SelectPicker) SelectPicker.install(() => ({ cancel: t('btn.cancel'), done: t('btn.done'), search: t('pick.search'), choose: t('pick.choose'), none: t('people.noMatch') }));   // our own picker instead of the browser's list
-  const KEEP_SCROLL = new Set(['sm-day', 'sm-year', 'sm-mnav', 'view', 'ds-charge', 'ds-count', 'ds-mode', 'offer-toggle', 'fr-on', 'cp-on', 'cp-kind', 'fr-tier-del', 'area-mode', 'place-on', 'risk-flag', 'band-on', 'band-del', 'spot-on', 'spot-del', 'pl-filter', 'pl-search-close', 'hot-remove', 'zone-starter', 'zone-starter-hot']);
+  const KEEP_SCROLL = new Set(['sm-day', 'sm-year', 'sm-mnav', 'view', 'ds-charge', 'mx-del', 'ds-count', 'ds-mode', 'offer-toggle', 'fr-on', 'cp-on', 'cp-kind', 'fr-tier-del', 'area-mode', 'place-on', 'risk-flag', 'band-on', 'band-del', 'spot-on', 'spot-del', 'pl-filter', 'pl-search-close', 'hot-remove', 'zone-starter', 'zone-starter-hot']);
   document.addEventListener('click', (e) => {
     if (e.target.id === 'scrim') return closeSheet();
     if (e.target.id === 'tmscrim') return closeTopMenu();
@@ -5582,7 +5582,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ds-charge-pc': { const d = dset(); if (!d.home) return toast(t('dc.needHome')); saveDset({ charge: true }); toast(t('dc.pcDone')); return sheetPriceCheck(); }
       case 'ds-count': saveDset({ count: id === 'both' ? 'both' : 'one' }); return sheetPricing('distance');
       case 'mx-add': { const d = dset(); mxFree = storeCfg().locations.filter((l) => l.delivery && !(d.minEx || []).some((e) => e.id === l.id)).sort((a, b) => String(a.name || '').localeCompare(String(b.name || ''), undefined, { sensitivity: 'base' })); if (!mxFree.length) return toast(t('ds.exNoPlaces')); return openSmall(`<h3>${t('ds.exPick')}</h3><input id="mx-q" type="search" autocomplete="off" placeholder="${t('pick.search')}" style="width:100%;margin-top:10px"><div class="list" id="mx-list" style="margin-top:10px;max-height:52vh;overflow-y:auto">${mxRows('')}</div><div class="btns"><button class="btn" data-act="close">${t('btn.cancel')}</button></div>`, 'sheet'); }
-      case 'mx-pick': { const d = dset(); saveDset({ minEx: (d.minEx || []).concat([{ id, min: 0 }]) }); closeSheet(); return sheetPricing('distance'); }
+      case 'mx-pick': { const d = dset(), y = smallPrev ? smallPrev.y : 0; saveDset({ minEx: (d.minEx || []).concat([{ id, min: 0 }]) }); closeSheet(); sheetPricing('distance'); const sh1 = $('#sheet'); if (sh1) sh1.scrollTop = y; return; }   // back to the same place on the page
       case 'mx-del': { const d = dset(); saveDset({ minEx: (d.minEx || []).filter((e) => e.id !== id) }); return sheetPricing('distance'); }
       case 'ds-mode': saveDset({ mode: id === 'near' ? 'near' : id === 'none' ? 'none' : 'up' }); return sheetPricing('distance');
       case 'pr-tab': return sheetPricing(id === 'regions' || id === 'check' || id === 'spot' ? id : 'distance');
