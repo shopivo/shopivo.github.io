@@ -679,6 +679,7 @@
     if (stockFilter === 'NeedCheck' && !ps.needCheck) stockFilter = 'All';
     const noPr = state.items.filter(isNoPrice), nop = stockFilter === 'NoPrice';   // the No price filter looks across every batch
     const items = nop ? noPr.slice().sort((x, y) => (state.batches.find((z) => z.id === y.batchId) || {}).num - (state.batches.find((z) => z.id === x.batchId) || {}).num || String(x.id).localeCompare(String(y.id))) : all.filter((i) => (stockFilter === 'All' ? true : stockFilter === 'NeedCheck' ? i.photo && !i.photo.checked : i.status === stockFilter));
+    if (stockFilter === 'All' && !nop) { const rk = { 'Available': 0, 'In Transit': 1, 'Owing': 2, 'Paid': 3 }, at = (i) => (i.status in rk ? rk[i.status] : 4); items.sort((x, y) => at(x) - at(y)); }   // all items: what can be sold first, then arriving, owing, and paid last (the order inside each group stays)
     const st = L.batchStats(state, b);
     const cnt = (x) => all.filter((i) => i.status === x).length;
     const chip = (act, id, label, n, extra) => `<button type="button" class="itchip${extra ? ' ' + extra : ''}${stockFilter === id ? ' on' : ''}" data-act="${act}" data-id="${esc(id)}">${label}${n !== undefined ? ` <b>${n}</b>` : ''}</button>`;
