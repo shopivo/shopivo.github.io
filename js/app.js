@@ -3730,6 +3730,12 @@
   /* ---------- online store: settings, orders ---------- */
   const SCore = window.StoreCore;
   const storeCfg = () => SCore.norm(state.settings.store);
+  // The old price ranges were retired: a place still on one is moved to region price, keeping its price (nothing a customer pays changes), so there is nothing left to ask about
+  function retireBands() {
+    const raw = state.settings.store; if (!raw || !Array.isArray(raw.locations) || !raw.locations.some((l) => l && l.band)) return;
+    const c = storeCfg(); if (!c.locations.some((l) => l.band)) return;
+    storeSet({ locations: c.locations.map((l) => { if (!l.band) return l; const b = c.bands.find((x) => x.id === l.band); return Object.assign({}, l, { band: '', rm: true, price: b ? b.price : l.price }); }) });
+  }
   function storeSet(patch, opts) { const c = Object.assign(storeCfg(), patch); if (!c.id) c.id = SCore.newId(20); if (patch && 'zones' in patch) Object.assign(c, SCore.syncZonePlaces(c, opts)); state.settings.store = c; save(); }
   // Every delivery zone is also a place customers can pick: keep the two in step (also fixes what existed before this was added).
   // The starter high-risk spots go in once (the seller can edit or delete any of them; a deleted one does not come back).
@@ -6078,7 +6084,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     onRequests: (list) => { joinReqs = list; renderTools(); refreshTeamSheets(); },
     onRequestsError: (code) => { reqErr = code || ''; refreshTeamSheets(); },
     onStatus: (i) => { const was = cloud.signedIn; cloud = i; peopleCheck(); if (i.status === 'synced') planPing(); if (i.status === 'synced' && window.PhotoSync) PhotoSync.soon(3000); if (i.signedIn && !was && homeAfterSignIn) { homeAfterSignIn = false; closeSheet(); tab = 'home'; moreView = null; places = [{ tab: 'home', moreView: null }]; pageStack = []; render(); } if (i.status === 'synced' && window.Store) { Store.schedule(); Store.listen(); } else if (!i.signedIn && window.Store) Store.stopListen(); updateGate(); const el = $('#acct-st'); if (el && was === i.signedIn) { el.textContent = acctStatus(); el.parentNode.className = i.status === 'synced' ? 'good' : /error|rules|unavailable/.test(i.status) ? 'bad' : ''; } else if (tab === 'home' || (tab === 'more' && moreView === 'settings')) render(); },
-    onRemote: () => { L.migrate(state); peopleCheck(); wordList(); invWarm(); invBannerRefresh(); updateGate(); if (state.settings.palette) { Theme.apply(state.settings.palette); applyTheme(); } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } const a = document.activeElement; if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && $('#view').contains(a)) return setTimeout(render, 2000); render(); },
+    onRemote: () => { L.migrate(state); retireBands(); peopleCheck(); wordList(); invWarm(); invBannerRefresh(); updateGate(); if (state.settings.palette) { Theme.apply(state.settings.palette); applyTheme(); } try { localStorage.setItem(KEY, JSON.stringify(state)); } catch (e) { /* ignore */ } const a = document.activeElement; if (a && /^(INPUT|SELECT|TEXTAREA)$/.test(a.tagName) && $('#view').contains(a)) return setTimeout(render, 2000); render(); },
   });
   setTimeout(() => { const e = Cloud.redirectError && Cloud.redirectError(); if (e) toast(acctErr(e)); }, 4000);   // a Google sign-in that came back from Google's page with an error
   setInterval(() => { if (!document.hidden) renderTools(); }, 60000);   // an invoice reminder appears 5 minutes after confirming, even if nothing else redraws the bell
@@ -6089,6 +6095,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
   if (window.matchMedia) matchMedia('(prefers-color-scheme: dark)').addEventListener('change', applyTheme);
   peopleCheck();
   ensureZonePlaces();
+  retireBands();
   if (!state.settings.lateSince) { state.settings.lateSince = new Date().toISOString(); save(); }   // payments from this day on are judged on time or late; older ones are only listed
   ihTidy();
   invWarm();
