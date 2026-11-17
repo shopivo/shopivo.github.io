@@ -182,7 +182,7 @@
     /* toasts + updater */
     'toast.pressBack': 'Press back again to exit', 'toast.linkCopied': 'Link copied — paste it in Safari', 'toast.copyManual': 'Copy the address from your browser bar',
     'toast.restored': 'Backup restored.', 'toast.reading': 'Reading workbook…', 'toast.imported': 'Imported {b} batches, {i} items, {v} invoices.', 'toast.cleared': 'All data cleared.',
-    'upd.updating': 'Updating to the latest version…',
+    'upd.updating': 'Updating…',
     /* photos (step 1: kept on this phone) */
     'photo.add': 'Add photos',
     'photo.addNote': 'Photos fill the next items of {id} that have no photo, in order. {free} item(s) still need one.',
@@ -955,7 +955,7 @@
     'csv.customers': 'Cliente|Estado|Total que debe|Ventas totales|Artículos comprados|Artículos pendientes|Ganancia generada|Último artículo|Última compra',
     'toast.pressBack': 'Presiona atrás otra vez para salir', 'toast.linkCopied': 'Enlace copiado — pégalo en Safari', 'toast.copyManual': 'Copia la dirección de la barra del navegador',
     'toast.restored': 'Copia restaurada.', 'toast.reading': 'Leyendo libro…', 'toast.imported': 'Se importaron {b} lotes, {i} artículos y {v} facturas.', 'toast.cleared': 'Todos los datos borrados.',
-    'upd.updating': 'Actualizando a la última versión…',
+    'upd.updating': 'Actualizando…',
     /* photos (step 1: kept on this phone) */
     'photo.add': 'Añadir fotos',
     'photo.addNote': 'Las fotos llenan los siguientes artículos de {id} que no tienen foto, en orden. Faltan {free} artículo(s).',
