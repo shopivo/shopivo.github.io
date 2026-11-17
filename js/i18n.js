@@ -13,11 +13,6 @@
  */
 (function (root) {
   const EN = {
-    'ob.title': 'Open the store',
-    'ob.chrome': 'Open in Chrome',
-    'ob.copy': 'Copy link',
-    'ob.share': 'Share link',
-    'ob.note': 'Opens your store the way customers see it.',
     'photo.cloudFail': 'Could not get this photo from the cloud. Check your internet and try again.',
     'set.regionNote': 'Spanish regions change the Spanish words (item names, menus). Colombia, Dominican Republic and Spain are in Beta. Invoices still use Auto / English / Español.',
     'lang.name': 'English',
@@ -796,11 +791,6 @@
   };
 
   const ES = {
-    'ob.title': 'Abrir la tienda',
-    'ob.chrome': 'Abrir en Chrome',
-    'ob.copy': 'Copiar enlace',
-    'ob.share': 'Compartir enlace',
-    'ob.note': 'Abre tu tienda como la ven los clientes.',
     'photo.cloudFail': 'No se pudo traer esta foto de la nube. Revisa tu internet e inténtalo de nuevo.',
     'set.regionNote': 'Las regiones cambian las palabras en español (nombres de artículos, menús). Colombia, República Dominicana y España están en Beta. Las facturas siguen usando Auto / English / Español.',
     'lang.name': 'Español',
@@ -1574,7 +1564,14 @@
     es: [[/\bToca\b/g, 'Pulsa'], [/\btoca\b/g, 'pulsa'], [/\bTócalo\b/g, 'Púlsalo'], [/\bPresiona\b/g, 'Pulsa'], [/\bpresiona\b/g, 'pulsa'], [/\bcomputadora\b/g, 'ordenador'], [/\bcelulares\b/g, 'móviles'], [/\bcelular\b/g, 'móvil'], [/\bhaz clic\b/g, 'haz clic']],
   };
   let region = 've';
-  try { const r = typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(REGION_KEY)); if (REGIONS.includes(r)) region = r; } catch (e) { /* default */ }
+  try {
+    const r = typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(REGION_KEY));
+    if (REGIONS.includes(r)) region = r;
+    else if (typeof localStorage !== 'undefined' && localStorage.getItem('buy-sell-pref:lang') === null) {   // a first run on a Spanish phone: the phone says its region (es-CO, es-DO, es-ES, es-VE); other Spanish stays Venezuelan; a person's own pick always wins
+      const prefs = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [], hit = prefs.map((l) => /^es-(co|do|es|ve)\b/i.exec(l || '')).find(Boolean);
+      if (hit) { region = hit[1].toLowerCase(); localStorage.setItem(REGION_KEY, JSON.stringify(region)); }
+    }
+  } catch (e) { /* default */ }
   function setRegion(r, remember) {
     region = REGIONS.includes(r) ? r : 've';
     if (remember) { try { localStorage.setItem(REGION_KEY, JSON.stringify(region)); } catch (e) { /* ignore */ } }
