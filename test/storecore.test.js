@@ -9,7 +9,7 @@ const b1 = s.batches[0].id, b2 = s.batches[1].id;
 let list = SC.shown(s, { batches: [b1] });
 assert.deepStrictEqual(list.map((x) => x.id), [s.items[0].id, s.items[1].id], 'only Available items with a name, from the chosen batch (sold, unnamed ones are left out)');
 assert.strictEqual(list[1].sale, 200); assert.strictEqual(list[1].pct, 20); assert.strictEqual(SC.payPrice(list[1]), 200);
-assert.deepStrictEqual(Object.keys(list[0]).sort(), ['details', 'detailsEs', 'id', 'name', 'nameEs', 'pct', 'photo', 'price', 'sale', 'sizes', 'transit'], 'only public fields: never cost, landed cost or profit');
+assert.deepStrictEqual(Object.keys(list[0]).sort(), ['details', 'detailsEs', 'id', 'name', 'nameEs', 'pct', 'photo', 'price', 'rcv', 'sale', 'sizes', 'transit'], 'only public fields: never cost, landed cost or profit');
 assert.ok(!JSON.stringify(list).includes('cost'));
 { const s2 = JSON.parse(JSON.stringify(s)); s2.settings.words = require('../js/words.js').seed([]); s2.items[0].desc = 'Top and pants'; assert.strictEqual(SC.shown(s2, { batches: [b1] })[0].nameEs, 'Blusa y pantalones', 'the Spanish name is published when it is in order'); s2.items[0].desc = 'Red Zara dress'; assert.strictEqual(SC.shown(s2, { batches: [b1] })[0].nameEs, '', 'and left out while a word is missing'); }
 assert.strictEqual(SC.shown(s, { batches: [b1, b2] }).length, 2, 'in-transit items stay hidden unless switched on (the other batch has no priced available item)');
@@ -273,3 +273,15 @@ console.log('details tests passed');
   const pd = SC.publicDist({ home: { lat: home.lat, lng: home.lng, name: 'x' }, perKm: 1, round: 5, count: 'both', charge: true }, cfg); assert.deepStrictEqual([pd.on, pd.c, pd.p, pd.s, pd.m], [true, 'both', 1, 5, 'up']); assert.strictEqual(SC.publicDist({ perKm: 1, charge: true }, cfg), null, 'no store pin: nothing to measure from');
   assert.strictEqual(SC.publicDist({ home: { lat: 10.5, lng: -61.4 }, perKm: 1, charge: false }, SC.norm({})), null, 'off and no place chosen: nothing is published');
   const pl = SC.publicLocs(cfg, { home: { lat: home.lat, lng: home.lng }, perKm: 1, round: 5, count: 'both', charge: true }, { a: 9 }); assert.strictEqual(pl.find((x) => x.name === 'Chaguanas').price, 20); assert.ok(pl.find((x) => x.name === 'Chaguanas').dd && !pl.find((x) => x.name === 'Own').dd); assert.strictEqual(pl.find((x) => x.name === 'Own').price, 35); }
+
+// "New" in the store: a card knows when its batch arrived (the store page decides if that was in the last 7 days)
+{
+  const s2 = L.emptyState ? L.emptyState() : { batches: [], items: [], settings: {}, invoices: [] };
+  const batch = { id: 'B1', dateReceived: '2026-11-10T12:00:00.000Z' };
+  const st = { batches: [batch], items: [{ id: 'B1-1', batchId: 'B1', desc: 'Dress', price: 200, status: 'Available', size: 'S' }, { id: 'B1-2', batchId: 'B1', desc: 'Dress', price: 200, status: 'Available', size: 'M' }], settings: {}, invoices: [] };
+  const l2 = SC.shown(st, { batches: ['B1'] });
+  assert.strictEqual(l2[0].rcv, Date.parse('2026-11-10T12:00:00.000Z'), 'a card carries the arrival time of its batch');
+  st.batches[0].dateReceived = null; assert.strictEqual(SC.shown(st, { batches: ['B1'] })[0].rcv, 0, 'no arrival date = never "New"');
+  void s2;
+  console.log('store new-tag tests passed');
+}
