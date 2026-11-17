@@ -4218,7 +4218,7 @@
     const tabs = cats.length > 1 ? `<div class="bt" role="tablist"><button class="${notifTab === 'all' ? 'on' : ''}" role="tab" data-act="notif-tab" data-id="all">${t('notif.tAll')}${nb('all')}</button>${cats.map(([c, l]) => `<button class="${notifTab === c ? 'on' : ''}" role="tab" data-act="notif-tab" data-id="${c}">${t(l)}${nb(c)}</button>`).join('')}</div>` : '';
     const body = notifTab === 'all' ? `${grp('attn', 'notif.gAttn')}${grp('orders', 'notif.gOrders')}${grp('remind', 'notif.gRemind')}` : `<div class="card">${list.filter((n) => notifCat(n) === notifTab).map(row).join('')}</div>`;
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('notif.title')}</b><small>${unread ? tn('notif.newN', unread) : t('notif.none')}</small></div></div>
-      <div class="bn">${tabs}${unread ? `<button class="chip on" data-act="notif-read" style="margin:6px 0 0">${t('notif.readAll')}</button>` : ''}${body}${list.length ? '' : `<div class="empty"><b>${t('notif.none')}</b>${t('notif.noneText')}</div>`}</div>`, () => { notifMarkSeen(); render(); }, true);
+      <div class="bn">${tabs}${unread ? `<button class="chip on" data-act="notif-read" style="margin:8px 0 14px">${t('notif.readAll')}</button>` : ''}${body}${list.length ? '' : `<div class="empty"><b>${t('notif.none')}</b>${t('notif.noneText')}</div>`}</div>`, () => { notifMarkSeen(); render(); }, true);
   }
   // Tapping a line closes the page and goes to the thing it is about (the same screens the rest of the app opens).
   function notifGo(i) {
