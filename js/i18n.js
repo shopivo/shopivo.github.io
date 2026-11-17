@@ -13,6 +13,7 @@
  */
 (function (root) {
   const EN = {
+    'photo.cloudFail': 'Could not get this photo from the cloud. Check your internet and try again.',
     'set.regionNote': 'Spanish regions change the Spanish words (item names, menus). Colombia, Dominican Republic and Spain are in Beta. Invoices still use Auto / English / Español.',
     'lang.name': 'English',
     /* navigation + top bar */
@@ -790,6 +791,7 @@
   };
 
   const ES = {
+    'photo.cloudFail': 'No se pudo traer esta foto de la nube. Revisa tu internet e inténtalo de nuevo.',
     'set.regionNote': 'Las regiones cambian las palabras en español (nombres de artículos, menús). Colombia, República Dominicana y España están en Beta. Las facturas siguen usando Auto / English / Español.',
     'lang.name': 'Español',
     'nav.home': 'Inicio', 'nav.stock': 'Inventario', 'nav.sell': 'Tienda', 'nav.people': 'Clientes', 'nav.more': 'Más',

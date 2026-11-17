@@ -122,9 +122,15 @@
 
   const safeName = (s) => String(s).replace(/[\\/:*?"<>|]+/g, ' ').replace(/\s+/g, ' ').trim().slice(0, 60) || 'item';
   // The picture exactly as it is shared: the checked photo with the price tag (or the sale tag) drawn on it.
+  // The big picture to share: this phone's copy, or (a photo another phone added) the business's cloud copy
+  async function fullOf(it) {
+    const rec = await S.get(it.photo.id); if (rec && rec.full) return rec.full;
+    const u = root.PhotoSync ? await PhotoSync.url(it.photo.id, 'full').catch(() => null) : null;
+    if (!u) throw new Error('missing');
+    try { const r = await fetch(u, { mode: 'cors' }); if (!r.ok) throw new Error('http'); return await r.blob(); } catch (e) { throw new Error('cloud'); }
+  }
   async function taggedCanvas(it, lg) {
-    const rec = await S.get(it.photo.id); if (!rec || !rec.full) throw new Error('missing');
-    const c = await P.loadCanvas(rec.full, 2000), pub = L.publicView(it), price = num(pub.price), sale = num(pub.salePrice);
+    const c = await P.loadCanvas(await fullOf(it), 2000), pub = L.publicView(it), price = num(pub.price), sale = num(pub.salePrice);
     if (sale > 0) P.priceTag(c, A.invMoney(sale), { was: A.invMoney(price), badge: t('photo.off', { pct: pub.discount }, lg) });   // on sale: new price, old price crossed out, % OFF
     else if (price > 0) P.priceTag(c, A.invMoney(price));
     return { c, pub, price, sale };
@@ -150,7 +156,7 @@
       }
       const a = document.createElement('a'); a.href = URL.createObjectURL(blob); a.download = file.name; a.click(); setTimeout(() => URL.revokeObjectURL(a.href), 1500);
       A.toast(t('photo.noShare'));
-    } catch (e) { A.toast(e && e.message === 'missing' ? t('photo.missing') : '⚠️ ' + t('photo.shareFail')); }
+    } catch (e) { A.toast(e && e.message === 'missing' ? t('photo.missing') : e && e.message === 'cloud' ? t('photo.cloudFail') : '⚠️ ' + t('photo.shareFail')); }
   }
 
   /* ---------- long-press menu ---------- */
