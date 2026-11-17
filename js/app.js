@@ -3932,7 +3932,7 @@
         <p class="muted small" style="margin:8px 0 0">${t('dc.how')}</p></div>
       <div class="dcard"><h5>${t('ds.rates')}</h5>${inp('perKm', d.perKm, t('ds.perKm'))}${inp('freeKm', d.freeKm, t('ds.free'))}${inp('round', d.round, t('ds.round'))}${inp('minFee', d.minFee, t('ds.minFee'))}<p class="muted small" style="margin:8px 0 0">${t('ds.minNote')}</p></div>
       ${exceptionsCard(d)}
-      <div class="dcard"><h5>${t('dc.try')}</h5><div class="ln"><span>${t('dc.tryOne')}</span><input class="dinp" id="ds-try" type="text" inputmode="decimal" autocomplete="off" value="19" aria-label="${t('dc.tryOne')}"></div><div id="ds-trybox">${dcTry(d, 19)}</div></div></div>`; };
+      <div class="dcard"><h5>${t('dc.try')}</h5><div class="ln"><span>${t('dc.tryOne')}</span><input class="dinp" id="ds-try" type="text" inputmode="decimal" autocomplete="off" value="${d.tryKm > 0 ? d.tryKm : 19}" aria-label="${t('dc.tryOne')}"></div><div id="ds-trybox">${dcTry(d, d.tryKm > 0 ? d.tryKm : 19)}</div></div></div>`; };
   function sheetPricing(tab) {
     if (tab) prTab = tab; enterPage('pricing', '', () => sheetPricing());
     const c = storeCfg(), tabs = [['distance', t('pr.distance')], ['regions', t('pr.regions')], ['check', t('pr.check')], ['spot', t('pr.spot')]], old = c.locations.filter((l) => l.band);
@@ -4326,7 +4326,7 @@
   /* ---------- delivery log: every delivery and pickup, by day, with the distance driven ---------- */
   let dlvTab = 'deliveries', dlvView = 'list', dlvQ = '', dlvDay = '', dlvMonth = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })(), dlvLink = false;
   function dset() { const raw = state.settings.delivery; if (raw && raw.base) raw.base = 0;   // the base fee was removed from Pricing: an old one is dropped so it can never add to a fee unseen
-    return Object.assign({ home: null, base: 0, perKm: 0, freeKm: 0, round: 5, costKm: 0, showRate: true, charge: false, count: 'one', mode: 'up', minFee: 0, minEx: [] }, state.settings.delivery || {}); }
+    return Object.assign({ home: null, base: 0, perKm: 0, freeKm: 0, round: 5, costKm: 0, showRate: true, charge: false, count: 'one', mode: 'up', minFee: 0, minEx: [], tryKm: 0 }, state.settings.delivery || {}); }
   // Distance pricing: the seller's rate (settings.delivery) decides what a place charges when it is priced by distance.
   const distRateOwner = () => Object.assign({}, dset(), { charge: !!dset().charge });
   const placeFee = (c, l) => { const dp = SCore.distPlace(c, l, distRateOwner(), dset().home, roadCache()); return dp && dp.fee != null ? dp.fee : SCore.priceOf(c, l); };
@@ -5819,6 +5819,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     else if ((el.hasAttribute && el.hasAttribute('data-ret')) || el.id === 'rt-fee') retRefresh();
     else if (el.classList.contains('dq')) { dlvQ = el.value; dlvDay = ''; dlvRefresh(); }
     else if (el.dataset && el.dataset.dsshow !== undefined) saveDset({ showRate: !!el.checked });
+    else if (el.id === 'ds-try') saveDset({ tryKm: parseAmt(el.value) });   // the tried distance is kept until you change it yourself
     else if (el.dataset && el.dataset.minex) { const d = dset(); saveDset({ minEx: (d.minEx || []).map((e) => (e.id === el.dataset.minex ? { id: e.id, min: parseAmt(el.value) } : e)) }); const tb = $('#ds-trybox'), ti = $('#ds-try'); if (tb && ti) tb.innerHTML = dcTry(dset(), ti.value); }
     else if (el.dataset && el.dataset.dset) { saveDset({ [el.dataset.dset]: parseAmt(el.value) }); const d = dset(), st = SCore.deliveryStats(Store.orders().filter((o) => o.status === 'done')), ex = st.avgKm || 7.4, f = SCore.rateFee(d, ex), x = $('#ds-ex'); if (x) x.textContent = f == null ? t('ds.noRate') : t('ds.example', { km: ex, fee: plain(money(f)) }); const tb = $('#ds-trybox'), ti = $('#ds-try'); if (tb && ti) tb.innerHTML = dcTry(d, ti.value); }
     else if (el.classList.contains('iq')) { invQ = el.value; const l = $('#ilog'); if (l) l.innerHTML = invoiceLogRows(invQ); }
