@@ -84,7 +84,7 @@
   <script src="js/storefront.js"></script>
   <script src="js/selectpicker.js"></script>
   <script src="js/app.js"></script>
-  <div id="update" class="update" role="alert" hidden><span id="update-t"></span><button id="update-b" type="button"></button></div>
+  <div id="update" class="update" role="alert" hidden><span id="update-t"></span><button id="update-b" type="button"></button><i id="update-p" class="updp" aria-hidden="true"></i></div>
   <script>
     // Offline support + updates: look for a new version on open, when you come back to the app and every 10 minutes.
     // When one is ready a bar appears at the bottom with an Update button; nothing reloads until you press it.
@@ -99,8 +99,12 @@
       var showUpdate = function (worker) {   // worker: the new version once it is downloaded and waiting; null while it is still being fetched
         var bar = document.getElementById('update'); if (!bar) return;
         document.getElementById('update-t').textContent = tx('upd.available');
-        var b = document.getElementById('update-b'); b.disabled = false; b.textContent = tx('upd.btn');
-        b.onclick = function () { pressed = true; b.disabled = true; b.textContent = tx('upd.btn') + '…'; if (worker) worker.postMessage('skip-waiting'); else hardRefresh(); };
+        var b = document.getElementById('update-b'), pg = document.getElementById('update-p'); b.hidden = false; b.disabled = false; b.textContent = tx('upd.btn'); bar.classList.remove('busy'); if (pg) pg.style.width = '0';
+        b.onclick = function () {
+          pressed = true; b.hidden = true; bar.classList.add('busy'); document.getElementById('update-t').textContent = tx('upd.updating');   // "Updating…" with a bar that fills toward the end (the page reloads when the new version is ready)
+          var v = 0, t0 = Date.now(), iv = setInterval(function () { v += (92 - v) * 0.07; if (pg) pg.style.width = v.toFixed(1) + '%'; if (Date.now() - t0 > 30000) { clearInterval(iv); showUpdate(worker); } }, 250);   // if nothing happens in 30 s the button comes back so it can be tried again
+          if (worker) worker.postMessage('skip-waiting'); else hardRefresh();
+        };
         bar.hidden = false;
       };
       // No new version ready yet (still downloading, or the server is slow to publish it): clear the saved copy and load the app fresh from the internet
