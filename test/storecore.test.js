@@ -285,3 +285,20 @@ console.log('details tests passed');
   void s2;
   console.log('store new-tag tests passed');
 }
+
+// Minimum delivery fee: raises a distance fee after rounding; an exception place has its own minimum (0 = none)
+{
+  const rate = { base: 0, perKm: 1.7, freeKm: 0, round: 5, count: 'one', mode: 'up' };
+  assert.strictEqual(SC.rateFee(rate, 18), 35, 'no minimum: 18 km x 1.7 = 30.6, rounded up to 35');
+  assert.strictEqual(SC.rateFee(Object.assign({}, rate, { minFee: 40 }), 18), 40, 'a fee of 35 becomes 40');
+  assert.strictEqual(SC.rateFee(Object.assign({}, rate, { minFee: 40 }), 30), 55, 'a fee above the minimum is untouched (30 x 1.7 = 51, rounded up to 55)');
+  const ex = Object.assign({}, rate, { minFee: 40, minEx: [{ id: 'cv', min: 25 }, { id: 'ch', min: 0 }] });
+  assert.strictEqual(SC.rateFee(ex, 18, 'cv'), 35, 'the exception has its own minimum (25), so 35 stays');
+  assert.strictEqual(SC.rateFee(ex, 5, 'cv'), 25, 'and 25 applies to it');
+  assert.strictEqual(SC.rateFee(ex, 5, 'ch'), 10, 'an exception with no minimum has none');
+  assert.strictEqual(SC.rateFee(ex, 5, 'other'), 40, 'every other place uses the shared minimum');
+  assert.strictEqual(SC.distanceFee(ex, 18, 'cv').fee, 35);
+  const pub = SC.publicDist({ home: { lat: 10.5, lng: -61.4 }, perKm: 1.7, round: 5, charge: true, minFee: 40, minEx: [{ id: 'cv', min: 25 }] }, { locations: [] });
+  assert.strictEqual(pub.mn, 40); assert.deepStrictEqual(pub.x, [['cv', 25]], 'the store page gets the minimums');
+  console.log('minimum delivery fee tests passed');
+}

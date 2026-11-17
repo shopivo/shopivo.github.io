@@ -13,6 +13,17 @@
  */
 (function (root) {
   const EN = {
+    'ds.minFee': 'Minimum delivery fee',
+    'ds.minNote': 'No distance fee goes below this. A fee of 35 becomes 40 when the minimum is 40. Leave it empty for no minimum. Places with a fixed price keep their price.',
+    'ds.exTitle': 'Exceptions',
+    'ds.exNote': 'Places with their own minimum, instead of the one above. Leave a minimum empty for no minimum at all.',
+    'ds.exAdd': '＋ Add a place',
+    'ds.exOwn': 'Own minimum',
+    'ds.exNone': 'No minimum',
+    'ds.exPick': 'Pick a place',
+    'ds.exNoPlaces': 'No more delivery places to add',
+    'dc.tryRaw': 'Worked out',
+    'dc.tryMin': 'Fee (minimum applied)',
     'photo.cloudFail': 'Could not get this photo from the cloud. Check your internet and try again.',
     'set.regionNote': 'Spanish regions change the Spanish words (item names, menus). Colombia, Dominican Republic and Spain are in Beta. Invoices still use Auto / English / Español.',
     'lang.name': 'English',
@@ -791,6 +802,17 @@
   };
 
   const ES = {
+    'ds.minFee': 'Tarifa mínima de entrega',
+    'ds.minNote': 'Ninguna tarifa por distancia baja de esto. Una tarifa de 35 pasa a 40 si el mínimo es 40. Déjalo vacío para no tener mínimo. Los lugares con precio fijo mantienen su precio.',
+    'ds.exTitle': 'Excepciones',
+    'ds.exNote': 'Lugares con su propio mínimo, en lugar del de arriba. Deja un mínimo vacío para que no tenga mínimo.',
+    'ds.exAdd': '＋ Agregar un lugar',
+    'ds.exOwn': 'Mínimo propio',
+    'ds.exNone': 'Sin mínimo',
+    'ds.exPick': 'Elige un lugar',
+    'ds.exNoPlaces': 'No hay más lugares de entrega para agregar',
+    'dc.tryRaw': 'Calculado',
+    'dc.tryMin': 'Tarifa (mínimo aplicado)',
     'photo.cloudFail': 'No se pudo traer esta foto de la nube. Revisa tu internet e inténtalo de nuevo.',
     'set.regionNote': 'Las regiones cambian las palabras en español (nombres de artículos, menús). Colombia, República Dominicana y España están en Beta. Las facturas siguen usando Auto / English / Español.',
     'lang.name': 'Español',
