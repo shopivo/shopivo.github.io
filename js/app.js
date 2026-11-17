@@ -3909,7 +3909,7 @@
       else if (ph) {
         const g = ph.g, area = SCore.areaZones(c.zones), inz = SCore.zonesAt(area, g.lat, g.lng)[0], nz = inz || (SCore.nearestZone(area, g.lat, g.lng) || {}).zone, place = nz && c.locations.find((l) => l.zone === nz.id && l.delivery), rf = SCore.regionFee(c.regions, g.lat, g.lng), rid = SCore.regionAt(g.lat, g.lng), rows = placeRows(), near = SCore.nearRows(rows, ph.km).slice(0, 4);
         const sug = [], addS = (label, price) => { price = Math.round(price / 5) * 5; if (price > 0 && !sug.some((x) => x.price === price)) sug.push({ label, price }); };
-        const rate = SCore.rateFee(dset(), ph.km); if (rate != null) addS(t('prh.suggRate'), rate);
+        const rate = SCore.rateFee(dset(), ph.km, place && place.id); if (rate != null) addS(t('prh.suggRate'), rate);
         if (near.length) { const ps = near.map((r) => r.price).sort((a, b) => a - b); addS(t('prh.suggNear'), ps[Math.floor(ps.length / 2)]); }
         if (rf) addS(t('prh.suggRegion'), rf.fee);
         body += `<div class="card phres"><div class="phbig">${ph.src === 'road' ? '' : '≈ '}${ph.km} km <small>${t(ph.src === 'road' ? 'prh.byRoad' : 'prh.est')}</small></div><div class="mut">${t('prh.line', { km: ph.line })}${g.name ? ' · ' + esc(g.name) : ''}</div>
@@ -3930,7 +3930,8 @@
         <label style="margin-top:8px">${t('dc.count')}</label><div class="chips" style="margin:0"><button type="button" class="chip ${d.count === 'both' ? 'on' : ''}" data-act="ds-count" data-id="both">${t('dc.both')}</button><button type="button" class="chip ${d.count === 'both' ? '' : 'on'}" data-act="ds-count" data-id="one">${t('dc.oneWay')}</button></div>
         <label>${t('dc.mode')}</label><div class="chips" style="margin:0"><button type="button" class="chip ${d.mode === 'up' ? 'on' : ''}" data-act="ds-mode" data-id="up">${t('dc.up', { s: d.round || 5 })}</button><button type="button" class="chip ${d.mode === 'near' ? 'on' : ''}" data-act="ds-mode" data-id="near">${t('dc.near', { s: d.round || 5 })}</button><button type="button" class="chip ${d.mode === 'none' ? 'on' : ''}" data-act="ds-mode" data-id="none">${t('dc.none')}</button></div>
         <p class="muted small" style="margin:8px 0 0">${t('dc.how')}</p></div>
-      <div class="dcard"><h5>${t('ds.rates')}</h5>${inp('base', d.base, t('ds.base'))}${inp('perKm', d.perKm, t('ds.perKm'))}${inp('freeKm', d.freeKm, t('ds.free'))}${inp('round', d.round, t('ds.round'))}</div>
+      <div class="dcard"><h5>${t('ds.rates')}</h5>${inp('base', d.base, t('ds.base'))}${inp('perKm', d.perKm, t('ds.perKm'))}${inp('freeKm', d.freeKm, t('ds.free'))}${inp('round', d.round, t('ds.round'))}${inp('minFee', d.minFee, t('ds.minFee'))}<p class="muted small" style="margin:8px 0 0">${t('ds.minNote')}</p></div>
+      ${exceptionsCard(d)}
       <div class="dcard"><h5>${t('dc.try')}</h5><div class="ln"><span>${t('dc.tryOne')}</span><input class="dinp" id="ds-try" type="text" inputmode="decimal" autocomplete="off" value="19" aria-label="${t('dc.tryOne')}"></div><div id="ds-trybox">${dcTry(d, 19)}</div></div></div>`; };
   function sheetPricing(tab) {
     if (tab) prTab = tab; enterPage('pricing', '', () => sheetPricing());
@@ -3942,7 +3943,7 @@
   function sheetPriceCheck() { return sheetPricing('check'); }
   function sheetPriceHelper() { return sheetPricing('spot'); }
   // under each place: what the distance rule would charge (red = more than now, green = less)
-  const byDist = (r) => { const rate = distRateOwner(); if (!(rate.perKm > 0 || rate.base > 0)) return ''; const x = SCore.distanceFee(rate, r.km); if (x.fee == null) return ''; return `<small class="${x.fee > r.price ? 'pcup' : x.fee < r.price ? 'pcdn' : ''}">📏 ${t('dc.byDist')}: ${moneyText(x.fee)} · ${x.both} km ${t('dc.bothShort')}</small>`; };
+  const byDist = (r) => { const rate = distRateOwner(); if (!(rate.perKm > 0 || rate.base > 0)) return ''; const x = SCore.distanceFee(rate, r.km, r.id); if (x.fee == null) return ''; return `<small class="${x.fee > r.price ? 'pcup' : x.fee < r.price ? 'pcdn' : ''}">📏 ${t('dc.byDist')}: ${moneyText(x.fee)} · ${x.both} km ${t('dc.bothShort')}</small>`; };
   function priceCheckRaw() {
     enterPage('pricecheck', '', () => sheetPriceCheck());
     const h = dset().home; let body = '';
@@ -4324,7 +4325,7 @@
   }
   /* ---------- delivery log: every delivery and pickup, by day, with the distance driven ---------- */
   let dlvTab = 'deliveries', dlvView = 'list', dlvQ = '', dlvDay = '', dlvMonth = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })(), dlvLink = false;
-  function dset() { return Object.assign({ home: null, base: 0, perKm: 0, freeKm: 0, round: 5, costKm: 0, showRate: true, charge: false, count: 'one', mode: 'up' }, state.settings.delivery || {}); }
+  function dset() { return Object.assign({ home: null, base: 0, perKm: 0, freeKm: 0, round: 5, costKm: 0, showRate: true, charge: false, count: 'one', mode: 'up', minFee: 0, minEx: [] }, state.settings.delivery || {}); }
   // Distance pricing: the seller's rate (settings.delivery) decides what a place charges when it is priced by distance.
   const distRateOwner = () => Object.assign({}, dset(), { charge: !!dset().charge });
   const placeFee = (c, l) => { const dp = SCore.distPlace(c, l, distRateOwner(), dset().home, roadCache()); return dp && dp.fee != null ? dp.fee : SCore.priceOf(c, l); };
@@ -4404,7 +4405,10 @@
   const refreshDs = () => { const k = topKey(); if (k.startsWith('location|')) return sheetStoreLocation(); if (k.startsWith('dsettings|')) return sheetDeliverySettings(); };
   function dlvSetHome(g) { saveDset({ home: { lat: g.lat, lng: g.lng, name: g.name || '' } }); toast(t('ds.homeSet')); if (g.name == null || g.name === '') MapPick.nameOf(g.lat, g.lng, I.getLang()).then((n) => { if (n) { const h = dset().home; if (h && h.lat === g.lat) { saveDset({ home: Object.assign({}, h, { name: n }) }); if (!$('#sheet').hidden) refreshDs(); } } }); Store.measure(dset().home, true).then((n) => { if (n) toast(t('ds.measured', { n })); }); if (!$('#sheet').hidden) refreshDs(); }
   // "Try a distance": one way, there and back, the fee and the rounding examples
-  const dcTry = (d, km) => { const r = Object.assign({}, d, { count: d.count }), x = SCore.distanceFee(r, parseAmt(km)); return x.fee == null ? `<p class="muted small" style="margin:6px 0 0">${t('ds.noRate')}</p>` : `<div class="ln"><span>${t('dc.tryBoth')}</span><b>${x.both} km</b></div><div class="ln"><span>${t('dc.tryCount')}</span><b>${x.counted} km</b></div><div class="ln"><span>${t('dc.tryFee')}</span><b class="big" style="color:var(--brand)">${money(x.fee)}</b></div>`; };
+  // Places with their own minimum delivery fee (instead of the shared one); a minimum left empty means no minimum there
+  const exceptionsCard = (d) => { const locs = storeCfg().locations.filter((l) => l.delivery), ex = (d.minEx || []).filter((e) => locs.some((l) => l.id === e.id));
+    return `<div class="dcard"><h5>${t('ds.exTitle')}</h5><p class="muted small" style="margin:0 0 6px">${t('ds.exNote')}</p>${ex.map((e) => { const l = locs.find((x) => x.id === e.id); return `<div class="ln"><span>${esc(l.name)}<small style="display:block;color:var(--mute)">${t(e.min > 0 ? 'ds.exOwn' : 'ds.exNone')}</small></span><span style="display:flex;gap:8px;align-items:center"><input class="dinp" data-minex="${esc(e.id)}" type="text" inputmode="decimal" autocomplete="off" value="${e.min > 0 ? e.min : ''}" placeholder="—" style="width:88px"><button type="button" class="chip" data-act="mx-del" data-id="${esc(e.id)}" aria-label="×">×</button></span></div>`; }).join('')}<button type="button" class="btn" style="width:100%;margin-top:10px" data-act="mx-add">${t('ds.exAdd')}</button></div>`; };
+  const dcTry = (d, km) => { const r = Object.assign({}, d, { count: d.count }), x = SCore.distanceFee(r, parseAmt(km)), raw = x.fee == null ? null : SCore.rateFee(Object.assign({}, r, { minFee: 0, minEx: [] }), parseAmt(km)); return x.fee == null ? `<p class="muted small" style="margin:6px 0 0">${t('ds.noRate')}</p>` : `<div class="ln"><span>${t('dc.tryBoth')}</span><b>${x.both} km</b></div><div class="ln"><span>${t('dc.tryCount')}</span><b>${x.counted} km</b></div>${raw != null && raw !== x.fee ? `<div class="ln"><span>${t('dc.tryRaw')}</span><b>${money(raw)}</b></div>` : ''}<div class="ln"><span>${t(raw != null && raw !== x.fee ? 'dc.tryMin' : 'dc.tryFee')}</span><b class="big" style="color:var(--brand)">${money(x.fee)}</b></div>`; };
   // The store location: where the driving starts. Every distance in the app (fees, free-delivery levels, the price helper) is measured from this pin.
   function sheetStoreLocation() {
     enterPage('location', '', () => sheetStoreLocation());
@@ -5574,6 +5578,9 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ds-charge': { const d = dset(), on = !d.charge, patch = { charge: on }; if (on && !d.distInit) Object.assign(patch, { perKm: 1, base: 0, freeKm: 0, round: 5, count: 'both', mode: 'up', distInit: true }); if (on && !d.home) toast(t('dc.needHome')); saveDset(patch); return sheetPricing('distance'); }
       case 'ds-charge-pc': { const d = dset(); if (!d.home) return toast(t('dc.needHome')); saveDset({ charge: true }); toast(t('dc.pcDone')); return sheetPriceCheck(); }
       case 'ds-count': saveDset({ count: id === 'both' ? 'both' : 'one' }); return sheetPricing('distance');
+      case 'mx-add': { const d = dset(), free = storeCfg().locations.filter((l) => l.delivery && !(d.minEx || []).some((e) => e.id === l.id)); if (!free.length) return toast(t('ds.exNoPlaces')); return sheetChoice(t('ds.exPick'), 'mx-pick', '', free.map((l) => [l.id, esc(l.name)])); }
+      case 'mx-pick': { const d = dset(); saveDset({ minEx: (d.minEx || []).concat([{ id, min: 0 }]) }); closeSheet(); return sheetPricing('distance'); }
+      case 'mx-del': { const d = dset(); saveDset({ minEx: (d.minEx || []).filter((e) => e.id !== id) }); return sheetPricing('distance'); }
       case 'ds-mode': saveDset({ mode: id === 'near' ? 'near' : id === 'none' ? 'none' : 'up' }); return sheetPricing('distance');
       case 'pr-tab': return sheetPricing(id === 'regions' || id === 'check' || id === 'spot' ? id : 'distance');
       case 'pricing-open': return sheetPricing('distance');
@@ -5808,6 +5815,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     else if ((el.hasAttribute && el.hasAttribute('data-ret')) || el.id === 'rt-fee') retRefresh();
     else if (el.classList.contains('dq')) { dlvQ = el.value; dlvDay = ''; dlvRefresh(); }
     else if (el.dataset && el.dataset.dsshow !== undefined) saveDset({ showRate: !!el.checked });
+    else if (el.dataset && el.dataset.minex) { const d = dset(); saveDset({ minEx: (d.minEx || []).map((e) => (e.id === el.dataset.minex ? { id: e.id, min: parseAmt(el.value) } : e)) }); const tb = $('#ds-trybox'), ti = $('#ds-try'); if (tb && ti) tb.innerHTML = dcTry(dset(), ti.value); }
     else if (el.dataset && el.dataset.dset) { saveDset({ [el.dataset.dset]: parseAmt(el.value) }); const d = dset(), st = SCore.deliveryStats(Store.orders().filter((o) => o.status === 'done')), ex = st.avgKm || 7.4, f = SCore.rateFee(d, ex), x = $('#ds-ex'); if (x) x.textContent = f == null ? t('ds.noRate') : t('ds.example', { km: ex, fee: plain(money(f)) }); const tb = $('#ds-trybox'), ti = $('#ds-try'); if (tb && ti) tb.innerHTML = dcTry(d, ti.value); }
     else if (el.classList.contains('iq')) { invQ = el.value; const l = $('#ilog'); if (l) l.innerHTML = invoiceLogRows(invQ); }
     else if (el.id === 'pr-cap') { prCaption = el.value; }
