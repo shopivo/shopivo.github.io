@@ -93,7 +93,7 @@
         if (p.photo && !img) img = await withTimeout(smallPicture(p.photo), TUNE.pic).catch(() => '');
         if (p.photo && !img && root.PhotoSync) img = await withTimeout(PhotoSync.url(p.photo, 'full'), TUNE.pic).catch(() => '') || '';   // not on this phone: the business's cloud copy of the picture
         if (p.photo && !img && old[p.id]) img = old[p.id];
-        items.push(Object.assign({ id: p.id, name: p.name, nameEs: p.nameEs, sizes: p.sizes, price: p.price, sale: p.sale, pct: p.pct, transit: p.transit, img }, p.details ? { details: p.details } : {}, p.detailsEs ? { detailsEs: p.detailsEs } : {}));
+        items.push(Object.assign({ id: p.id, name: p.name, nameEs: p.nameEs, sizes: p.sizes, price: p.price, sale: p.sale, pct: p.pct, transit: p.transit, img }, p.rcv > 0 ? { rcv: p.rcv } : {}, p.details ? { details: p.details } : {}, p.detailsEs ? { detailsEs: p.detailsEs } : {}));
       }
       writeMap(c.id, map); info.sharp = sharpN > 0; try { localStorage.setItem('buy-sell-store-mode', sharpN > 0 || !list.some((p) => p.photo) ? 'sharp' : 'small'); } catch (e) { /* ignore */ }
       const db = Cloud.db(), sref = db.collection('stores').doc(c.id), chunks = SC.chunk(items), b = db.batch();
