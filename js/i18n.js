@@ -13,6 +13,7 @@
  */
 (function (root) {
   const EN = {
+    'ds.baseNote': 'Added to EVERY delivery, on top of the price per km. Example: base 10 and 1.70 per km: a 10 km trip is 10 + 17 = 27. Use 0 if you only want to charge by distance.',
     'ds.minFee': 'Minimum delivery fee',
     'ds.minNote': 'Base fee is added to EVERY delivery. Minimum fee only lifts a fee that comes out too low and adds nothing otherwise. Example: with base 0 and minimum 40, a fee of 35 becomes 40, but a fee of 55 stays 55. With base 40, every fee already starts at 40 and the minimum does nothing. Leave the minimum empty for none. Places with a fixed price keep their price.',
     'ds.minSame': 'Your base fee is already at or above the minimum, so the minimum has no effect. For a floor without adding to every fee, set the base fee to 0.',
@@ -803,6 +804,7 @@
   };
 
   const ES = {
+    'ds.baseNote': 'Se suma a TODAS las entregas, además del precio por km. Ejemplo: base 10 y 1,70 por km: un viaje de 10 km es 10 + 17 = 27. Usa 0 si solo quieres cobrar por distancia.',
     'ds.minFee': 'Tarifa mínima de entrega',
     'ds.minNote': 'La tarifa base se suma a TODAS las entregas. La tarifa mínima solo sube una tarifa que sale muy baja y no suma nada en los demás casos. Ejemplo: con base 0 y mínimo 40, una tarifa de 35 pasa a 40, pero una de 55 se queda en 55. Con base 40, toda tarifa ya empieza en 40 y el mínimo no hace nada. Déjalo vacío para no tener mínimo. Los lugares con precio fijo mantienen su precio.',
     'ds.minSame': 'Tu tarifa base ya es igual o mayor que el mínimo, así que el mínimo no tiene efecto. Para tener un mínimo sin sumar a cada tarifa, pon la tarifa base en 0.',
