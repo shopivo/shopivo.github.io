@@ -1564,7 +1564,14 @@
     es: [[/\bToca\b/g, 'Pulsa'], [/\btoca\b/g, 'pulsa'], [/\bTócalo\b/g, 'Púlsalo'], [/\bPresiona\b/g, 'Pulsa'], [/\bpresiona\b/g, 'pulsa'], [/\bcomputadora\b/g, 'ordenador'], [/\bcelulares\b/g, 'móviles'], [/\bcelular\b/g, 'móvil'], [/\bhaz clic\b/g, 'haz clic']],
   };
   let region = 've';
-  try { const r = typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(REGION_KEY)); if (REGIONS.includes(r)) region = r; } catch (e) { /* default */ }
+  try {
+    const r = typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(REGION_KEY));
+    if (REGIONS.includes(r)) region = r;
+    else if (typeof localStorage !== 'undefined' && localStorage.getItem('buy-sell-pref:lang') === null) {   // a first run on a Spanish phone: the phone says its region (es-CO, es-DO, es-ES, es-VE); other Spanish stays Venezuelan; a person's own pick always wins
+      const prefs = (typeof navigator !== 'undefined' && (navigator.languages || [navigator.language])) || [], hit = prefs.map((l) => /^es-(co|do|es|ve)\b/i.exec(l || '')).find(Boolean);
+      if (hit) { region = hit[1].toLowerCase(); localStorage.setItem(REGION_KEY, JSON.stringify(region)); }
+    }
+  } catch (e) { /* default */ }
   function setRegion(r, remember) {
     region = REGIONS.includes(r) ? r : 've';
     if (remember) { try { localStorage.setItem(REGION_KEY, JSON.stringify(region)); } catch (e) { /* ignore */ } }
