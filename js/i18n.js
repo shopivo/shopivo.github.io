@@ -13,10 +13,8 @@
  */
 (function (root) {
   const EN = {
-    'ds.baseNote': 'Added to EVERY delivery, on top of the price per km. Example: base 10 and 1.70 per km: a 10 km trip is 10 + 17 = 27. Use 0 if you only want to charge by distance.',
     'ds.minFee': 'Minimum delivery fee',
-    'ds.minNote': 'Base fee is added to EVERY delivery. Minimum fee only lifts a fee that comes out too low and adds nothing otherwise. Example: with base 0 and minimum 40, a fee of 35 becomes 40, but a fee of 55 stays 55. With base 40, every fee already starts at 40 and the minimum does nothing. Leave the minimum empty for none. Places with a fixed price keep their price.',
-    'ds.minSame': 'Your base fee is already at or above the minimum, so the minimum has no effect. For a floor without adding to every fee, set the base fee to 0.',
+    'ds.minNote': 'The fee is worked out from the distance, rounded up, then raised to this minimum if it is lower. Example: with a minimum of 40, a fee of 35 becomes 40, but a fee of 55 stays 55. Leave it empty for no minimum. Places with a fixed price keep their price.',
     'ds.exTitle': 'Exceptions',
     'ds.exNote': 'Places with their own minimum, instead of the one above. Leave a minimum empty for no minimum at all.',
     'ds.exAdd': '＋ Add a place',
@@ -626,7 +624,7 @@
     'dc.up': 'Up to the next {s}',
     'dc.near': 'To the nearest {s}',
     'dc.none': 'No rounding',
-    'dc.how': 'Set the rate, base fee and free km below. The fee is the base plus the rate for every km counted after the free km.',
+    'dc.how': 'Set the price per km and the free km below. The fee is the price per km for every km counted after the free km.',
     'dc.try': 'Try a distance',
     'dc.tryOne': 'One way (km)',
     'dc.tryBoth': 'There and back',
@@ -804,10 +802,8 @@
   };
 
   const ES = {
-    'ds.baseNote': 'Se suma a TODAS las entregas, además del precio por km. Ejemplo: base 10 y 1,70 por km: un viaje de 10 km es 10 + 17 = 27. Usa 0 si solo quieres cobrar por distancia.',
     'ds.minFee': 'Tarifa mínima de entrega',
-    'ds.minNote': 'La tarifa base se suma a TODAS las entregas. La tarifa mínima solo sube una tarifa que sale muy baja y no suma nada en los demás casos. Ejemplo: con base 0 y mínimo 40, una tarifa de 35 pasa a 40, pero una de 55 se queda en 55. Con base 40, toda tarifa ya empieza en 40 y el mínimo no hace nada. Déjalo vacío para no tener mínimo. Los lugares con precio fijo mantienen su precio.',
-    'ds.minSame': 'Tu tarifa base ya es igual o mayor que el mínimo, así que el mínimo no tiene efecto. Para tener un mínimo sin sumar a cada tarifa, pon la tarifa base en 0.',
+    'ds.minNote': 'La tarifa se calcula por la distancia, se redondea hacia arriba y luego sube a este mínimo si es menor. Ejemplo: con mínimo 40, una tarifa de 35 pasa a 40, pero una de 55 se queda en 55. Déjalo vacío para no tener mínimo. Los lugares con precio fijo mantienen su precio.',
     'ds.exTitle': 'Excepciones',
     'ds.exNote': 'Lugares con su propio mínimo, en lugar del de arriba. Deja un mínimo vacío para que no tenga mínimo.',
     'ds.exAdd': '＋ Agregar un lugar',
@@ -1401,7 +1397,7 @@
     'dc.up': 'Hacia arriba al siguiente de {s}',
     'dc.near': 'Al más cercano de {s}',
     'dc.none': 'Sin redondeo',
-    'dc.how': 'Pon abajo la tarifa, la base y los km gratis. La tarifa es la base más el precio por cada km contado después de los km gratis.',
+    'dc.how': 'Pon abajo el precio por km y los km gratis. La tarifa es el precio por cada km contado después de los km gratis.',
     'dc.try': 'Prueba una distancia',
     'dc.tryOne': 'Solo ida (km)',
     'dc.tryBoth': 'Ida y vuelta',

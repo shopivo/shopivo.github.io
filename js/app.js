@@ -3930,7 +3930,7 @@
         <label style="margin-top:8px">${t('dc.count')}</label><div class="chips" style="margin:0"><button type="button" class="chip ${d.count === 'both' ? 'on' : ''}" data-act="ds-count" data-id="both">${t('dc.both')}</button><button type="button" class="chip ${d.count === 'both' ? '' : 'on'}" data-act="ds-count" data-id="one">${t('dc.oneWay')}</button></div>
         <label>${t('dc.mode')}</label><div class="chips" style="margin:0"><button type="button" class="chip ${d.mode === 'up' ? 'on' : ''}" data-act="ds-mode" data-id="up">${t('dc.up', { s: d.round || 5 })}</button><button type="button" class="chip ${d.mode === 'near' ? 'on' : ''}" data-act="ds-mode" data-id="near">${t('dc.near', { s: d.round || 5 })}</button><button type="button" class="chip ${d.mode === 'none' ? 'on' : ''}" data-act="ds-mode" data-id="none">${t('dc.none')}</button></div>
         <p class="muted small" style="margin:8px 0 0">${t('dc.how')}</p></div>
-      <div class="dcard"><h5>${t('ds.rates')}</h5>${inp('base', d.base, t('ds.base'))}<p class="muted small" style="margin:-2px 0 6px">${t('ds.baseNote')}</p>${inp('perKm', d.perKm, t('ds.perKm'))}${inp('freeKm', d.freeKm, t('ds.free'))}${inp('round', d.round, t('ds.round'))}${inp('minFee', d.minFee, t('ds.minFee'))}<p class="muted small" style="margin:8px 0 0">${t('ds.minNote')}</p>${d.minFee > 0 && d.base >= d.minFee ? `<p class="small" style="margin:8px 0 0;color:var(--warn,#e0a040)">${t('ds.minSame')}</p>` : ''}</div>
+      <div class="dcard"><h5>${t('ds.rates')}</h5>${inp('perKm', d.perKm, t('ds.perKm'))}${inp('freeKm', d.freeKm, t('ds.free'))}${inp('round', d.round, t('ds.round'))}${inp('minFee', d.minFee, t('ds.minFee'))}<p class="muted small" style="margin:8px 0 0">${t('ds.minNote')}</p></div>
       ${exceptionsCard(d)}
       <div class="dcard"><h5>${t('dc.try')}</h5><div class="ln"><span>${t('dc.tryOne')}</span><input class="dinp" id="ds-try" type="text" inputmode="decimal" autocomplete="off" value="19" aria-label="${t('dc.tryOne')}"></div><div id="ds-trybox">${dcTry(d, 19)}</div></div></div>`; };
   function sheetPricing(tab) {
@@ -4325,7 +4325,8 @@
   }
   /* ---------- delivery log: every delivery and pickup, by day, with the distance driven ---------- */
   let dlvTab = 'deliveries', dlvView = 'list', dlvQ = '', dlvDay = '', dlvMonth = (() => { const d = new Date(); return { y: d.getFullYear(), m: d.getMonth() }; })(), dlvLink = false;
-  function dset() { return Object.assign({ home: null, base: 0, perKm: 0, freeKm: 0, round: 5, costKm: 0, showRate: true, charge: false, count: 'one', mode: 'up', minFee: 0, minEx: [] }, state.settings.delivery || {}); }
+  function dset() { const raw = state.settings.delivery; if (raw && raw.base) raw.base = 0;   // the base fee was removed from Pricing: an old one is dropped so it can never add to a fee unseen
+    return Object.assign({ home: null, base: 0, perKm: 0, freeKm: 0, round: 5, costKm: 0, showRate: true, charge: false, count: 'one', mode: 'up', minFee: 0, minEx: [] }, state.settings.delivery || {}); }
   // Distance pricing: the seller's rate (settings.delivery) decides what a place charges when it is priced by distance.
   const distRateOwner = () => Object.assign({}, dset(), { charge: !!dset().charge });
   const placeFee = (c, l) => { const dp = SCore.distPlace(c, l, distRateOwner(), dset().home, roadCache()); return dp && dp.fee != null ? dp.fee : SCore.priceOf(c, l); };
