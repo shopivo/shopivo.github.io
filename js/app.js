@@ -3755,6 +3755,15 @@
   const fullWhen = (d) => d ? d.toLocaleDateString(I.locale(I.getLang()), { weekday: 'short' }).replace('.', '') + ' ' + dayMon(d) + ', ' + d.toLocaleTimeString(undefined, { hour: 'numeric', minute: '2-digit' }) : '';
   function copyText(txt) { if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(txt).then(() => true, () => false); const ta = document.createElement('textarea'); ta.value = txt; document.body.appendChild(ta); ta.select(); let ok = false; try { ok = document.execCommand('copy'); } catch (e) { /* none */ } ta.remove(); return Promise.resolve(ok); }
   const swt = (act, id, on) => `<button class="tog ${on ? 'on' : ''}" role="switch" aria-checked="${on}" data-act="${act}" data-id="${id}"></button>`;
+  // Open a link in the phone's real browser. An installed app (home-screen icon) keeps its own links inside itself, so on Android the link is handed to Chrome; an iPhone cannot be told to open Safari, so the link is copied for pasting there.
+  function openOutside(url) {
+    const ua = navigator.userAgent || '', app = (window.matchMedia && matchMedia('(display-mode: standalone)').matches) || navigator.standalone;
+    try {
+      if (app && /Android/i.test(ua)) { const u = new URL(url, location.href); location.href = 'intent://' + u.host + u.pathname + u.search + '#Intent;scheme=' + u.protocol.replace(':', '') + ';package=com.android.chrome;S.browser_fallback_url=' + encodeURIComponent(u.href) + ';end'; return; }
+      if (app && /iPhone|iPad|iPod/i.test(ua)) { const u = new URL(url, location.href).href; if (navigator.clipboard && navigator.clipboard.writeText) return navigator.clipboard.writeText(u).then(() => toast(t('toast.linkCopied')), () => toast(t('toast.copyManual'))); return toast(t('toast.copyManual')); }
+    } catch (e) { /* fall through to a normal open */ }
+    window.open(url, '_blank', 'noopener');
+  }
   function sheetStore() {
     enterPage('store', '', () => sheetStore());
     const c = storeCfg(), inf = Store.info(), link = Store.link(c), signed = cloud.signedIn;
@@ -5203,7 +5212,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'unselect-close': selected.delete(id); closeSheet(); return;
       case 'store-share': { const c = storeCfg(); if (!c.id) return sheetStore(); const url = Store.link(c), name = c.name || bizName(); if (navigator.share) return navigator.share({ title: name, text: t('store.shareText', { name }), url }).catch(() => {}); return copyText(url).then((ok) => toast(ok ? t('store.copied') : url)); }
       case 'store-preview': { const c = storeCfg(); if (!c.id) return sheetStore(); return sheetStorePreview(); }
-      case 'store-open-ext': { const c = storeCfg(); if (c.id) window.open(Store.link(c), '_blank', 'noopener'); return; }
+      case 'store-open-ext': { const c = storeCfg(); if (c.id) openOutside(Store.link(c)); return; }
       case 'store-link': { const c = storeCfg(); if (!c.id) return sheetStore(); return copyText(Store.link(c)).then((ok) => toast(ok ? t('store.copied') : Store.link(c))); }
       case 'store-open': return sheetStore();
       case 'store-settings': closeSheet(); return sheetStoreSettings();
