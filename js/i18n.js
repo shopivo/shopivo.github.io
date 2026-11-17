@@ -13,6 +13,11 @@
  */
 (function (root) {
   const EN = {
+    'ob.title': 'Open the store',
+    'ob.chrome': 'Open in Chrome',
+    'ob.copy': 'Copy link',
+    'ob.share': 'Share link',
+    'ob.note': 'Opens your store the way customers see it.',
     'photo.cloudFail': 'Could not get this photo from the cloud. Check your internet and try again.',
     'set.regionNote': 'Spanish regions change the Spanish words (item names, menus). Colombia, Dominican Republic and Spain are in Beta. Invoices still use Auto / English / Español.',
     'lang.name': 'English',
@@ -791,6 +796,11 @@
   };
 
   const ES = {
+    'ob.title': 'Abrir la tienda',
+    'ob.chrome': 'Abrir en Chrome',
+    'ob.copy': 'Copiar enlace',
+    'ob.share': 'Compartir enlace',
+    'ob.note': 'Abre tu tienda como la ven los clientes.',
     'photo.cloudFail': 'No se pudo traer esta foto de la nube. Revisa tu internet e inténtalo de nuevo.',
     'set.regionNote': 'Las regiones cambian las palabras en español (nombres de artículos, menús). Colombia, República Dominicana y España están en Beta. Las facturas siguen usando Auto / English / Español.',
     'lang.name': 'Español',
