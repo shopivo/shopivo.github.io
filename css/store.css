@@ -190,3 +190,4 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);ba
 .drawer .prog{margin:0 0 10px}
 .gi .nw{position:absolute;left:0;top:10px;background:#1e9d52;color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:0 99px 99px 0;z-index:1}
 .chips .nwc{color:#1e7a3c;background:#e6f4ea}.chips .nwc.on{background:#1e9d52;color:#fff}
+.prog .prog2{margin-top:6px;font-size:12px;font-weight:500;opacity:.85}
