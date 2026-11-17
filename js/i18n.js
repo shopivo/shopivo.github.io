@@ -14,7 +14,8 @@
 (function (root) {
   const EN = {
     'ds.minFee': 'Minimum delivery fee',
-    'ds.minNote': 'No distance fee goes below this. A fee of 35 becomes 40 when the minimum is 40. Leave it empty for no minimum. Places with a fixed price keep their price.',
+    'ds.minNote': 'Base fee is added to EVERY delivery. Minimum fee only lifts a fee that comes out too low and adds nothing otherwise. Example: with base 0 and minimum 40, a fee of 35 becomes 40, but a fee of 55 stays 55. With base 40, every fee already starts at 40 and the minimum does nothing. Leave the minimum empty for none. Places with a fixed price keep their price.',
+    'ds.minSame': 'Your base fee is already at or above the minimum, so the minimum has no effect. For a floor without adding to every fee, set the base fee to 0.',
     'ds.exTitle': 'Exceptions',
     'ds.exNote': 'Places with their own minimum, instead of the one above. Leave a minimum empty for no minimum at all.',
     'ds.exAdd': '＋ Add a place',
@@ -803,7 +804,8 @@
 
   const ES = {
     'ds.minFee': 'Tarifa mínima de entrega',
-    'ds.minNote': 'Ninguna tarifa por distancia baja de esto. Una tarifa de 35 pasa a 40 si el mínimo es 40. Déjalo vacío para no tener mínimo. Los lugares con precio fijo mantienen su precio.',
+    'ds.minNote': 'La tarifa base se suma a TODAS las entregas. La tarifa mínima solo sube una tarifa que sale muy baja y no suma nada en los demás casos. Ejemplo: con base 0 y mínimo 40, una tarifa de 35 pasa a 40, pero una de 55 se queda en 55. Con base 40, toda tarifa ya empieza en 40 y el mínimo no hace nada. Déjalo vacío para no tener mínimo. Los lugares con precio fijo mantienen su precio.',
+    'ds.minSame': 'Tu tarifa base ya es igual o mayor que el mínimo, así que el mínimo no tiene efecto. Para tener un mínimo sin sumar a cada tarifa, pon la tarifa base en 0.',
     'ds.exTitle': 'Excepciones',
     'ds.exNote': 'Lugares con su propio mínimo, en lugar del de arriba. Deja un mínimo vacío para que no tenga mínimo.',
     'ds.exAdd': '＋ Agregar un lugar',
