@@ -302,3 +302,24 @@ console.log('details tests passed');
   assert.strictEqual(pub.mn, 40); assert.deepStrictEqual(pub.x, [['cv', 25]], 'the store page gets the minimums');
   console.log('minimum delivery fee tests passed');
 }
+
+// Coupons never discount sale items: percent and money-off use only the regular-price part of the cart; free delivery is untouched
+{
+  const pct = { t: 'p', v: 10, m: 0 }, off = { t: 'o', v: 50 }, dlv = { t: 'd', g: 0 };
+  assert.strictEqual(SC.couponOff(pct, 300, 40, null), 30, 'no regular-price figure: the whole items total, as before');
+  assert.strictEqual(SC.couponOff(pct, 300, 40, null, 100), 10, '10% of the 100 bought at regular price, not of the 300');
+  assert.strictEqual(SC.couponOff(pct, 300, 40, null, 0), 0, 'a cart of only sale items gets nothing');
+  assert.strictEqual(SC.couponOff(off, 300, 40, null, 30), 30, 'money off cannot exceed the regular-price part');
+  assert.strictEqual(SC.couponOff(off, 300, 40, null, 0), 0);
+  assert.strictEqual(SC.couponOff(dlv, 300, 40, null, 0), 40, 'a free-delivery coupon still takes the delivery fee off');
+  console.log('coupon + sale items tests passed');
+}
+
+// A coupon is disabled when something from the order that earned it is returned
+{
+  const cp = SC.normCoupons([{ code: 'AAA-111', phone: '18681234567', kind: 'pct', value: 10, made: 1, exp: Date.now() + 1e9 }])[0];
+  assert.strictEqual(SC.couponState(cp, {}, Date.now()), 'live');
+  assert.strictEqual(SC.couponState(Object.assign({}, cp, { void: 5 }), {}, Date.now()), 'void', 'a returned order disables its coupon');
+  assert.strictEqual(SC.normCoupons([Object.assign({}, cp, { void: 5 })])[0].void, 5, 'the mark is kept when the settings are read again');
+  console.log('coupon void tests passed');
+}
