@@ -191,3 +191,10 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);ba
 .gi .nw{position:absolute;left:0;top:10px;background:#1e9d52;color:#fff;font-size:11px;font-weight:800;padding:3px 9px;border-radius:0 99px 99px 0;z-index:1}
 .chips .nwc{color:#1e7a3c;background:#e6f4ea}.chips .nwc.on{background:#1e9d52;color:#fff}
 .prog .prog2{margin-top:6px;font-size:12px;font-weight:500;opacity:.85}
+
+/* one-line notices: still when they fit, a slow loop when they do not */
+.mq{white-space:nowrap;overflow:hidden;text-align:center}.mq>span{display:inline-block}
+.prog .mq,.prog .prog2.mq{text-align:left}.mq.run{text-align:left}
+.mq.run>span{animation:mqrun var(--t,10s) linear infinite;will-change:transform}
+@keyframes mqrun{0%,12%{transform:translateX(0)}88%,100%{transform:translateX(calc(-1 * var(--d,0px)))}}
+@media (prefers-reduced-motion:reduce){.mq{text-overflow:ellipsis}.mq>span{display:inline}.mq.run>span{animation:none}}
