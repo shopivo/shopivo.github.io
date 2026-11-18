@@ -1724,3 +1724,6 @@ a.btn{display:flex!important;align-items:center;justify-content:center;text-alig
 .invsq .svc[data-svc^="inv"],.invsq #ih-pv,.invsq #mb-hdr,.invsq .bphdr canvas,.invsq .dsg .pg,.invsq .ihsamp{border-radius:0}
 
 .pkr .pkfee{font-size:14px;white-space:nowrap;margin-right:4px}
+
+/* the store preview's WhatsApp bar is a wide button, not the round 40px WhatsApp icon used elsewhere */
+.pd .pvw .wab{width:auto;height:44px;border-radius:10px;font-size:14px;font-weight:800;padding:0 12px}
