@@ -1732,3 +1732,5 @@ a.btn{display:flex!important;align-items:center;justify-content:center;text-alig
 .hwcol{margin:6px 0 4px}.hwcol>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--card)}.hwcol>summary::-webkit-details-marker{display:none}
 .hwcol .hwsm{min-width:0}.hwcol .hwt{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.hwcol .hwsm small{display:block;margin-top:3px;font-size:13px;color:var(--mute)}.hwcol .hwsm small .bad{color:var(--bad,#e5654f)}
 .hwcol .hwch{font-style:normal;font-size:24px;color:var(--mute);transition:transform .2s;line-height:1}.hwcol[open] .hwch{transform:rotate(90deg)}.hwcol[open]>summary{margin-bottom:10px}
+
+.hwcol .hwhide{display:block;width:100%;margin:8px 0 2px;padding:12px;border:1px solid var(--line);border-radius:14px;background:transparent;color:var(--mute);font-size:16px;font-weight:600}
