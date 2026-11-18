@@ -13,6 +13,21 @@
  */
 (function (root) {
   const EN = {
+    'sc.good': 'Everything you set is on your store page.',
+    'sc.fix': 'Some of your settings are not on your store page yet. Tap Publish now.',
+    'sc.last': 'Last published',
+    'sc.none': 'none',
+    'sc.on': 'on',
+    'sc.items': 'Items',
+    'sc.places': 'Places',
+    'sc.coupon': 'Coupon',
+    'sc.rule': 'Free delivery rules',
+    'sc.spots': 'Pickup spots (online / yours)',
+    'sc.nostore': 'Your store is not online yet. Tap Publish now.',
+    'sc.err': 'Could not read the online copy. Check your internet and try again.',
+    'sc.checking': 'Checking your store page…',
+    'sc.title': 'What customers see',
+    'sc.btn': 'Check what customers see',
     'pk.spotNoteHow': 'Shown to the customer in big letters, with the pin location under it.',
     'pk.spotSaved': 'Spot saved',
     'pk.spotNeedName': 'Please type a name for this spot.',
@@ -822,6 +837,21 @@
   };
 
   const ES = {
+    'sc.good': 'Todo lo que configuraste está en tu página.',
+    'sc.fix': 'Algunos de tus ajustes aún no están en tu página. Toca Publicar ahora.',
+    'sc.last': 'Última publicación',
+    'sc.none': 'ninguno',
+    'sc.on': 'activo',
+    'sc.items': 'Artículos',
+    'sc.places': 'Lugares',
+    'sc.coupon': 'Cupón',
+    'sc.rule': 'Reglas de entrega gratis',
+    'sc.spots': 'Puntos de recogida (en línea / tuyos)',
+    'sc.nostore': 'Tu tienda aún no está en línea. Toca Publicar ahora.',
+    'sc.err': 'No se pudo leer la copia en línea. Revisa tu internet e inténtalo de nuevo.',
+    'sc.checking': 'Revisando la página de tu tienda…',
+    'sc.title': 'Lo que ven los clientes',
+    'sc.btn': 'Ver lo que ven los clientes',
     'pk.spotNoteHow': 'Se muestra grande al cliente, con la ubicación del pin debajo.',
     'pk.spotSaved': 'Punto guardado',
     'pk.spotNeedName': 'Escribe un nombre para este punto.',
