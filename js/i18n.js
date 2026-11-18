@@ -13,6 +13,7 @@
  */
 (function (root) {
   const EN = {
+    'sc.why': 'Last publish error',
     'sc.good': 'Everything you set is on your store page.',
     'sc.fix': 'Some of your settings are not on your store page yet. Tap Publish now.',
     'sc.last': 'Last published',
@@ -837,6 +838,7 @@
   };
 
   const ES = {
+    'sc.why': 'Último error al publicar',
     'sc.good': 'Todo lo que configuraste está en tu página.',
     'sc.fix': 'Algunos de tus ajustes aún no están en tu página. Toca Publicar ahora.',
     'sc.last': 'Última publicación',

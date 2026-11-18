@@ -219,7 +219,7 @@ console.log('details tests passed');
   const cfg = SC.norm({ zones, freeRule: { tiers: [{ n: 5, km: 0 }, { n: 2, km: 15 }, { n: 3, km: 35 }], spend: { on: true, amt: 400, km: 35 } } });
   assert.deepStrictEqual(cfg.freeRule.tiers.map((x) => x.n), [2, 3, 5], 'tiers sorted');
   const home = { lat: 10.52, lng: -61.41 }, ctr = SC.reachCentre(cfg, home); assert.strictEqual(ctr.name, 'Chaguanas', 'centre = nearest zone to the store location');
-  const r = SC.publicRule(cfg, home); assert.deepStrictEqual(r.t, [[2, 15], [3, 35], [5, 0]]); assert.strictEqual(SC.publicRule(SC.norm({}), home), null, 'off by default');
+  const r = SC.publicRule(cfg, home); assert.deepStrictEqual(r.t, [{ n: 2, k: 15 }, { n: 3, k: 35 }, { n: 5, k: 0 }], 'levels are objects: the cloud database refuses arrays inside arrays'); assert.strictEqual(SC.publicRule(SC.norm({}), home), null, 'off by default');
   const near = { lat: 10.55, lng: -61.40 }, penal = { lat: 10.22, lng: -61.46 }, pf = { lat: 10.18, lng: -61.68 };
   assert.ok(SC.ruleCheck(r, 2, 50, near).ok, '2 items close by'); assert.ok(!SC.ruleCheck(r, 2, 50, penal).ok, '2 items is not enough for Penal');
   assert.ok(SC.ruleCheck(r, 3, 50, { lat: 10.28, lng: -61.467 }).ok, '3 items reach San Fernando'); assert.ok(!SC.ruleCheck(r, 3, 50, pf).ok, '3 items do not reach Point Fortin');
@@ -299,7 +299,7 @@ console.log('details tests passed');
   assert.strictEqual(SC.rateFee(ex, 5, 'other'), 40, 'every other place uses the shared minimum');
   assert.strictEqual(SC.distanceFee(ex, 18, 'cv').fee, 35);
   const pub = SC.publicDist({ home: { lat: 10.5, lng: -61.4 }, perKm: 1.7, round: 5, charge: true, minFee: 40, minEx: [{ id: 'cv', min: 25 }] }, { locations: [] });
-  assert.strictEqual(pub.mn, 40); assert.deepStrictEqual(pub.x, [['cv', 25]], 'the store page gets the minimums');
+  assert.strictEqual(pub.mn, 40); assert.deepStrictEqual(pub.x, [{ i: 'cv', m: 25 }], 'the store page gets the minimums');
   console.log('minimum delivery fee tests passed');
 }
 
@@ -335,4 +335,16 @@ console.log('details tests passed');
   const ex = SC.publicSpots(Object.assign({}, cfg, { zones: [{ id: 'z1', name: 'Near', lat: 10.5, lng: -61.4, r: 3000 }], locations: [{ id: 'p1', name: 'Near', delivery: true, zone: 'z1', price: 40 }] }), Object.assign({}, del, { minEx: [{ id: 'p1', min: 20 }] }));
   assert.strictEqual(ex[2].f, 20, 'a spot inside an exception place uses that place minimum (6 km = 12, raised to 20)');
   console.log('pickup spot fee tests passed');
+}
+
+// Nothing published may hold an array inside an array (the cloud database refuses it, and then the whole store stays out of date)
+{
+  const cfg = { id: 'x', freeRule: { tiers: [{ n: 2, km: 10 }, { n: 3, km: 20 }], spend: { on: true, amt: 500, km: 35 } }, couponRule: { on: true, min: 400, kind: 'pct', value: 10 }, zones: [{ id: 'z1', name: 'Couva', lat: 10.4, lng: -61.4, r: 2000 }], locations: [{ id: 'p1', name: 'Couva', delivery: true, pickup: true, price: 40, zone: 'z1' }], spots: [{ id: 's', name: 'A', lat: 10.4, lng: -61.4, own: false, km: 5 }] };
+  const del = { home: { lat: 10.5, lng: -61.4 }, perKm: 2, round: 5, count: 'one', mode: 'up', minFee: 40, minEx: [{ id: 'p1', min: 20 }], charge: true };
+  const parts = { spots: SC.publicSpots(cfg, del), locs: SC.publicLocs(cfg, del, {}), dist: SC.publicDist(del, cfg), regions: SC.publicRegions(cfg), rule: SC.publicRule(cfg, del.home), cinfo: SC.publicCouponInfo(cfg), coupons: SC.publicCoupons(cfg, [], Date.now(), del.home), zones: SC.areaZones(SC.normZones(cfg.zones)) };
+  const bad = []; const walk = (o, p) => { if (Array.isArray(o)) { if (o.some(Array.isArray)) bad.push(p); o.forEach((x, i) => walk(x, p + '[' + i + ']')); } else if (o && typeof o === 'object') Object.keys(o).forEach((k) => walk(o[k], p + '.' + k)); else if (o === undefined) bad.push(p + ' (undefined)'); };
+  Object.keys(parts).forEach((k) => walk(parts[k], k));
+  assert.deepStrictEqual(bad, [], 'no nested arrays or undefined values in what is published: ' + bad.join(', '));
+  assert.deepStrictEqual(SC.ruleCheck(parts.rule, 2, 100, { lat: 10.45, lng: -61.4 }).ok, true, 'the rule still works with levels as objects');
+  console.log('published data shape tests passed');
 }

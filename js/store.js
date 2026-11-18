@@ -48,7 +48,7 @@
   const loc = () => { const l = (store.locations || []).find((x) => x.id === form.loc); if (!l) return l; const d = distNow(l); if (d && d.fee != null) return Object.assign({}, l, { price: d.fee }); if (!l.rm || !form.geo || !store.regions || !store.regions.length) return l; const f = SC.regionFee(store.regions, form.geo.lat, form.geo.lng); return f ? Object.assign({}, l, { price: f.fee }) : l; };
   /* ---------- delivery priced by distance: the road km from the seller's store pin to the customer's pin, counted there and back, rounded to the seller's step ---------- */
   let dst = { key: '', busy: false, km: null, src: '' };
-  const distRate = () => (store && store.dist ? { base: store.dist.b, perKm: store.dist.p, freeKm: store.dist.f, round: store.dist.s, count: store.dist.c, mode: store.dist.m, minFee: store.dist.mn, minEx: (store.dist.x || []).map((e) => ({ id: e[0], min: e[1] })) } : null);
+  const distRate = () => (store && store.dist ? { base: store.dist.b, perKm: store.dist.p, freeKm: store.dist.f, round: store.dist.s, count: store.dist.c, mode: store.dist.m, minFee: store.dist.mn, minEx: (store.dist.x || []).map((e) => (Array.isArray(e) ? { id: e[0], min: e[1] } : { id: e.i, min: e.m })) } : null);
   // what this place charges by distance right now: from the customer's pin when they have one (measured by road), else from the place's own distance
   const distNow = (l) => { l = l || (store.locations || []).find((x) => x.id === form.loc); const r = distRate(); if (!l || !l.dd || !r || form.option !== 'delivery') return null; if (form.geo) { const key = form.geo.lat + ',' + form.geo.lng; if (dst.key === key && !dst.busy && dst.km != null) return Object.assign({ src: dst.src, pin: true }, SC.distanceFee(r, dst.km, l.id)); if (dst.key === key && dst.busy) return { busy: true, fee: null }; } return Object.assign({ src: l.ds || 'est', pin: false }, SC.distanceFee(r, l.dk, l.id)); };
   function ensureDist() {
@@ -468,6 +468,7 @@
       try { const nm = await db.collection('names').doc(sid).get(); if (nm.exists && nm.data().sid) sid = nm.data().sid; } catch (e) { /* not a short name: use it as a store code */ }
       const snap = await db.collection('stores').doc(sid).get(); if (!snap.exists) return msg(T.nf, T.nfText);
       store = snap.data(); document.title = store.name || 'Store';
+      if (store.rule && Array.isArray(store.rule.t)) store.rule.t = store.rule.t.map((x) => (Array.isArray(x) ? x : [Number(x.n) || 0, Number(x.k) || 0]));   // the levels arrive as objects; the page works with pairs
       if (store.color) { document.documentElement.style.setProperty('--brand', store.color); document.documentElement.style.setProperty('--tint', 'color-mix(in srgb,' + store.color + ' 10%,#fff)'); }
       if (store.open === false) return msg(T.closed, T.closedText);
       const docs = await Promise.all(Array.from({ length: store.chunks || 0 }, (_, i) => db.collection('stores').doc(sid).collection('catalog').doc('c' + i).get()));
