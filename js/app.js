@@ -3778,7 +3778,7 @@
       <div class="ap">${signed ? '' : `<div class="card"><div class="rw"><div class="t"><b>${t('store.needAccount')}</b><small>${t('store.needAccountSub')}</small></div><button class="pbtn" data-act="acct-open">${t('acct.signIn')}</button></div></div>`}
       ${c.id ? `<div class="link"><span>${esc(link)}</span><button data-act="store-link">${t('store.copy')}</button></div>` : `<button class="btn primary" style="width:100%" data-act="store-create" ${signed ? '' : 'disabled'}>${t('store.create')}</button>`}
       ${c.id ? stat : ''}
-      ${c.id ? `<button class="btn" style="width:100%;margin-top:6px" data-act="store-publish" ${signed ? '' : 'disabled'}>${t('store.publishNow')}</button><p class="muted small" style="margin:10px 2px">${t('store.note')}</p>` : ''}</div>`, null, true);
+      ${c.id ? `<button class="btn" style="width:100%;margin-top:6px" data-act="store-publish" ${signed ? '' : 'disabled'}>${t('store.publishNow')}</button><button class="btn" style="width:100%;margin-top:6px" data-act="store-check" ${signed ? '' : 'disabled'}>${t('sc.btn')}</button><p class="muted small" style="margin:10px 2px">${t('store.note')}</p>` : ''}</div>`, null, true);
   }
   // Pickup and delivery: only the places, with what each offers; tap one to change it, or add a place.
   // The store settings rows, in groups: the store, delivery, and (on the Store page) the store-page switches.
@@ -4096,7 +4096,7 @@
     stock: ['new-batch', 'del-batch', 'do-receive', 'recv-yes', 'receive', 'import-json', 'import-xlsx', 'split-group', 'qe-open', 'qe-go', 'qe-next', 'sale-apply', 'sale-off', 'toggle-sale', 'use-rec', 'szp-addsave', 'szp-done', 'es-savewords', 'es-addwords', 'es-done', 'word-add', 'word-del', 'word-del2', 'word-save', 'word-edit', 'free-space', 'free-thumbs'],
     costs: ['csv', 'export-json'],
     refunds: ['return-open', 'return-inv', 'return-item', 'ret-all', 'ret-do', 'del-inv'],
-    storeSettings: ['pickup-open', 'store-settings', 'store-create', 'store-toggle', 'store-addbatch', 'store-batch', 'store-batch-all', 'store-loc', 'store-loc-save', 'store-loc-del', 'store-left', 'store-publish', 'dlv-settings', 'dlv-home', 'regions-page', 'pz-tab', 'pz-open', 'offers-open', 'pr-tab', 'pricing-open', 'bands-migrate', 'ds-charge', 'ds-charge-pc', 'ds-count', 'ds-mode', 'offer-toggle', 'guide-open', 'spots-page', 'price-helper', 'pricecheck', 'ph-pick', 'ph-set', 'ph-add', 'pc-measure', 'pc-smooth', 'free-rule', 'fr-on', 'fr-tier-add', 'fr-tier-del', 'fr-suggest', 'fr-centre', 'fr-centre-pick', 'coupons-page', 'fr-places', 'cp-on', 'cp-kind', 'cpn-make', 'cpn-send', 'region-edit', 'region-suggest', 'region-save', 'region-all', 'ds-here', 'ds-map', 'ds-linkopen', 'ds-linkgo', 'ds-recalc', 'ds-recalc-close'],
+    storeSettings: ['store-check', 'pickup-open', 'store-settings', 'store-create', 'store-toggle', 'store-addbatch', 'store-batch', 'store-batch-all', 'store-loc', 'store-loc-save', 'store-loc-del', 'store-left', 'store-publish', 'dlv-settings', 'dlv-home', 'regions-page', 'pz-tab', 'pz-open', 'offers-open', 'pr-tab', 'pricing-open', 'bands-migrate', 'ds-charge', 'ds-charge-pc', 'ds-count', 'ds-mode', 'offer-toggle', 'guide-open', 'spots-page', 'price-helper', 'pricecheck', 'ph-pick', 'ph-set', 'ph-add', 'pc-measure', 'pc-smooth', 'free-rule', 'fr-on', 'fr-tier-add', 'fr-tier-del', 'fr-suggest', 'fr-centre', 'fr-centre-pick', 'coupons-page', 'fr-places', 'cp-on', 'cp-kind', 'cpn-make', 'cpn-send', 'region-edit', 'region-suggest', 'region-save', 'region-all', 'ds-here', 'ds-map', 'ds-linkopen', 'ds-linkgo', 'ds-recalc', 'ds-recalc-close'],
   }).forEach(([cap, acts]) => acts.forEach((a) => { ACT_NEEDS[a] = cap; }));
   /* ---------- the team: people, ranks, the business code, what each rank may do, handing the business over ---------- */
   const teamTop = () => (pageStack.length ? pageStack[pageStack.length - 1].key : '');
@@ -4269,6 +4269,20 @@
       const o = orderOfInvoice(no); if (!o) return; const c = storeCfg(); if (!c.coupons.some((x) => x.order === o.id && !x.void)) return;
       storeSet({ coupons: c.coupons.map((x) => (x.order === o.id && !x.void ? Object.assign({}, x, { void: Date.now() }) : x)) }); Store.schedule && Store.schedule(); toast(t('cp.voided'));
     } catch (e) { /* the return itself is never blocked by this */ }
+  }
+  // "What customers see": reads the copy of the store that is online and says what has and has not reached it
+  async function storeCheck() {
+    const c = storeCfg(); if (!c.id || !window.Cloud || !Cloud.db) return toast(t('store.needAccount'));
+    openSmall(`<h3>${t('sc.title')}</h3><p class="muted">${t('sc.checking')}</p>`, 'sheet');
+    let d = null, err = '';
+    try { const snap = await Cloud.db().collection('stores').doc(c.id).get({ source: 'server' }); d = snap.exists ? snap.data() : null; } catch (e) { err = (e && e.code) || 'error'; }
+    const del = dset(), lSpots = SCore.publicSpots(c, del).length, lRule = !!SCore.publicRule(c, del.home), lCpn = !!SCore.publicCouponInfo(c);
+    const pSpots = d ? (d.spots || []).length : 0, pRule = !!(d && d.rule), pCpn = !!(d && d.cinfo), pPlaces = d ? (d.locations || []).length : 0, lPlaces = c.locations.length;
+    const row = (label, ok, txt) => `<div class="ln"><span>${ok ? '✓' : '⚠️'} ${label}</span><b>${txt}</b></div>`;
+    const when = d && d.updatedAt && d.updatedAt.toMillis ? ago(new Date(d.updatedAt.toMillis())) : '';
+    const bad = !d || pSpots !== lSpots || pRule !== lRule || pCpn !== lCpn || pPlaces < lPlaces - c.locations.filter((l) => !l.pickup && !l.delivery).length;
+    const body = err ? `<p class="muted">${t('sc.err')}</p>` : !d ? `<p class="muted">${t('sc.nostore')}</p>` : `<div class="card" style="padding:4px 14px">${row(t('sc.spots'), pSpots === lSpots, `${pSpots} / ${lSpots}`)}${row(t('sc.rule'), pRule === lRule, pRule ? t('sc.on') : t('sc.none'))}${row(t('sc.coupon'), pCpn === lCpn, pCpn ? t('sc.on') : t('sc.none'))}${row(t('sc.places'), true, String(pPlaces))}${row(t('sc.items'), true, String(d.count || 0))}</div>${when ? `<p class="muted small" style="margin:8px 2px 0">${t('sc.last')}: ${when}</p>` : ''}<p style="margin:12px 2px 0;font-weight:700">${bad ? t('sc.fix') : t('sc.good')}</p>`;
+    openSmall(`<h3>${t('sc.title')}</h3>${body}<div class="btns"><button class="btn primary" data-act="store-check-pub">${t('store.publishNow')}</button><button class="btn" data-act="close">${t('btn.close')}</button></div>`, 'sheet');
   }
   const orderOfInvoice = (no) => Store.orders().find((o) => o.invoice && L.invoiceForward(state, o.invoice).some((x) => x.no === no));
   const orderOfItem = (id) => Store.orders().filter((o) => o.status !== 'declined' && (o.items || []).some((i) => i.id === id)).sort((a, b) => (Store.when(b) || 0) - (Store.when(a) || 0))[0];
@@ -5442,6 +5456,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'batches-log': go({ tab: 'more', moreView: 'batches' }); window.scrollTo(0, 0); return render();
       case 'store-batch-all': { const c = storeCfg(), all = state.batches.map((b) => b.id), on = all.every((x) => c.batches.includes(x)); storeSet({ batches: on ? [] : all }); return hubOpen() || (tab === 'more' && moreView === 'batches') ? render() : sheetStore(); }   // all on -> turn every batch off; otherwise turn every batch on
       case 'store-batch': { const c = storeCfg(); storeSet({ batches: c.batches.includes(id) ? c.batches.filter((x) => x !== id) : c.batches.concat(id) }); return hubOpen() || (tab === 'more' && moreView === 'batches') ? render() : sheetStore(); }
+      case 'store-check': return storeCheck();
+      case 'store-check-pub': { toast(t('store.publishing')); return Store.publish(true).then(() => storeCheck()); }
       case 'store-publish': toast(t('store.publishing')); Store.publish(true).then((ran) => { const inf = Store.info(); toast(inf.error === 'permission-denied' ? t('store.needRules') : inf.error === 'timeout' ? t('store.pubSlow') : inf.error ? t('store.pubError') : !ran && inf.busy ? t('store.stillPub') : !ran ? t('store.notRan') : t('store.donePub', { n: inf.count })); }); return;
       case 'store-loc': return sheetLocation(id);
       case 'sl-flag': { const on = !t_.classList.contains('on'); t_.classList.toggle('on', on); t_.setAttribute('aria-checked', on); return; }
