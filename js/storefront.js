@@ -103,7 +103,7 @@
       await withTimeout(b.commit(), TUNE.commit);
       try { localStorage.setItem(key, sig); } catch (e) { /* published again next time */ }
       info.at = Date.now(); info.count = items.length; listen(); if (storage) cleanPictures(c.id, storage).catch(() => {}); return true;
-    } catch (e) { info.error = (e && e.code) || 'error'; return false; } finally { running = false; info.busy = false; A.refresh(); }
+    } catch (e) { info.error = (e && e.code) || 'error'; info.msg = String((e && e.message) || '').slice(0, 220); return false; } finally { running = false; info.busy = false; A.refresh(); }
   }
   const schedule = () => { clearTimeout(timer); timer = 0; if (A && cfg().id && root.Cloud && Cloud.ready()) timer = setTimeout(() => { timer = 0; publish(false); }, 4000); };
 

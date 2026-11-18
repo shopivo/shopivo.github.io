@@ -46,16 +46,17 @@
     return { tiers, spend: { on: !!sp.on, amt: Math.max(1, r2(num(sp.amt)) || 400), km: Math.max(0, r2(num(sp.km))) }, centre: cg };
   };
   const reachCentre = (cfgIn, home) => { const cfg = norm(cfgIn), g = home && Number.isFinite(Number(home.lat)) && Number.isFinite(Number(home.lng)) ? { lat: Number(home.lat), lng: Number(home.lng) } : null; if (!g) return cfg.freeRule.centre || null; const z = nearestZone(areaZones(cfg.zones), g.lat, g.lng); return { lat: g.lat, lng: g.lng, name: z && z.zone ? z.zone.name : '' }; };   // the store pin itself; the nearest zone only gives it a friendly name
-  const publicRule = (cfgIn, home) => { const cfg = norm(cfgIn), r = cfg.freeRule; if (!r.tiers.length && !r.spend.on) return null; const c = reachCentre(cfg, home); return { t: r.tiers.map((x) => [x.n, x.km]), a: r.spend.on ? r.spend.amt : 0, ak: r.spend.km, c: c ? [c.lat, c.lng] : null, cn: c ? c.name || '' : '' }; };
+  const publicRule = (cfgIn, home) => { const cfg = norm(cfgIn), r = cfg.freeRule; if (!r.tiers.length && !r.spend.on) return null; const c = reachCentre(cfg, home); return { t: r.tiers.map((x) => ({ n: x.n, k: x.km })), /* objects, not pairs: the cloud database refuses arrays inside arrays */ a: r.spend.on ? r.spend.amt : 0, ak: r.spend.km, c: c ? [c.lat, c.lng] : null, cn: c ? c.name || '' : '' }; };
   // What the store page may say about coupons (no codes, no customers): the spend that earns one and what it gives.
   const publicCouponInfo = (cfgIn) => { const r = norm(cfgIn).couponRule; return r.on ? { min: r.min, t: r.kind === 'delivery' ? 'd' : r.kind === 'pct' ? 'p' : 'o', v: r.value, m: r.cap, g: r.km } : null; };
   // How an order stands against the published rule, for a customer at a point (pin, or the centre of the place they chose): ok, or what is still needed, or far (never reached from here).
   const ruleCheck = (rule, count, sub, pt) => {
     if (!rule || !Array.isArray(rule.t)) return { on: false, ok: false, moreItems: 0, moreSpend: 0, far: false, km: null };
+    const lv = rule.t.map((x) => (Array.isArray(x) ? x : [Number(x.n) || 0, Number(x.k) || 0]));   // levels come as pairs or as {n, k}
     const km = rule.c && pt && Number.isFinite(Number(pt.lat)) ? metres(Number(pt.lat), Number(pt.lng), rule.c[0], rule.c[1]) / 1000 : null, covers = (k) => k === 0 || (km != null && km <= k);
-    const okT = rule.t.some((x) => count >= x[0] && covers(x[1])), okS = rule.a > 0 && sub >= rule.a && covers(rule.ak), ok = okT || okS;
-    const need = rule.t.filter((x) => covers(x[1]) && x[0] > count).map((x) => x[0]), spendCan = rule.a > 0 && covers(rule.ak);
-    return { on: true, ok, moreItems: !ok && need.length ? Math.min(...need) - count : 0, moreSpend: !ok && spendCan ? r2(rule.a - sub) : 0, far: !ok && !need.length && !spendCan && !rule.t.some((x) => count >= x[0]), km: km == null ? null : Math.round(km * 10) / 10 };
+    const okT = lv.some((x) => count >= x[0] && covers(x[1])), okS = rule.a > 0 && sub >= rule.a && covers(rule.ak), ok = okT || okS;
+    const need = lv.filter((x) => covers(x[1]) && x[0] > count).map((x) => x[0]), spendCan = rule.a > 0 && covers(rule.ak);
+    return { on: true, ok, moreItems: !ok && need.length ? Math.min(...need) - count : 0, moreSpend: !ok && spendCan ? r2(rule.a - sub) : 0, far: !ok && !need.length && !spendCan && !lv.some((x) => count >= x[0]), km: km == null ? null : Math.round(km * 10) / 10 };
   };
   // Coupons: earned by a big order, sent by WhatsApp, redeemed on a later order. Tied to the customer's phone number; the store page only ever holds scrambled keys.
   // What a coupon gives: "pct" = a percentage off the items (optionally capped in money), "off" = a fixed amount off, "delivery" = free delivery (optionally only within so many km).
@@ -267,7 +268,7 @@
   const usesDistance = (l, rate) => !!(rate && (num(rate.perKm) > 0 || num(rate.base) > 0) && (l.dm || (rate.charge && !ownPrice(l))));
   // What a place charges by distance: the measured road km if the seller has it, else the zone's straight line x 1.3 (an estimate).
   const distPlace = (cfgIn, l, rate, home, cache) => { const cfg = norm(cfgIn); if (!usesDistance(l, rate) || !home) return null; const z = l.zone && cfg.zones.find((q) => q.id === l.zone); const road = cache && cache[l.id]; if (!(road > 0) && !z) return null; const km = road > 0 ? road : Math.round(lineKm(home, { lat: z.lat, lng: z.lng }) * 1.3 * 10) / 10; return Object.assign({ src: road > 0 ? 'road' : 'est' }, distanceFee(rate, km, l.id)); };
-  const publicDist = (delivery, cfgIn) => { const d = delivery || {}, cfg = norm(cfgIn), h = d.home && geo(d.home.lat, d.home.lng); if (!h || !(num(d.perKm) > 0 || num(d.base) > 0) || !(d.charge || cfg.locations.some((l) => l.dm))) return null; return { on: !!d.charge, c: d.count === 'one' ? 'one' : 'both', b: num(d.base), p: num(d.perKm), f: num(d.freeKm), s: num(d.round), m: d.mode === 'near' || d.mode === 'none' ? d.mode : 'up', mn: num(d.minFee), x: (Array.isArray(d.minEx) ? d.minEx : []).filter((e) => e && e.id).map((e) => [String(e.id), num(e.min)]), h: [h.lat, h.lng] }; };
+  const publicDist = (delivery, cfgIn) => { const d = delivery || {}, cfg = norm(cfgIn), h = d.home && geo(d.home.lat, d.home.lng); if (!h || !(num(d.perKm) > 0 || num(d.base) > 0) || !(d.charge || cfg.locations.some((l) => l.dm))) return null; return { on: !!d.charge, c: d.count === 'one' ? 'one' : 'both', b: num(d.base), p: num(d.perKm), f: num(d.freeKm), s: num(d.round), m: d.mode === 'near' || d.mode === 'none' ? d.mode : 'up', mn: num(d.minFee), x: (Array.isArray(d.minEx) ? d.minEx : []).filter((e) => e && e.id).map((e) => ({ i: String(e.id), m: num(e.min) })), h: [h.lat, h.lng] }; };
   // what the finished deliveries say: how far, what was charged, and the same by distance band (only orders that have a distance)
   // the cost of one delivery trip: there and back, at the seller's cost per kilometre (fuel and wear)
   const tripCost = (km, costKm) => (Number.isFinite(Number(km)) && num(costKm) > 0 ? r2(2 * Number(km) * num(costKm)) : null);
