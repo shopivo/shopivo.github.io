@@ -13,6 +13,7 @@
  */
 (function (root) {
   const EN = {
+    'pk.spotNoteHow': 'Shown to the customer in big letters, with the pin location under it.',
     'pk.spotSaved': 'Spot saved',
     'pk.spotNeedName': 'Please type a name for this spot.',
     'pk.spotDefault': 'Pickup spot {n}',
@@ -821,6 +822,7 @@
   };
 
   const ES = {
+    'pk.spotNoteHow': 'Se muestra grande al cliente, con la ubicación del pin debajo.',
     'pk.spotSaved': 'Punto guardado',
     'pk.spotNeedName': 'Escribe un nombre para este punto.',
     'pk.spotDefault': 'Punto de recogida {n}',
