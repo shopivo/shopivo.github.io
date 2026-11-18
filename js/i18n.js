@@ -13,6 +13,7 @@
  */
 (function (root) {
   const EN = {
+    'ph.hide': 'Hide', 'ph.year': 'Shows the last 12 months, plus anything still owing.',
     'sc.why': 'Last publish error',
     'sc.good': 'Everything you set is on your store page.',
     'sc.fix': 'Some of your settings are not on your store page yet. Tap Publish now.',
@@ -838,6 +839,7 @@
   };
 
   const ES = {
+    'ph.hide': 'Ocultar', 'ph.year': 'Muestra los últimos 12 meses, más lo que aún se debe.',
     'sc.why': 'Último error al publicar',
     'sc.good': 'Todo lo que configuraste está en tu página.',
     'sc.fix': 'Algunos de tus ajustes aún no están en tu página. Toca Publicar ahora.',

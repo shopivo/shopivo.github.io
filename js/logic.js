@@ -427,14 +427,14 @@
   L.lateDays = (payDate, due) => Math.max(0, daysBetween(payDate, due));
   L.dueStarted = (v) => !(Object.prototype.hasOwnProperty.call(v, 'dueStart') && !v.dueStart);   // an order not yet delivered has no running due date
   L.payHistory = (s, client, since, now) => {
-    now = now || new Date(); const sinceT = since ? new Date(since).getTime() : 0;
+    now = now || new Date(); const yearAgo = new Date(now).setFullYear(new Date(now).getFullYear() - 1), sinceT = Math.max(since ? new Date(since).getTime() : 0, yearAgo);   // only the last 12 months count
     const roots = s.invoices.filter((v) => v.client === client && !v.ref && !v.void);
     const purchases = roots.map((r) => {
       const chain = L.invoiceForward(s, r.no).filter((v) => !v.void), last = chain[chain.length - 1], started = L.dueStarted(last), due = started ? last.due : null;
       const payments = chain.filter((v) => num(v.amountPaid) > 0).map((v) => { const judged = started && new Date(v.date).getTime() >= sinceT; return { no: v.no, date: v.date, amount: r2(v.amountPaid), daysLate: judged ? L.lateDays(v.date, due) : null }; });
       const balance = r2(Math.max(0, num(last.balance))), overdue = started && balance > 0.004 && daysBetween(now, due) > 0 ? daysBetween(now, due) : 0;
-      return { no: r.no, desc: r.desc, date: r.date, due, total: r2(last.total), balance, payments, overdue, latest: last.no };
-    }).sort((a, b) => new Date(b.date) - new Date(a.date));
+      return { no: r.no, desc: r.desc, date: r.date, due, total: r2(last.total), balance, payments, overdue, latest: last.no, recent: balance > 0.004 || new Date(last.date).getTime() >= yearAgo };
+    }).filter((p) => p.recent).sort((a, b) => new Date(b.date) - new Date(a.date));
     const judged = purchases.flatMap((p) => p.payments).filter((x) => x.daysLate != null), late = judged.filter((x) => x.daysLate > 0), lateDays = late.reduce((a, x) => a + x.daysLate, 0);
     const share = judged.length ? late.length / judged.length : 0;
     const label = !judged.length ? '' : !late.length ? 'ontime' : share < 0.5 ? 'sometimes' : 'often';
