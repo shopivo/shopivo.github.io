@@ -69,7 +69,7 @@
       if (info.error) return true;
       if (info.busy || timer) return false;
       const list = SC.shown(A.state(), c, reserved()), retry = localStorage.getItem('buy-sell-store-mode') === 'small' ? Math.floor(Date.now() / DAY) : 0;
-      return localStorage.getItem('buy-sell-store-sig:' + c.id) !== SC.hash({ head: headOf(c), list, retry, pv: 3 });
+      return localStorage.getItem('buy-sell-store-sig:' + c.id) !== SC.hash({ head: headOf(c), list, retry, pv: 4 });
     } catch (e) { return false; }
   }
 
@@ -82,7 +82,7 @@
       const list = SC.shown(A.state(), c, reserved()), head = headOf(c);
       const storage = root.Cloud && Cloud.storage ? Cloud.storage() : null; try { if (storage) { storage.setMaxUploadRetryTime(8000); storage.setMaxOperationRetryTime(8000); } } catch (e) { /* older SDK */ }
       const retry = localStorage.getItem('buy-sell-store-mode') === 'small' ? Math.floor(Date.now() / DAY) : 0;   // while only small pictures work, try the sharp ones again once a day
-      const sig = SC.hash({ head, list, retry, pv: 3 }), key = 'buy-sell-store-sig:' + c.id;
+      const sig = SC.hash({ head, list, retry, pv: 4 }), key = 'buy-sell-store-sig:' + c.id;
       if (!force && localStorage.getItem(key) === sig) { info.at = info.at || Date.now(); info.count = list.length; if (storage) cleanPictures(c.id, storage).catch(() => {}); return false; }
       // the pictures already published: a phone that does not hold a photo itself must never blank the picture another phone published
       const old = {}; try { const cs = await withTimeout(Cloud.db().collection('stores').doc(c.id).collection('catalog').get(), TUNE.pic); cs.forEach((d) => (d.data().items || []).forEach((it) => { if (it && it.img) old[it.id] = it.img; })); } catch (e) { /* no earlier copy to fall back on */ }
