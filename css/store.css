@@ -212,3 +212,4 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);ba
 .opts2{display:flex;gap:8px;margin:6px 0 12px}.opts2 button{flex:1;border:1.5px solid #d9d4db;border-radius:12px;padding:12px;font-weight:700;font-size:14px;background:#fff;color:var(--ink)}.opts2 button.on{border-color:var(--brand);color:var(--brand);background:var(--tint,#fbeef3)}
 .wherel{display:flex;align-items:center;gap:8px;margin:8px 0 10px;padding:11px 12px;background:#f6f3f7;border-radius:12px;font-size:15px}.wherel b{flex:1}.wherel a{color:var(--brand);font-weight:700;font-size:13px;cursor:pointer}
 .wherel .wp{font-weight:800;color:#1e8a4b;font-size:14px}
+.cstrip.ord{bottom:calc(10px + env(safe-area-inset-bottom,0px));border-radius:10px;border-bottom:1px solid #f1dcae}.cstrip.ord.done{border-bottom-color:#b9dfc6}
