@@ -3792,6 +3792,7 @@
       ${grp(t('sset.yours'), setRow('dlv-home', '📍 ' + t('sset.loc'), h ? esc(h.name || t('ds.pinSet')) : `<span style="color:var(--bad,#cf4b4b)">${t('sset.locNone')}</span>`, 'store location pin home hub where driving starts ubicación tienda') + setRow('contact-open', t('hub.contact'), esc(c.name || bizName()) + ' · ' + (esc(c.whatsapp) || t('store.whatsappSub')), 'name whatsapp phone contact link slug short name nombre enlace') + setRow('words-open', t('hub.spanish'), t('words.openLibSub', { n: wordList().length }), 'spanish words español palabras'))}
       ${grp(t('sset.secGuide'), setRow('guide-open', '🧭 ' + t('guide.title'), t('sset.guideSub', { n: gdone, m: st.length }), 'setup guide start steps first time guía pasos empezar'))}
       ${grp(t('sset.delivery'), setRow('pricing-open', t('pr.title'), d.charge ? t('dc.rowOn', { rate: moneyText(d.perKm) + (d.count === 'both' ? ' ' + t('dc.bothShort') : '') }) : t('pr.row'), 'pricing price prices fee fees distance rate per km round trip region regions base map price check price helper try spot charge precio tarifa distancia región regiones')
+        + setRow('spots-page', t('pk.spots'), spotsSub(c), 'pickup spots meeting points mall collect puntos recogida punto de encuentro')
         + setRow('pz-open', t('pz.title'), pdSummary(c), 'places zones list circles map areas pickup spots collect high risk dangerous unsafe needs price lugares zonas puntos recogida alto riesgo peligro precio')
         + setRow('offers-open', t('off.page'), offN ? t('off.on', { n: offN }) : t('fr.none'), 'offers free delivery items ladder spend coupon discount code percent voucher banner sticker regulars entrega gratis cupón descuento oferta')
         + setRow('dlv-settings', t('dlv.settings'), t('dcost.row'), 'delivery costs cost per km fuel stats past deliveries route export costos rutas estadísticas'))}
@@ -4003,12 +4004,35 @@
     return `<div class="card cpcard"><div class="t"><b>🎟 ${esc(mine.code)}</b><small>${esc(cpOffer(mine))} · ${t('cp.st.' + st)}${st === 'live' ? ' · ' + t('cp.until', { d: cpDate(mine.exp) }) : ''}</small></div><button type="button" class="btn wa" data-act="cpn-send" data-id="${o.id}">${t('cp.send')}</button></div>`;
   };
   // Pickup spots: the meeting points for pickup orders, as their own page.
-  const spotRowH = (x) => `<div class="pkr ${x.on ? '' : 'dim'}"><button type="button" class="pkn" data-act="spot-edit" data-id="${x.id}"><b>${esc(x.name)}</b>${x.note ? `<small>${esc(x.note)}</small>` : ''}</button>${swt('spot-on', x.id, x.on)}<button type="button" class="pkx" data-act="spot-del" data-id="${x.id}" aria-label="${t('pk.spotDel')}">✕</button></div>`;
+  const spotFeeNow = (x) => SCore.spotFee(storeCfg(), dset(), x);
+  const spotRowH = (x) => { const fee = spotFeeNow(x), sub = [x.note, x.lat == null ? '⚠ ' + t('pk.spotNoPin') : (x.km > 0 ? t('pk.spotKm', { km: x.km }) : ''), t(x.own ? 'pk.spotOwn' : 'pk.spotAuto')].filter(Boolean).join(' · '); return `<div class="pkr ${x.on ? '' : 'dim'}"><button type="button" class="pkn" data-act="spot-edit" data-id="${x.id}"><b>${esc(x.name)}</b><small>${esc(sub)}</small></button><b class="pkfee">${fee > 0 ? moneyText(fee) : t('pk.spotFree')}</b>${swt('spot-on', x.id, x.on)}<button type="button" class="pkx" data-act="spot-del" data-id="${x.id}" aria-label="${t('pk.spotDel')}">✕</button></div>`; };
+  // The add / edit form for a pickup spot: name, note, its pin and its fee (automatic from the road distance, or the seller's own; empty = free)
+  let spotDraft = null;
+  function spotSync() { const f = $('#f-spot'); if (!f || !spotDraft) return; const g = (n) => (f.elements[n] ? f.elements[n].value : ''); spotDraft.name = g('name').trim(); spotDraft.note = g('note').trim(); if (f.elements.fee) spotDraft.fee = parseAmt(g('fee')) || 0; }
+  function spotFormHtml() {
+    const d = spotDraft, rate = dset().perKm > 0, home = !!dset().home, canAuto = rate && home && d.lat != null && d.km > 0, own = d.own || !canAuto, auto = canAuto ? SCore.spotFee(storeCfg(), dset(), Object.assign({}, d, { own: false })) : 0;
+    return `<h3>${t(d.id ? 'pk.spotEdit' : 'pk.spotAdd')}</h3><form id="f-spot"><input type="hidden" name="sid" value="${esc(d.id || '')}"><label>${t('pk.spotName')}</label><input name="name" value="${esc(d.name)}" placeholder="${t('pk.spotNamePh')}" autocomplete="off" required><label>${t('pk.spotNote')}</label><input name="note" value="${esc(d.note)}" placeholder="${t('pk.spotNotePh')}" autocomplete="off">
+      <div class="rw" style="margin-top:12px"><div class="t"><b>📍 ${d.lat != null ? (d.km > 0 ? t('pk.spotKm', { km: d.km }) : t('pk.spotPinSet')) : t('pk.spotNoPin')}</b></div><button type="button" class="chip" data-act="spot-repin">${t(d.lat != null ? 'pk.spotChangePin' : 'pk.spotAddPin')}</button></div>
+      <label>${t('pk.spotFeeH')}</label><div class="chips" style="margin:0"><button type="button" class="chip ${own ? '' : 'on'}" data-act="spot-fee-auto" ${canAuto ? '' : 'disabled'}>${t('pk.spotFeeAuto')}</button><button type="button" class="chip ${own ? 'on' : ''}" data-act="spot-fee-own">${t('pk.spotFeeOwn')}</button></div>
+      ${own ? `<input name="fee" inputmode="decimal" value="${d.fee > 0 ? d.fee : ''}" placeholder="${t('pk.spotFree')}" autocomplete="off" style="margin-top:8px"><p class="muted small" style="margin:6px 0 0">${t('pk.spotOwnNote')}</p>` : `<p style="margin:8px 0 0;font-weight:800">${moneyText(auto)}</p><p class="muted small" style="margin:4px 0 0">${t('pk.spotAutoNote')}</p>`}
+      ${canAuto ? '' : `<p class="muted small" style="margin:6px 0 0">${t(rate ? 'pk.spotNeedPin' : 'pk.spotNeedRate')}</p>`}
+      <div class="btns"><button class="btn primary">${t('pk.spotSave')}</button><button type="button" class="btn" data-act="close">${t('btn.cancel')}</button></div></form>`;
+  }
+  function spotShow() { openSmall(spotFormHtml(), 'sheet'); }
+  async function spotForm(x, g, keepSheet) {
+    spotDraft = Object.assign({ id: '', name: '', note: '', on: true, lat: null, lng: null, km: 0, own: false, fee: 0 }, x || {});
+    if (g) {
+      spotDraft.lat = g.lat; spotDraft.lng = g.lng; const h = dset().home;
+      if (h) { try { const r = await roadOrEst(h, { lat: g.lat, lng: g.lng }); spotDraft.km = r.km; } catch (e) { spotDraft.km = Math.round(SCore.lineKm(h, g) * 1.3 * 10) / 10; } } else spotDraft.own = true;
+      if (!spotDraft.name) { spotDraft.name = (g.name || '') || await MapPick.nameOf(g.lat, g.lng, I.getLang()).catch(() => '') || ''; }
+    }
+    spotShow();
+  }
   function spotsRaw() {
     enterPage('spots', '', () => sheetSpots());
     const c = storeCfg();
     openSheet(`<div class="fullbar"><button data-act="close" aria-label="${t('aria.back')}">‹</button><div><b>${t('pk.spots')}</b><small>${t('sset.spotsSub')}</small></div></div>
-      <div class="pd"><div class="card pkc"><p class="muted small" style="margin-top:0">${t('pk.spotsSub')}</p><div class="pkb"><span class="pkp">TT$</span><input class="pkin" id="pk-spotprice" inputmode="decimal" data-spotprice="1" value="${c.spotPrice || ''}" placeholder="0.00" aria-label="${t('pk.spotPrice')}"><div class="pkt"><b>${t('pk.spotPrice')}</b></div></div>${c.spots.map(spotRowH).join('')}<button type="button" class="pkadd" data-act="spot-add">＋ ${t('pk.spotAdd')}</button></div></div>`, null, true);
+      <div class="pd"><div class="card pkc"><p class="muted small" style="margin-top:0">${t('pk.spotsSub')}</p>${c.spots.map(spotRowH).join('')}<button type="button" class="pkadd" data-act="spot-add">＋ ${t('pk.spotAdd')}</button></div></div>`, null, true);
   }
   /* ---------- Offers: the free-delivery ladder, the spend rule, coupons and the one banner switch ---------- */
   function sheetOffers() {
@@ -5438,7 +5462,11 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'risk-add-old': return openSmall(`<h3>${t('pk.riskAdd')}</h3><form id="f-risk"><label>${t('pk.riskName')}</label><input name="name" autocomplete="off" required><div class="btns"><button class="btn primary">${t('btn.save')}</button><button type="button" class="btn" data-act="close">${t('btn.cancel')}</button></div></form>`, 'sheet');
       case 'spot-on': { const c = storeCfg(); storeSet({ spots: c.spots.map((x) => (x.id === id ? Object.assign({}, x, { on: !x.on }) : x)) }); return refreshPick(); }
       case 'spot-del': { const c = storeCfg(); storeSet({ spots: c.spots.filter((x) => x.id !== id) }); return refreshPick(); }
-      case 'spot-add': case 'spot-edit': { const x = t_.dataset.act === 'spot-edit' ? storeCfg().spots.find((q) => q.id === id) : null; return openSmall(`<h3>${t(x ? 'pk.spotEdit' : 'pk.spotAdd')}</h3><form id="f-spot"><input type="hidden" name="sid" value="${x ? esc(x.id) : ''}"><label>${t('pk.spotName')}</label><input name="name" value="${x ? esc(x.name) : ''}" placeholder="${t('pk.spotNamePh')}" autocomplete="off" required><label>${t('pk.spotNote')}</label><input name="note" value="${x ? esc(x.note) : ''}" placeholder="${t('pk.spotNotePh')}" autocomplete="off"><div class="btns"><button class="btn primary">${t('pk.spotSave')}</button><button type="button" class="btn" data-act="close">${t('btn.cancel')}</button></div></form>`, 'sheet'); }
+      case 'spot-add': { const h = dset().home; return MapPick.open({ lat: h && h.lat, lng: h && h.lng, name: '', lang: I.getLang(), T: dlvMapT(), onPick: (g) => spotForm(null, g), onError: (m) => toast(m) }); }   // a spot starts with its pin
+      case 'spot-edit': return spotForm(storeCfg().spots.find((q) => q.id === id) || null, null);
+      case 'spot-repin': { spotSync(); const d = spotDraft || {}; return MapPick.open({ lat: d.lat, lng: d.lng, name: d.name, lang: I.getLang(), T: dlvMapT(), onPick: (g) => spotForm(d.id ? storeCfg().spots.find((q) => q.id === d.id) || d : d, g, true), onError: (m) => toast(m) }); }
+      case 'spot-fee-auto': { spotSync(); if (spotDraft) { spotDraft.own = false; } return spotShow(); }
+      case 'spot-fee-own': { spotSync(); if (spotDraft) { spotDraft.own = true; if (!spotDraft.fee) spotDraft.fee = 0; } return spotShow(); }
       case 'store-towns': {
         const c = storeCfg();
         return askCard(t('pk.townsAsk'), { ok: t('pk.townsOk') }).then((y) => { if (!y) return; const r = SCore.seedTT(c), next = SCore.applyMode({ locations: r.locations, bands: r.bands }, 'safe'); storeSet({ bands: r.bands, locations: next.locations, areaMode: 'safe' }); toast(t('pk.townsDone')); sheetPickup(); });
@@ -5727,7 +5755,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       storeSet({ locations: list }); closeSheet(); toast(t('pk.riskSaved')); return sheetRisk();
     }
     if (f.id === 'f-risk') { const name = L.cleanName(d.name), c = storeCfg(); if (!name) return; const hit = c.locations.find((l) => l.name.toLowerCase() === name.toLowerCase()), list = hit ? c.locations.map((l) => (l === hit || l.id === hit.id ? Object.assign({}, l, { risk: true }) : l)) : c.locations.concat({ id: SCore.newId(8), name, pickup: false, delivery: true, price: 0, risk: true, off: true, band: '' }); storeSet({ locations: c.areaMode === 'safe' ? SCore.applyMode({ locations: list, bands: c.bands }, 'safe').locations : list.map((l) => (l.risk && !hit && l.name === name ? Object.assign({}, l, { off: true }) : l)) }); closeSheet(); return sheetPickup(); }
-    if (f.id === 'f-spot') { const name = String(d.name || '').trim(), note = String(d.note || '').trim(), c = storeCfg(); if (!name) return; storeSet({ spots: d.sid ? c.spots.map((x) => (x.id === d.sid ? Object.assign({}, x, { name, note }) : x)) : c.spots.concat({ id: SCore.newId(6), name, note, on: true }) }); closeSheet(); return refreshPick(); }
+    if (f.id === 'f-spot') { spotSync(); const dr = spotDraft; if (!dr || !dr.name) return; const c = storeCfg(), canAuto = dset().perKm > 0 && dset().home && dr.lat != null && dr.km > 0, spot = { id: dr.id || SCore.newId(6), name: dr.name, note: dr.note, on: dr.on !== false, lat: dr.lat, lng: dr.lng, km: dr.km || 0, own: dr.own || !canAuto, fee: dr.own || !canAuto ? Math.max(0, dr.fee || 0) : 0 }; storeSet({ spots: dr.id && c.spots.some((q) => q.id === dr.id) ? c.spots.map((q) => (q.id === dr.id ? spot : q)) : c.spots.concat(spot) }); Store.schedule && Store.schedule(); closeSheet(); return refreshPick(); }
     if (f.id === 'f-batch') { const b = run(() => L.createBatch(state, d), (x) => t('batch.created', { id: bl(x.id) })); if (b) { stockBatch = b.id; stockFilter = 'All'; const sc = storeCfg(); if (sc.id && sc.autoNew && !sc.batches.includes(b.id)) storeSet({ batches: sc.batches.concat(b.id) }); } }
     if (f.id === 'f-clear') { let failed = false; const wasOpen = clearOpen.has(d.batch); clearOpen.delete(d.batch); run(() => { try { return L.payClearing(state, d.batch, d.amount); } catch (err2) { failed = true; throw err2; } }, t('clear.recorded', { id: bl(d.batch) }), true); if (!failed) sheetBatch(d.batch); else if (wasOpen) clearOpen.add(d.batch); }
     if (f.id === 'f-receive') return askReceived(d.batch);
