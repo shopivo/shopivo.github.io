@@ -1727,3 +1727,8 @@ a.btn{display:flex!important;align-items:center;justify-content:center;text-alig
 
 /* the store preview's WhatsApp bar is a wide button, not the round 40px WhatsApp icon used elsewhere */
 .pd .pvw .wab{width:auto;height:44px;border-radius:10px;font-size:14px;font-weight:800;padding:0 12px}
+
+/* How they pay: a small summary card that opens to the full history */
+.hwcol{margin:6px 0 4px}.hwcol>summary{list-style:none;cursor:pointer;display:flex;align-items:center;justify-content:space-between;gap:10px;padding:14px 16px;border:1px solid var(--line);border-radius:16px;background:var(--card)}.hwcol>summary::-webkit-details-marker{display:none}
+.hwcol .hwsm{min-width:0}.hwcol .hwt{font-size:18px;font-weight:800;display:flex;align-items:center;gap:8px;flex-wrap:wrap}.hwcol .hwsm small{display:block;margin-top:3px;font-size:13px;color:var(--mute)}.hwcol .hwsm small .bad{color:var(--bad,#e5654f)}
+.hwcol .hwch{font-style:normal;font-size:24px;color:var(--mute);transition:transform .2s;line-height:1}.hwcol[open] .hwch{transform:rotate(90deg)}.hwcol[open]>summary{margin-bottom:10px}

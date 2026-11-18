@@ -3320,6 +3320,9 @@
   // The language each customer reads, remembered from earlier sends (store orders already carry the language the customer used)
   const clientKey = (n) => String(n || '').trim().toLowerCase();
   const savedLang = (name) => { const m = (state.settings.clientLang || {})[clientKey(name)]; return m === 'en' || m === 'es' ? m : ''; };
+  // Each customer can have their own Spanish (Venezuela, Colombia, República Dominicana, España): their invoices use that region's words
+  const clientRegion = (name) => { const r = (state.settings.clientRegion || {})[clientKey(name)]; return I.REGIONS.includes(r) ? r : ''; };
+  const setClientRegion = (name, rg) => { if (!clientKey(name)) return; const cur = Object.assign({}, state.settings.clientRegion); if (I.REGIONS.includes(rg)) cur[clientKey(name)] = rg; else delete cur[clientKey(name)]; state.settings.clientRegion = cur; };
   const setClientLang = (name, lang) => { if (!clientKey(name)) return; const cur = Object.assign({}, state.settings.clientLang); if (lang === 'en' || lang === 'es') cur[clientKey(name)] = lang; else delete cur[clientKey(name)]; state.settings.clientLang = cur; save(); };
   const rememberLang = (name, lang) => { if ((lang === 'en' || lang === 'es') && savedLang(name) !== lang) setClientLang(name, lang); };
   const orderLangOf = (name) => { const o = Store.orders().filter((x) => clientKey(x.name) === clientKey(name) && (x.lang === 'en' || x.lang === 'es')).sort((a, b) => (Store.when(b) || 0) - (Store.when(a) || 0))[0]; return o ? o.lang : ''; };
@@ -3446,7 +3449,8 @@
   const invByNo = (no) => state.invoices.find((x) => x.no === no) || (() => { const o = MO.preByNo(state, no); return o ? MO.preInvoice(state, o) : null; })();
   // Due line: 'Balance due on delivery' for anything that has not been handed over yet (online orders, My orders), otherwise the date.
   const dueOnDelivery = (v) => { if (!v || v.updatedBy || v.void) return false; if (v.dueOn === 'delivery') return true; if (!(Number(v.balance) > 0.004)) return false; if (!L.dueStarted(v)) return true; const o = orderOfInvoice(v.no); return !!(o && o.status === 'confirmed' && toHand(o).length); };
-  function sheetInvoice(no, swap) {   // swap: show this invoice in place of the one on screen (the payment history rows do this)
+  function sheetInvoice(no, swap) { const v00 = invByNo(no), rgPrev = I.useRegion(v00 ? clientRegion(v00.client) : ''); try { return sheetInvoice0(no, swap); } finally { I.useRegion(rgPrev); } }
+  function sheetInvoice0(no, swap) {   // swap: show this invoice in place of the one on screen (the payment history rows do this)
     const v0 = invByNo(no); if (!v0) return;
     const v = v0.void ? Object.assign({}, v0, v0.void.was) : v0;   // a returned invoice is shown as it was, with a note
     enterPage('invoice', no, () => sheetInvoice(no), swap);
@@ -3504,7 +3508,7 @@
     const LG = lang || invoiceLang(), ti = (key, vars) => t(key, vars, LG);   // this drawing speaks LG all the way through (it loads the banner first, so the screen may change in between)
     return new Promise((ok, fail) => {
       const img = new Image(); img.onerror = () => fail(new Error(ti('doc.loadErr')));
-      img.onload = () => cloudCatchUp().then(() => headerReady(invDesignId())).then(() => {
+      img.onload = () => cloudCatchUp().then(() => headerReady(invDesignId())).then(() => { const rgPrev = I.useRegion(clientRegion(v.client)); try {
         const W = 800, S = scale || 2, lines = invLines(v), sub = lines.reduce((s, l) => s + l.qty * l.price, 0), D = invDesign(), classic = invDesignId() === 'classic';
         const bannerH = classic ? Math.round(W * img.naturalHeight / img.naturalWidth) : InvDesign.HEAD_H, rowH = 36;
         const H = Math.max(bannerH + 508 + lines.length * rowH + 62, Math.round(W * 1.4142));   // A4 portrait (1 : 1.414) like a paper invoice; longer invoices grow taller. Pink band sits right under the notes
@@ -3553,7 +3557,7 @@
         x.fillStyle = TB === 'minimal' ? '#dddddd' : TB === 'outline' ? D.head : D.band; x.fillRect(0, H - (TB === 'filled' ? 26 : TB === 'outline' ? 12 : 4), W, TB === 'filled' ? 26 : TB === 'outline' ? 12 : 4);   // the footer bar runs edge to edge of the sheet
         const out = frame && invFrame() !== 'none' ? framedCanvas(c, invFrame(), S, Theme.brand()) : c;
         out.toBlob((b) => (b ? ok(b) : fail(new Error(ti('doc.imgErr')))), type || 'image/png', quality || 0.92);
-      }).catch(fail);
+      } finally { I.useRegion(rgPrev); } }).catch(fail);
       img.src = invDesignId() === 'classic' ? (LG === 'es' ? 'icons/invoice-banner-es.jpg' : 'icons/invoice-banner.jpg') : 'icons/logo.png';
     });
   }
@@ -3570,7 +3574,7 @@
   // The invoice PDF is built ahead of time, as soon as the invoice screen is open, so Share can answer the tap at once:
   // the phone only allows its share sheet right after a tap, and drawing the sheet takes a few seconds.
   const pdfFiles = new Map(), pdfBusy = new Map(); let pdfQueue = Promise.resolve();   // finished PDFs and PDFs being drawn, kept in the phone's memory only (one per invoice and language); drawn one at a time
-  const pdfKey = (v) => JSON.stringify([v, Object.assign({}, state.settings, { clientLang: 0 }), invoiceLang(), invDesignId(), stampKind(v), invNote(v), state.items.length]);
+  const pdfKey = (v) => JSON.stringify([v, Object.assign({}, state.settings, { clientLang: 0 }), invoiceLang(), clientRegion(v.client), invDesignId(), stampKind(v), invNote(v), state.items.length]);
   async function buildInvoicePdf(v, lang) {
     const blob = await invoiceCanvas(v, 'image/png', false, 2.6, undefined, lang);   // the sheet is drawn big (about 340 dots per inch at its printed size), then placed on a Letter page
     const card = await createImageBitmap(blob), page = letterPage(card), jpg = await new Promise((ok) => page.toBlob(ok, 'image/jpeg', 0.95));
@@ -3686,15 +3690,18 @@
   }
 
   // How a customer pays: a summary (on time, late, days late) and each purchase with its due date and payments. Only for the owner; nothing here is on the invoices.
+  document.addEventListener('toggle', (e) => { const d = e.target; if (d && d.classList && d.classList.contains('hwcol') && d.dataset.hw) { try { localStorage.setItem('buy-sell-hw-open:' + d.dataset.hw, d.open ? '1' : '0'); } catch (er) { /* ignore */ } } }, true);
   function payHistoryHTML(name) {
     const H = L.payHistory(state, name, state.settings.lateSince), S = H.summary; if (!H.purchases.length) return '';
     const loc = I.locale(I.getLang()), day = (d) => new Date(d).toLocaleDateString(loc, { day: 'numeric', month: 'short' });
     const row = (p) => `<div class="hwrow"><div class="hwh"><b>${esc(descEn(p.desc) || p.no)}</b><small>${p.no} · ${day(p.date)}${p.due ? ' · ' + t('ph.due', { d: day(p.due) }) : ''}</small></div>${p.payments.map((x) => `<div class="hwp"><span>${day(x.date)}</span><span>${money(x.amount)}</span><em class="${x.daysLate > 0 ? 'late' : x.daysLate === 0 ? 'ok' : ''}">${x.daysLate == null ? '' : x.daysLate > 0 ? tn('ph.daysLate', x.daysLate) : t('ph.onTimeW')}</em></div>`).join('')}${p.balance > 0.004 ? `<div class="hwp open"><span>${t('ph.owing')}</span><span>${money(p.balance)}</span><em class="${p.overdue ? 'late' : ''}">${p.overdue ? tn('ph.overdueDays', p.overdue) : p.due ? '' : t('ph.notDue')}</em></div>` : ''}</div>`;
     const top = H.purchases.slice(0, 4), rest = H.purchases.slice(4);
-    return `<h2>${t('ph.howTitle')}${S.label ? `<span class="hwl ${S.label}">${t('ph.l.' + S.label)}</span>` : ''}</h2><div class="hwbox">
+    const sum = S.overdueNow ? `<b class="bad">${tn('ph.overdueNow', S.overdueNow)}</b>` : S.judged ? `<span>${S.onTime} ${esc(t('ph.onTime').toLowerCase())} · ${S.late} ${esc(t('ph.late').toLowerCase())}</span>` : `<span>${t('ph.noJudged')}</span>`;
+    let open = false; try { open = localStorage.getItem('buy-sell-hw-open:' + clientKey(name)) === '1'; } catch (e) { /* closed */ }
+    return `<details class="hwcol" data-hw="${esc(clientKey(name))}" ${open ? 'open' : ''}><summary><div class="hwsm"><div class="hwt">${t('ph.howTitle')}${S.label ? `<span class="hwl ${S.label}">${t('ph.l.' + S.label)}</span>` : ''}</div><small>${sum}</small></div><i class="hwch" aria-hidden="true">›</i></summary><div class="hwbox">
       ${S.judged ? `<div class="hwg"><div><b>${S.onTime}</b><small>${t('ph.onTime')}</small></div><div><b class="${S.late ? 'bad' : ''}">${S.late}</b><small>${t('ph.late')}</small></div><div><b>${S.lateDays}</b><small>${t('ph.lateDays')}</small></div><div><b>${S.maxLate}</b><small>${t('ph.longest')}</small></div></div>${S.late ? `<p class="muted small" style="margin:6px 2px 0">${t('ph.avg', { n: S.avgLate })}</p>` : ''}` : `<p class="muted small" style="margin:2px">${t('ph.noJudged')}</p>`}
       ${S.overdueNow ? `<p class="bad small" style="margin:8px 2px 0"><b>${tn('ph.overdueNow', S.overdueNow)}</b></p>` : ''}</div>
-      <div class="hwlist">${top.map(row).join('')}${rest.length ? `<details class="hwmore"><summary>${tn('ph.showAll', rest.length)}</summary>${rest.map(row).join('')}</details>` : ''}</div><p class="muted small" style="margin:6px 2px 0">${t('ph.note')}</p>`;
+      <div class="hwlist">${top.map(row).join('')}${rest.length ? `<details class="hwmore"><summary>${tn('ph.showAll', rest.length)}</summary>${rest.map(row).join('')}</details>` : ''}</div><p class="muted small" style="margin:6px 2px 0">${t('ph.note')}</p></details>`;
   }
   // A customer's page: who they are to the business (not an account). Summary, then every invoice with its items; tap an invoice to see it, tap a picture to see the item.
   function sheetCustomer(name) {
@@ -5691,8 +5698,8 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ce-pick': { if (!ceDraft) return; ceDraft.loc = id; return closeSheet(); }
       case 'ce-add': { if (!ceDraft) return; const key = ceDraft.for; closeSheet(); return setTimeout(() => openZone('new', false, null, (nz) => { ceDraft.loc = nz.name; sheetCustEdit(key); }), 60); }
       case 'cust-call': case 'cust-wa': { const pr = PE.byKey(state, id), ph = pr && pr.phone; if (!ph) { toast(t('cc.noNum')); return sheetPhones(); } const wl = SCore.waLink(ph); if (t_.dataset.act === 'cust-wa') return void window.open(wl, '_blank', 'noopener'); window.location.href = 'tel:+' + wl.replace(/^.*wa\.me\//, ''); return; }
-      case 'cust-lang': { clName = id; return sheetChoice(t('cl.popTitle', { who: esc(id) }), 'cl-set', savedLang(id) || 'auto', [['auto', t('cl.optAuto')], ['en', I.LANGS.en['lang.name'] + ' · EN'], ['es', I.LANGS.es['lang.name'] + ' · ES']], t('cl.popNote', { who: esc(id) })); }
-      case 'cl-set': { setClientLang(clName, id === 'auto' ? '' : id); closeSheet(); return; }
+      case 'cust-lang': { clName = id; return sheetChoice(t('cl.popTitle', { who: esc(id) }), 'cl-set', savedLang(id) === 'es' ? 'es:' + (clientRegion(id) || I.getRegion()) : savedLang(id) || 'auto', [['auto', t('cl.optAuto')], ['en', I.LANGS.en['lang.name'] + ' · EN']].concat(I.REGIONS.map((r) => ['es:' + r, I.regionLabel(r) + (r === 've' ? '' : ' · Beta')])), t('cl.popNote', { who: esc(id) })); }
+      case 'cl-set': { const [lg, rg] = String(id).split(':'); setClientLang(clName, lg === 'auto' ? '' : lg); setClientRegion(clName, lg === 'es' ? rg : ''); save(); closeSheet(); return; }
       case 'ce-lang': { ceLang = id; document.querySelectorAll('#sheet .lg-seg button').forEach((b) => b.classList.toggle('on', b.dataset.id === id)); return; }
       case 'cust-remove': return askCard(t('cust.removeAsk', { name: esc(clabel(id)) }), { title: t('cust.removeT'), danger: true, ok: t('cust.removeOk') }).then((y) => {
         if (!y) return; const snap = L.removeCustomer(state, id); ceDraft = null; save(); pageStack = pageStack.filter((p) => p.key !== 'custedit|' + id && p.key !== 'customer|' + id); dropPages('');
