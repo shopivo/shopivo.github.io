@@ -13,6 +13,7 @@
  */
 (function (root) {
   const EN = {
+    'cp.voided': 'The coupon from this order was disabled because of the return.',
     'ds.minFee': 'Minimum delivery fee',
     'ds.minNote': 'The fee is worked out from the distance, rounded up, then raised to this minimum if it is lower. Example: with a minimum of 40, a fee of 35 becomes 40, but a fee of 55 stays 55. Leave it empty for no minimum. Places with a fixed price keep their price.',
     'ds.exTitle': 'Exceptions',
@@ -511,7 +512,7 @@
     'cp.none': 'None yet. They appear here when you create one from a paid order.',
     'cp.st.live': 'Not used yet',
     'cp.st.used': 'Used',
-    'cp.st.expired': 'Expired',
+    'cp.st.expired': 'Expired', 'cp.st.void': 'Disabled: item returned',
     'cp.until': 'until {d}',
     'cp.reward': 'Reward coupon',
     'cp.rewardSub': 'This order qualifies. They would get: {v}',
@@ -802,6 +803,7 @@
   };
 
   const ES = {
+    'cp.voided': 'El cupón de este pedido se desactivó por la devolución.',
     'ds.minFee': 'Tarifa mínima de entrega',
     'ds.minNote': 'La tarifa se calcula por la distancia, se redondea hacia arriba y luego sube a este mínimo si es menor. Ejemplo: con mínimo 40, una tarifa de 35 pasa a 40, pero una de 55 se queda en 55. Déjalo vacío para no tener mínimo. Los lugares con precio fijo mantienen su precio.',
     'ds.exTitle': 'Excepciones',
@@ -1284,7 +1286,7 @@
     'cp.none': 'Aún no hay. Aparecen aquí cuando creas uno desde un pedido pagado.',
     'cp.st.live': 'Sin usar',
     'cp.st.used': 'Usado',
-    'cp.st.expired': 'Vencido',
+    'cp.st.expired': 'Vencido', 'cp.st.void': 'Desactivado: devolución',
     'cp.until': 'hasta {d}',
     'cp.reward': 'Cupón de premio',
     'cp.rewardSub': 'Este pedido califica. Recibiría: {v}',

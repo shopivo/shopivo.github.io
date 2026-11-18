@@ -4237,6 +4237,13 @@
   /* ---------- deliveries: every confirmed delivery order with its pin, and one route for all of them ---------- */
   const toDeliver = () => Store.orders().filter((o) => o.status === 'confirmed' && o.option === 'delivery').slice().sort((a, b) => (Store.when(a) || 0) - (Store.when(b) || 0));
   const orderPin = (o) => (o && o.option === 'delivery' ? SCore.geo(o.lat, o.lng) : null);
+  // A coupon earned on an order stops working as soon as something from that order is returned or the invoice is cancelled
+  function voidCouponFor(no) {
+    try {
+      const o = orderOfInvoice(no); if (!o) return; const c = storeCfg(); if (!c.coupons.some((x) => x.order === o.id && !x.void)) return;
+      storeSet({ coupons: c.coupons.map((x) => (x.order === o.id && !x.void ? Object.assign({}, x, { void: Date.now() }) : x)) }); Store.schedule && Store.schedule(); toast(t('cp.voided'));
+    } catch (e) { /* the return itself is never blocked by this */ }
+  }
   const orderOfInvoice = (no) => Store.orders().find((o) => o.invoice && L.invoiceForward(state, o.invoice).some((x) => x.no === no));
   const orderOfItem = (id) => Store.orders().filter((o) => o.status !== 'declined' && (o.items || []).some((i) => i.id === id)).sort((a, b) => (Store.when(b) || 0) - (Store.when(a) || 0))[0];
   const pinRow = (o) => { const gp = orderPin(o); return gp ? `<div class="dspot-c"><span class="dp" aria-hidden="true">📍</span><span class="dt">${esc(o.spot || t('spot.h'))}</span><a class="navbtn" data-act="pin-open" href="${navHref(gp, o.spot)}" target="_blank" rel="noopener" aria-label="${t('km.navigate')}" title="${t('km.navigate')}">${NAV_ICON}</a></div>` : ''; };   // one slim row: the pin, the place, and the Google Maps and Waze icons
@@ -4806,7 +4813,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
     const inv = orderInvoice(o), code = o.code || SCore.orderCode(o.id);
     return askCard(t('ord.cancelAsk', { code }), { danger: true, ok: t('ord.cancelOk') }).then((y) => {
       if (!y) return;
-      try { if (inv) { const pu = L.purchaseOf(state, inv); if (pu && pu.items.length) L.returnItems(state, inv, pu.items.map((x) => x.id), new Date(), 'cancelled'); save(); tidyPhotos(); } } catch (e) { return toast('⚠️ ' + errMsg(e)); }
+      try { if (inv) { const pu = L.purchaseOf(state, inv); if (pu && pu.items.length) L.returnItems(state, inv, pu.items.map((x) => x.id), new Date(), 'cancelled'); voidCouponFor(inv); save(); tidyPhotos(); } } catch (e) { return toast('⚠️ ' + errMsg(e)); }
       Store.setStatus(o.id, 'declined', { cancelled: true }).then(() => { toast(t('ord.cancelled')); dropPages('order|' + o.id); render(); waOpen(o, 'ord.waCancelled'); }).catch(() => toast(t('store.pubError')));
     });
   }
@@ -5095,7 +5102,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'ret-all': { const bx = [...document.querySelectorAll('#sheet [data-ret]')], on = bx.some((e) => !e.checked); bx.forEach((e) => { e.checked = on; }); return retRefresh(); }
       case 'ret-do': { const box = $('#rt-sum'), ids = retPicked(), inv = box && box.dataset.inv, ordId = box && box.dataset.ord; if (!ids.length) return;
         try {
-          const r = L.returnItems(state, inv, ids, undefined, 'returned', parseAmt(($('#rt-fee') || {}).value)); save(); tidyPhotos(); closeSheet();
+          const r = L.returnItems(state, inv, ids, undefined, 'returned', parseAmt(($('#rt-fee') || {}).value)); voidCouponFor(inv); save(); tidyPhotos(); closeSheet();
           const money_ = r.owesFee > 0 ? t('ret.doneOwes', { amount: plain(money(r.owesFee)) }) : r.refund > 0 ? t('ret.doneRefund', { amount: plain(money(r.refund)) }) : tn('ret.done', ids.length);
           const po = ordId && Store.orders().find((x) => x.id === ordId);
           if (po && r.all) Store.setStatus(ordId, 'declined', { returned: true }).catch(() => toast(t('store.pubError')));
@@ -5658,7 +5665,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       case 'view-inv': { let n = invByNo(id), g = 0; while (n && n.updatedBy && g++ < 50) { const nx = state.invoices.find((x) => x.no === n.updatedBy); if (!nx || nx === n) break; n = nx; } return sheetInvoice(n ? n.no : id); }   // always opens the latest invoice; older ones are in its history
       case 'return-inv': return sheetReturn(id, '');
       case 'return-item': return askCard(t('item.returnItemAsk', { id }), { danger: true, ok: t('item.returnItem') }).then((y) => { if (y) { closeSheet(); run(() => L.returnItem(state, id), t('item.returned')); } });
-      case 'del-inv': return askCard(t('inv.cancelDesc'), { title: t('inv.cancelTitle'), danger: true, ok: t('invUI.cancel'), no: t('inv.keep') }).then((y) => { if (!y) return; try { const pu = L.purchaseOf(state, id); if (pu && pu.items.length) L.returnItems(state, id, pu.items.map((x) => x.id), new Date(), 'cancelled'); save(); tidyPhotos(); toast(t('inv.cancelled', { id })); } catch (e) { return toast('⚠️ ' + errMsg(e)); } dropPages('invoice|' + id); render(); });
+      case 'del-inv': return askCard(t('inv.cancelDesc'), { title: t('inv.cancelTitle'), danger: true, ok: t('invUI.cancel'), no: t('inv.keep') }).then((y) => { if (!y) return; try { const pu = L.purchaseOf(state, id); if (pu && pu.items.length) L.returnItems(state, id, pu.items.map((x) => x.id), new Date(), 'cancelled'); voidCouponFor(id); save(); tidyPhotos(); toast(t('inv.cancelled', { id })); } catch (e) { return toast('⚠️ ' + errMsg(e)); } dropPages('invoice|' + id); render(); });
       case 'print': return window.print();
       case 'share-pdf': return shareInvoicePdf(id, false);
       case 'download-pdf': return shareInvoicePdf(id, true);
