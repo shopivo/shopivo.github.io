@@ -1657,7 +1657,7 @@
     do: [],
     es: [[/\bToca\b/g, 'Pulsa'], [/\btoca\b/g, 'pulsa'], [/\bTócalo\b/g, 'Púlsalo'], [/\bPresiona\b/g, 'Pulsa'], [/\bpresiona\b/g, 'pulsa'], [/\bcomputadora\b/g, 'ordenador'], [/\bcelulares\b/g, 'móviles'], [/\bcelular\b/g, 'móvil'], [/\bhaz clic\b/g, 'haz clic']],
   };
-  let region = 've';
+  let region = 've', tmpRegion = '';   // tmpRegion: the Spanish of one customer while an invoice for them is being drawn (never saved)
   try {
     const r = typeof localStorage !== 'undefined' && JSON.parse(localStorage.getItem(REGION_KEY));
     if (REGIONS.includes(r)) region = r;
@@ -1671,7 +1671,7 @@
     if (remember) { try { localStorage.setItem(REGION_KEY, JSON.stringify(region)); } catch (e) { /* ignore */ } }
     return region;
   }
-  const regionize = (s, l) => { const fx = l === 'es' && REGION_FIX[region]; return fx && fx.length ? fx.reduce((a, [re, to]) => a.replace(re, to), s) : s; };
+  const regionize = (s, l) => { const fx = l === 'es' && REGION_FIX[tmpRegion || region]; return fx && fx.length ? fx.reduce((a, [re, to]) => a.replace(re, to), s) : s; };
 
   // First run: follow the phone's language (Spanish if any preferred language is Spanish). After the user picks one, theirs wins.
   function detect() {
@@ -1698,6 +1698,6 @@
   const monthShort = (i, l) => {
     if ((l || lang) !== 'es') return EN_MONTHS[i]; const m = new Date(2000, i, 1).toLocaleDateString(locale(l), { month: 'short' }).replace('.', ''); return m.charAt(0).toUpperCase() + m.slice(1); };
 
-  const api = { t, tn, setLang, setRegion, getRegion: () => region, REGIONS, REGION_NAMES, regionLabel: (r) => 'Español (' + REGION_NAMES[r || region] + ')', getLang: () => lang, detect, locale, monthShort, LANGS };
+  const api = { t, tn, setLang, setRegion, getRegion: () => tmpRegion || region, useRegion: (r) => { const prev = tmpRegion; tmpRegion = REGIONS.includes(r) ? r : ''; return prev; }, REGIONS, REGION_NAMES, regionLabel: (r) => 'Español (' + REGION_NAMES[r || region] + ')', getLang: () => lang, detect, locale, monthShort, LANGS };
   if (typeof module !== 'undefined' && module.exports) module.exports = api; else root.I18n = api;
 })(typeof window !== 'undefined' ? window : globalThis);
