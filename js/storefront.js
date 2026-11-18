@@ -61,7 +61,7 @@
 
   // What the store page's top document holds (shared by the publish and by the "needs publishing" check).
   const roadCache = () => { const d = A.state().settings.delivery || {}, rc = d.roadCache; return rc && d.home && rc.from === d.home.lat + ',' + d.home.lng && rc.km ? rc.km : {}; };   // road km measured for each place (Price check)
-  const headOf = (c) => ({ open: c.open, name: c.name || A.bizName(), whatsapp: c.whatsapp, showLeft: c.showLeft, showPrices: c.showPrices !== false, logo: A.state().settings.bizLogo || '', logoShape: A.state().settings.bizLogo ? (root.LogoFit ? LogoFit.cls(A.state().settings) : 'square') : '', color: root.Theme ? Theme.brand() : '#741b47', locations: SC.publicLocs(c, A.state().settings.delivery, roadCache()), dist: SC.publicDist(A.state().settings.delivery, c), regions: SC.publicRegions(c), rule: SC.publicRule(c, (A.state().settings.delivery || {}).home), couponOn: SC.norm(c).couponRule.on, cinfo: SC.publicCouponInfo(c), offer: SC.norm(c).showOffer, coupons: SC.publicCoupons(c, orders.map((o) => ({ id: o.id, coupon: SC.orderCoupon(o), status: o.status, at: ts(o) })), Date.now(), (A.state().settings.delivery || {}).home), spots: SC.publicSpots(c), spotPrice: c.spotPrice, free: SC.freeList(A.state().people), zones: SC.areaZones(SC.normZones(c.zones)) });
+  const headOf = (c) => ({ open: c.open, name: c.name || A.bizName(), whatsapp: c.whatsapp, showLeft: c.showLeft, showPrices: c.showPrices !== false, logo: A.state().settings.bizLogo || '', logoShape: A.state().settings.bizLogo ? (root.LogoFit ? LogoFit.cls(A.state().settings) : 'square') : '', color: root.Theme ? Theme.brand() : '#741b47', locations: SC.publicLocs(c, A.state().settings.delivery, roadCache()), dist: SC.publicDist(A.state().settings.delivery, c), regions: SC.publicRegions(c), rule: SC.publicRule(c, (A.state().settings.delivery || {}).home), couponOn: SC.norm(c).couponRule.on, cinfo: SC.publicCouponInfo(c), offer: SC.norm(c).showOffer, coupons: SC.publicCoupons(c, orders.map((o) => ({ id: o.id, coupon: SC.orderCoupon(o), status: o.status, at: ts(o) })), Date.now(), (A.state().settings.delivery || {}).home), spots: SC.publicSpots(c, A.state().settings.delivery), spotPrice: c.spotPrice, free: SC.freeList(A.state().people), zones: SC.areaZones(SC.normZones(c.zones)) });
   // Is something waiting to be published? True after a failed publish, or when what is online differs from what the app holds and no automatic publish is on its way (offline, for example).
   function needsPublish() {
     try {
@@ -69,7 +69,7 @@
       if (info.error) return true;
       if (info.busy || timer) return false;
       const list = SC.shown(A.state(), c, reserved()), retry = localStorage.getItem('buy-sell-store-mode') === 'small' ? Math.floor(Date.now() / DAY) : 0;
-      return localStorage.getItem('buy-sell-store-sig:' + c.id) !== SC.hash({ head: headOf(c), list, retry, pv: 4 });
+      return localStorage.getItem('buy-sell-store-sig:' + c.id) !== SC.hash({ head: headOf(c), list, retry, pv: 5 });
     } catch (e) { return false; }
   }
 
@@ -82,7 +82,7 @@
       const list = SC.shown(A.state(), c, reserved()), head = headOf(c);
       const storage = root.Cloud && Cloud.storage ? Cloud.storage() : null; try { if (storage) { storage.setMaxUploadRetryTime(8000); storage.setMaxOperationRetryTime(8000); } } catch (e) { /* older SDK */ }
       const retry = localStorage.getItem('buy-sell-store-mode') === 'small' ? Math.floor(Date.now() / DAY) : 0;   // while only small pictures work, try the sharp ones again once a day
-      const sig = SC.hash({ head, list, retry, pv: 4 }), key = 'buy-sell-store-sig:' + c.id;
+      const sig = SC.hash({ head, list, retry, pv: 5 }), key = 'buy-sell-store-sig:' + c.id;
       if (!force && localStorage.getItem(key) === sig) { info.at = info.at || Date.now(); info.count = list.length; if (storage) cleanPictures(c.id, storage).catch(() => {}); return false; }
       // the pictures already published: a phone that does not hold a photo itself must never blank the picture another phone published
       const old = {}; try { const cs = await withTimeout(Cloud.db().collection('stores').doc(c.id).collection('catalog').get(), TUNE.pic); cs.forEach((d) => (d.data().items || []).forEach((it) => { if (it && it.img) old[it.id] = it.img; })); } catch (e) { /* no earlier copy to fall back on */ }

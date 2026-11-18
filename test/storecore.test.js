@@ -323,3 +323,16 @@ console.log('details tests passed');
   assert.strictEqual(SC.normCoupons([Object.assign({}, cp, { void: 5 })])[0].void, 5, 'the mark is kept when the settings are read again');
   console.log('coupon void tests passed');
 }
+
+// Pickup spots: each has its own pin and fee; automatic fees follow the delivery rate and minimum (or the exception place's minimum)
+{
+  const del = { perKm: 2, round: 5, count: 'one', mode: 'up', minFee: 40 };
+  const cfg = { id: 's', spotPrice: 15, spots: [{ id: 'a', name: 'Old spot' }, { id: 'b', name: 'South mall', lat: 10.2, lng: -61.4, km: 30, own: false }, { id: 'c', name: 'Near mall', lat: 10.5, lng: -61.4, km: 6, own: false }, { id: 'd', name: 'Free spot', lat: 10.5, lng: -61.4, own: true, fee: 0 }], zones: [], locations: [] };
+  const n = SC.norm(cfg);
+  assert.strictEqual(n.spots[0].fee, 15, 'a spot with no fee of its own takes the old shared fee'); assert.strictEqual(n.spots[0].own, true);
+  const pub = SC.publicSpots(cfg, del);
+  assert.deepStrictEqual(pub.map((x) => x.f), [15, 60, 40, 0], 'old fee, 30 km x 2 = 60, 6 km = 12 raised to the 40 minimum, free');
+  const ex = SC.publicSpots(Object.assign({}, cfg, { zones: [{ id: 'z1', name: 'Near', lat: 10.5, lng: -61.4, r: 3000 }], locations: [{ id: 'p1', name: 'Near', delivery: true, zone: 'z1', price: 40 }] }), Object.assign({}, del, { minEx: [{ id: 'p1', min: 20 }] }));
+  assert.strictEqual(ex[2].f, 20, 'a spot inside an exception place uses that place minimum (6 km = 12, raised to 20)');
+  console.log('pickup spot fee tests passed');
+}

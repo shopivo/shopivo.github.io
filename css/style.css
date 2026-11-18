@@ -1722,3 +1722,5 @@ a.btn{display:flex!important;align-items:center;justify-content:center;text-alig
 .ihtop .tmpv{margin:0;padding:8px}.ihtop .tmpv canvas{max-height:120px;width:auto;max-width:100%;border:0;background:none}
 .frprev{height:84px;border-radius:14px;margin:12px 0 4px;display:grid;place-items:center;border:1px solid var(--line)}.frprev i{display:block;width:46%;height:56px;background:#fff;border-radius:8px}
 .invsq .svc[data-svc^="inv"],.invsq #ih-pv,.invsq #mb-hdr,.invsq .bphdr canvas,.invsq .dsg .pg,.invsq .ihsamp{border-radius:0}
+
+.pkr .pkfee{font-size:14px;white-space:nowrap;margin-right:4px}
