@@ -161,7 +161,7 @@
       ${d ? `<div class="blk"><h4>${T.detailsH}</h4><ul class="dl">${d.split(/\n+/).filter(Boolean).map((x) => `<li>${esc(x)}</li>`).join('')}</ul></div>` : ''}
       ${pk.length || dl.length || wa ? `<div class="blk"><h4>${T.pickDel}</h4>
         ${pk.length ? `<div class="sh"><i>📍</i><div>${T.pickupFree} ${esc(pk.map((l) => l.name).join(', '))}<span>${T.free}</span></div></div>` : ''}
-        ${dl.length ? `<div class="sh"><i>🚚</i><div>${T.delivery}<span>${T.deliveryFrom(money(Math.min(...dl.map((l) => Number(l.price) || 0))))}</span></div></div>` : ''}
+        ${dl.length ? `<div class="sh"><i>🚚</i><div>${T.delivery}<span>${T.deliveryByPin}</span></div></div>` : ''}
         ${wa ? `<div class="sh"><i>💬</i><div>${T.waConfirm}<span>${T.payOn}</span></div></div>` : ''}</div>` : ''}`;
     const askLink = SC.waLink(store.whatsapp, SC.askMessage(ES, store.name, nm(g), pick.s ? sizeLabel(pick.s) : '', pick.q));
     const addBtn = priced() ? `<button class="btn" data-a="add">${T.addCart}<small>· ${money(effPrice(g))}</small></button>` : `<a class="btn wa" data-a="ask" href="${askLink}" target="_blank" rel="noopener"><svg viewBox="0 0 24 24" width="20" height="20" fill="currentColor" aria-hidden="true"><path d="${WA_PATH}"/></svg> ${T.msgSeller}</a>`;
