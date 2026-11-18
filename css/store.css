@@ -207,3 +207,7 @@ body::before{content:"";position:fixed;top:0;left:0;right:0;height:var(--sat);ba
 .cstrip .cf{position:absolute;left:0;top:0;bottom:0;background:#f4d9a0;transition:width .3s;z-index:0}
 .cstrip .mq{position:relative;z-index:1;flex:1;text-align:left}.cstrip .mq>span{padding:0 14px}
 .cstrip.done{background:#e6f4ea;border-color:#b9dfc6;color:#1e6b38}.cstrip.done .cf{background:#c7ecd3}
+
+/* checkout: pickup or delivery first; the place follows from the pin */
+.opts2{display:flex;gap:8px;margin:6px 0 12px}.opts2 button{flex:1;border:1.5px solid #d9d4db;border-radius:12px;padding:12px;font-weight:700;font-size:14px;background:#fff;color:var(--ink)}.opts2 button.on{border-color:var(--brand);color:var(--brand);background:var(--tint,#fbeef3)}
+.wherel{display:flex;align-items:center;gap:8px;margin:8px 0 10px;padding:11px 12px;background:#f6f3f7;border-radius:12px;font-size:15px}.wherel b{flex:1}.wherel a{color:var(--brand);font-weight:700;font-size:13px;cursor:pointer}
