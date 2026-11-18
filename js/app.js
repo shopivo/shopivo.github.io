@@ -4019,14 +4019,16 @@
       <div class="btns"><button class="btn primary">${t('pk.spotSave')}</button><button type="button" class="btn" data-act="close">${t('btn.cancel')}</button></div></form>`;
   }
   function spotShow() { openSmall(spotFormHtml(), 'sheet'); }
-  async function spotForm(x, g, keepSheet) {
+  async function spotForm(x, g) {
     spotDraft = Object.assign({ id: '', name: '', note: '', on: true, lat: null, lng: null, km: 0, own: false, fee: 0 }, x || {});
-    if (g) {
-      spotDraft.lat = g.lat; spotDraft.lng = g.lng; const h = dset().home;
-      if (h) { try { const r = await roadOrEst(h, { lat: g.lat, lng: g.lng }); spotDraft.km = r.km; } catch (e) { spotDraft.km = Math.round(SCore.lineKm(h, g) * 1.3 * 10) / 10; } } else spotDraft.own = true;
-      if (!spotDraft.name) { spotDraft.name = (g.name || '') || await MapPick.nameOf(g.lat, g.lng, I.getLang()).catch(() => '') || ''; }
-    }
-    spotShow();
+    if (!g) return spotShow();
+    spotDraft.lat = g.lat; spotDraft.lng = g.lng; const dr = spotDraft, h = dset().home; if (!h) dr.own = true;
+    if (!dr.name && g.name) dr.name = g.name;
+    spotShow();   // the form opens straight away; the distance and the place name fill in when they are found
+    const done = () => { if (spotDraft !== dr || !$('#f-spot')) return; const found = dr.name; spotSync(); if (!dr.name) dr.name = found; spotShow(); };
+    const km = h ? (async () => { try { const r = await roadOrEst(h, { lat: g.lat, lng: g.lng }); dr.km = r.km; } catch (e) { dr.km = Math.round(SCore.lineKm(h, g) * 1.3 * 10) / 10; } done(); })() : null;
+    const nm = !dr.name ? (async () => { let n = ''; try { n = await MapPick.nameOf(g.lat, g.lng, I.getLang()); } catch (e) { /* none */ } if (!dr.name) dr.name = n || t('pk.spotDefault', { n: storeCfg().spots.length + 1 }); done(); })() : null;
+    await Promise.all([km, nm]);
   }
   function spotsRaw() {
     enterPage('spots', '', () => sheetSpots());
@@ -5755,7 +5757,7 @@ const NAV_ICON = '<svg viewBox="0 0 24 24" width="30" height="30" fill="none" st
       storeSet({ locations: list }); closeSheet(); toast(t('pk.riskSaved')); return sheetRisk();
     }
     if (f.id === 'f-risk') { const name = L.cleanName(d.name), c = storeCfg(); if (!name) return; const hit = c.locations.find((l) => l.name.toLowerCase() === name.toLowerCase()), list = hit ? c.locations.map((l) => (l === hit || l.id === hit.id ? Object.assign({}, l, { risk: true }) : l)) : c.locations.concat({ id: SCore.newId(8), name, pickup: false, delivery: true, price: 0, risk: true, off: true, band: '' }); storeSet({ locations: c.areaMode === 'safe' ? SCore.applyMode({ locations: list, bands: c.bands }, 'safe').locations : list.map((l) => (l.risk && !hit && l.name === name ? Object.assign({}, l, { off: true }) : l)) }); closeSheet(); return sheetPickup(); }
-    if (f.id === 'f-spot') { spotSync(); const dr = spotDraft; if (!dr || !dr.name) return; const c = storeCfg(), canAuto = dset().perKm > 0 && dset().home && dr.lat != null && dr.km > 0, spot = { id: dr.id || SCore.newId(6), name: dr.name, note: dr.note, on: dr.on !== false, lat: dr.lat, lng: dr.lng, km: dr.km || 0, own: dr.own || !canAuto, fee: dr.own || !canAuto ? Math.max(0, dr.fee || 0) : 0 }; storeSet({ spots: dr.id && c.spots.some((q) => q.id === dr.id) ? c.spots.map((q) => (q.id === dr.id ? spot : q)) : c.spots.concat(spot) }); Store.schedule && Store.schedule(); closeSheet(); return refreshPick(); }
+    if (f.id === 'f-spot') { spotSync(); const dr = spotDraft; if (!dr) return; if (!dr.name) return toast(t('pk.spotNeedName')); const c = storeCfg(), canAuto = dset().perKm > 0 && dset().home && dr.lat != null && dr.km > 0, spot = { id: dr.id || SCore.newId(6), name: dr.name, note: dr.note, on: dr.on !== false, lat: dr.lat, lng: dr.lng, km: dr.km || 0, own: dr.own || !canAuto, fee: dr.own || !canAuto ? Math.max(0, dr.fee || 0) : 0 }; storeSet({ spots: dr.id && c.spots.some((q) => q.id === dr.id) ? c.spots.map((q) => (q.id === dr.id ? spot : q)) : c.spots.concat(spot) }); Store.schedule && Store.schedule(); closeSheet(); toast(t('pk.spotSaved')); return refreshPick(); }
     if (f.id === 'f-batch') { const b = run(() => L.createBatch(state, d), (x) => t('batch.created', { id: bl(x.id) })); if (b) { stockBatch = b.id; stockFilter = 'All'; const sc = storeCfg(); if (sc.id && sc.autoNew && !sc.batches.includes(b.id)) storeSet({ batches: sc.batches.concat(b.id) }); } }
     if (f.id === 'f-clear') { let failed = false; const wasOpen = clearOpen.has(d.batch); clearOpen.delete(d.batch); run(() => { try { return L.payClearing(state, d.batch, d.amount); } catch (err2) { failed = true; throw err2; } }, t('clear.recorded', { id: bl(d.batch) }), true); if (!failed) sheetBatch(d.batch); else if (wasOpen) clearOpen.add(d.batch); }
     if (f.id === 'f-receive') return askReceived(d.batch);

@@ -13,6 +13,9 @@
  */
 (function (root) {
   const EN = {
+    'pk.spotSaved': 'Spot saved',
+    'pk.spotNeedName': 'Please type a name for this spot.',
+    'pk.spotDefault': 'Pickup spot {n}',
     'pk.spotNeedRate': 'Set your price per km (Store → Pricing) and your store location to use the automatic fee.',
     'pk.spotNeedPin': 'Add a pin to use the automatic fee.',
     'pk.spotAutoNote': 'Worked out from the road distance with your delivery rate, rounded up, with your minimum (or the exception place minimum).',
@@ -818,6 +821,9 @@
   };
 
   const ES = {
+    'pk.spotSaved': 'Punto guardado',
+    'pk.spotNeedName': 'Escribe un nombre para este punto.',
+    'pk.spotDefault': 'Punto de recogida {n}',
     'pk.spotNeedRate': 'Pon tu precio por km (Tienda → Precios) y la ubicación de tu tienda para usar la tarifa automática.',
     'pk.spotNeedPin': 'Pon un pin para usar la tarifa automática.',
     'pk.spotAutoNote': 'Se calcula con la distancia por carretera y tu tarifa de entrega, redondeada, con tu mínimo (o el mínimo del lugar de excepción).',
