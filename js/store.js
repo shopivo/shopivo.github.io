@@ -75,7 +75,7 @@
   const closeMenu = () => { const m = document.getElementById('mnu'); if (m) m.hidden = true; };
   const header = (opts) => {
     opts = opts || {}; const n = cartCount();
-    return `${annText() && !opts.slim ? `<div class="ann"><div class="mq"><span>${annText()}</span></div></div>` : ''}<div class="hd"><div class="in">
+    return `<div class="hd"><div class="in">
       ${opts.back ? `<button class="ic" data-a="${opts.back}" aria-label="${T.back}">${ICON.back}</button>` : ''}
       <button class="brand" data-a="home" aria-label="${T.home}"><span class="lg${store.logo ? ' fit ' + esc(store.logoShape || 'square') : ''}">${store.logo ? `<img src="${esc(store.logo)}" alt="">` : esc((store.name || '?').trim().charAt(0).toUpperCase())}</span>${store.logo && store.logoShape === 'wide' ? '' : `<span class="nm">${esc(store.name || '')}</span>`}</button>
       <div class="srch" id="srch">${ICON.search}<input id="q" value="${esc(qs)}" placeholder="${T.search}" autocomplete="off" enterkeyhint="search"></div>
@@ -104,7 +104,9 @@
     }
     return out.sort((a, b) => (a.done ? 1 : 0) - (b.done ? 1 : 0) || b.pct - a.pct);   // goals still to reach first, the closest on top
   };
-  const progHtml = () => { const l = progLines(); if (!l.length) return ''; const m = l[0]; return `<div class="prog${m.done ? ' ok' : ''}"><div class="mq"><span>${m.c ? '🎟' : '🚚'} ${esc(m.txt)}</span></div><div class="trk"><i style="width:${m.pct}%"></i></div>${l.slice(1).map((x) => `<div class="prog2 mq${x.done ? ' ok' : ''}"><span>${x.c ? '🎟' : '🚚'} ${esc(x.txt)}</span></div>`).join('')}</div>`; };
+  const progHtml = () => { const l = progLines(); if (!l.length) return ''; const m = l[0]; return `<div class="prog${m.done ? ' done' : ''}"><div class="mq"><span>${m.c ? '🎟' : '🚚'} ${esc(m.txt)}</span></div><div class="trk"><i style="width:${m.pct}%"></i></div>${l.slice(1).map((x) => `<div class="prog2 mq${x.done ? ' done' : ''}"><span>${x.c ? '🎟' : '🚚'} ${esc(x.txt)}</span></div>`).join('')}</div>`; };
+  // The goal line on the checkout bar: what is unlocked (green) or what is left to unlock; a thin line along the bottom shows how close the nearest goal is
+  const barProg = () => { const l = progLines(); if (!l.length) return ''; const all = l.every((x) => x.done), near = l.find((x) => !x.done) || l[0]; return `<div class="cbp mq${all ? ' done' : ''}"><span>${l.map((x) => (x.c ? '🎟 ' : '🚚 ') + esc(x.txt)).join('  ·  ')}</span></div><i class="cbk${all ? ' done' : ''}" style="width:${all ? 100 : near.pct}%"></i>`; };
   const listNow = () => {
     const f = qs.trim().toLowerCase();
     let list = items.filter((i) => (filter === 'all' || (filter === 'avail' && !i.transit) || (filter === 'soon' && i.transit) || (filter === 'sale' && i.sale > 0) || (filter === 'new' && isNew(i))) && (!onlySaved || saved.has(i.id)) && (!f || (nm(i) + ' ' + i.name).toLowerCase().includes(f)));
@@ -131,14 +133,14 @@
     const chips = [['all', T.all], ['avail', T.avail], hasNew ? ['new', '✨ ' + T.newWord] : null, hasSoon ? ['soon', T.soon] : null, hasSale ? ['sale', T.onSale] : null].filter(Boolean);
     const showHero = filter === 'all' && !qs && !onlySaved;
     $app.innerHTML = `${header()}<main class="wrap">
-      ${progHtml()}
+      ${wide() ? progHtml() : ''}
       ${showHero ? `<div class="hero"><h2>${esc(store.name || '')}</h2><p>${!priced() ? T.heroLook : store.whatsapp && SC.digits(store.whatsapp) ? T.heroWa : T.hero}</p></div>` : ''}
       <div class="bar"><div class="chips">${chips.map(([k, l]) => `<button class="${filter === k ? 'on' : ''} ${k === 'sale' ? 'sl' : k === 'new' ? 'nwc' : ''}" data-a="filter" data-k="${k}">${k === 'sale' ? '🔥 ' : ''}${l}</button>`).join('')}</div>
       <label class="sort"><span>${T.sort}</span><select id="sort"><option value="def" ${sortBy === 'def' ? 'selected' : ''}>${T.sortDef}</option>${priced() ? `<option value="low" ${sortBy === 'low' ? 'selected' : ''}>${T.sortLow}</option><option value="high" ${sortBy === 'high' ? 'selected' : ''}>${T.sortHigh}</option>` : ''}</select></label></div>
       <div class="sec"><h3>${onlySaved ? T.saved : T.all}</h3><span id="cnt">${T.items(listNow().length)}</span></div>
       <div class="grid" id="grid">${gridInner()}</div></main>
       <footer class="foot"><b>${esc(store.name || '')}</b></footer>
-      ${priced() && nCart && !wide() ? `<button class="cartbar" data-a="order"><div>${T.items(nCart)}<small>${money(sum)}</small></div><span class="go">${T.checkout} →</span></button>` : ''}${drawer ? drawerHtml() : ''}<div class="toast" id="toast" hidden></div>`;
+      ${priced() && nCart && !wide() ? `<button class="cartbar" data-a="order"><div class="cbt"><div>${T.items(nCart)}<small>${money(sum)}</small></div><span class="go">${T.checkout} →</span></div>${barProg()}</button>` : ''}${drawer ? drawerHtml() : ''}<div class="toast" id="toast" hidden></div>`;
   }
   const refreshGrid = () => { const g = document.getElementById('grid'); if (g) { g.innerHTML = gridInner(); const c = document.getElementById('cnt'); if (c) c.textContent = T.items(listNow().length); } };
 
@@ -272,7 +274,7 @@
   }
   /* ---------- the offer: a gold sticker that stays, and a line that floats across now and then. Both come only from what the seller switched on (free delivery rules, coupons, "show on my store page"). ---------- */
   let offerTimer = 0, offerPasses = 0, offerLast = 0, offerAnim = null, offerTk = null, offerSeal = null, offerCard = null;
-  const offerOn = () => !!(store && store.offer !== false && (store.rule || store.cinfo) && (view === 'shop' || view === 'item'));
+  const offerOn = () => !!(store && store.offer !== false && (store.rule || store.cinfo) && (view === 'shop' || view === 'item') && !cartCount());
   const offerLines = () => { const out = [], r = store.rule, cn = r && r.cn; if (r) { const parts = []; (r.t || []).forEach((x, i) => parts.push(T.offTier(x[0], x[1], i === 0 ? cn : ''))); if (r.a > 0) parts.push(T.offSpend(money(r.a), r.ak)); if (parts.length) out.push({ ic: '🚚', txt: T.offFree + ' ' + parts.join(' · ') }); } const c = store.cinfo; if (c) out.push({ ic: '🎟', txt: T.offCoupon(money(c.min), c.t === 'p' ? T.offLblP(c.v) : c.t === 'd' ? T.offLblD(c.g) : T.offLblO(money(c.v))) }); return out; };
   function offerClose() { if (offerCard) { offerCard.remove(); offerCard = null; } }
   function offerOpen() { offerClose(); const lines = offerLines(); offerCard = document.createElement('div'); offerCard.className = 'offveil'; offerCard.innerHTML = '<div class="offcard" role="dialog"><button class="offx" data-off="x" aria-label="' + T.close + '">×</button><div class="offem">🚚</div><h3>' + esc(T.offTitle) + '</h3>' + lines.map((l) => '<p><i>' + l.ic + '</i><span>' + esc(l.txt) + '</span></p>').join('') + '<small>' + esc(T.offCart(cartCount())) + '</small><button class="offk" data-off="x">' + esc(T.offKeep) + '</button></div>'; offerCard.addEventListener('click', (e) => { if (e.target === offerCard || (e.target.dataset && e.target.dataset.off === 'x')) offerClose(); }); document.body.appendChild(offerCard); }
@@ -287,9 +289,10 @@
   // called after every draw: shows or removes the sticker and the line so they always match what the seller has switched on
   function offerSync() {
     if (!offerOn()) { offerStop(); return; }
-    if (!offerSeal) { offerSeal = document.createElement('button'); offerSeal.className = 'offseal'; offerSeal.setAttribute('aria-label', T.offTitle); offerSeal.addEventListener('click', offerOpen); document.body.appendChild(offerSeal); }
-    offerSeal.innerHTML = '<span>' + esc(T.offSeal) + '</span><b>' + esc(T.offSeal2) + '</b>';
+    if (offerSeal) { offerSeal.remove(); offerSeal = null; }   // the gold sticker is retired (it covered photos); the moving line and the checkout bar carry the offer
+    if (false) { offerSeal = document.createElement('button'); offerSeal.className = 'offseal'; offerSeal.setAttribute('aria-label', T.offTitle); offerSeal.addEventListener('click', offerOpen); document.body.appendChild(offerSeal); }
     if (!offerTk) { offerTk = document.createElement('div'); offerTk.className = 'offtk'; offerTk.hidden = true; offerTk.innerHTML = '<span class="offtr"></span>'; offerTk.addEventListener('click', offerOpen); document.body.appendChild(offerTk); }
+    offerTk.style.bottom = view === 'shop' ? 'calc(14px + env(safe-area-inset-bottom,0px))' : '';
     if (!offerTimer && !offerAnim && offerPasses < 5 && !(window.matchMedia && matchMedia('(prefers-reduced-motion: reduce)').matches)) offerTimer = setTimeout(offerPass, offerPasses ? Math.max(1000, 45000 - (Date.now() - offerLast)) : 2500);
   }
   // One-line notices (the top bar, the offer box): a line that fits stays still; one that does not fit scrolls slowly, pauses, and starts again
